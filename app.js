@@ -19,13 +19,14 @@
   }catch(err){console.warn('Configurazione Firebase automatica non salvata',err)}
 })();
 
-// Versione univoca per impedire a GitHub Pages/browser di riusare vecchi moduli cloud.
-const VG_BUILD='20260903-1948-firebase-live1';
-document.write(
-  '<script src="app-core.js?v='+VG_BUILD+'"><\\/script>'+ 
-  '<script src="app-business.js?v='+VG_BUILD+'"><\\/script>'+ 
-  '<script src="app-varga.js?v='+VG_BUILD+'"><\\/script>'+ 
-  '<script src="app-sync.js?v='+VG_BUILD+'"><\\/script>'+ 
-  '<script src="app-cloud.js?v='+VG_BUILD+'"><\\/script>'+ 
-  '<script>workspaceRef=function(){var id=(document.getElementById("workspaceId")?.value||cloudCfg.workspaceId||"varga-azienda").trim();return cloudStore.collection("appConfig").doc("vargaGestionaleWorkspace_"+id)};console.info("Varga Gestionale Firebase LIVE",cloudCfg.firebaseConfig?.projectId);<\\/script>'
-);
+// Caricamento sequenziale senza tag di chiusura escaped: evita che il browser interrompa il bootstrap.
+const VG_BUILD='20260903-1955-firebase-live2';
+[
+  'app-core.js',
+  'app-business.js',
+  'app-varga.js',
+  'app-sync.js',
+  'app-cloud.js'
+].forEach(function(src){
+  document.write('<script src="'+src+'?v='+VG_BUILD+'"></scr'+'ipt>');
+});
