@@ -19,8 +19,7 @@
   }catch(err){console.warn('Configurazione Firebase automatica non salvata',err)}
 })();
 
-// Caricamento sequenziale senza tag di chiusura escaped: evita che il browser interrompa il bootstrap.
-const VG_BUILD='20260903-1955-firebase-live2';
+const VG_BUILD='20260903-2002-firestore-workspace1';
 [
   'app-core.js',
   'app-business.js',
@@ -30,3 +29,8 @@ const VG_BUILD='20260903-1955-firebase-live2';
 ].forEach(function(src){
   document.write('<script src="'+src+'?v='+VG_BUILD+'"></scr'+'ipt>');
 });
+
+// app-cloud.js definisce inizialmente una collection dedicata che non è ammessa dalle regole
+// di Varga Cantieri. Dopo il caricamento la sostituiamo con un documento appConfig,
+// già autorizzato agli utenti autenticati e agli admin.
+document.write('<script>workspaceRef=function(){var el=document.getElementById("workspaceId");var id=((el&&el.value)||cloudCfg.workspaceId||"varga-azienda").trim().replace(/[^a-zA-Z0-9_-]/g,"_");return cloudStore.collection("appConfig").doc("vargaGestionaleWorkspace_"+id)};if(cloudUser){stopCloudRealtime();startCloudRealtime();}console.info("Varga Gestionale workspace Firestore:","appConfig/vargaGestionaleWorkspace_"+((document.getElementById("workspaceId")&&document.getElementById("workspaceId").value)||"varga-azienda"));</scr'+'ipt>');
