@@ -2,6 +2,21 @@
 
 Gestionale aziendale multiutente orientato a preventivi, clienti, commesse e documenti.
 
+## Repository ufficiale e aggiornamenti
+Questo repository è la fonte unica del progetto **Varga Gestionale**.
+
+Gli aggiornamenti futuri devono essere applicati agli stessi file sorgente tramite nuovi commit GitHub. Non creare per ogni modifica copie del progetto come `Varga-Gestionale-v2`, `v3`, nuovi ZIP o file duplicati. GitHub conserva automaticamente la cronologia delle versioni e permette di tornare a un commit precedente quando necessario.
+
+File sorgente stabili principali:
+- `index.html` — interfaccia;
+- `style.css` — grafica;
+- `app.js` — bootstrap stabile;
+- `app-core.js` — dati, navigazione e rendering;
+- `app-business.js` — clienti, preventivi, commesse, prezziari e documenti;
+- `app-varga.js` — importazione Varga Cantieri;
+- `app-sync.js` — snapshot, sincronizzazione e consuntivi;
+- `app-cloud.js` — Firebase, multiutente e backup.
+
 ## Funzioni incluse
 - Dashboard aziendale
 - Clienti e anagrafiche
@@ -18,6 +33,7 @@ Gestionale aziendale multiutente orientato a preventivi, clienti, commesse e doc
 - Firebase Authentication Email/Password
 - Firestore multiutente in tempo reale
 - Cache locale nel browser
+- Collegamento con Varga Cantieri e generazione bozze consuntive dalle lavorazioni completate
 
 ## Come funziona il cloud
 I dati gestionali e i metadati dei documenti vengono sincronizzati in Firestore. L'app mantiene anche una copia locale sul PC.
@@ -42,4 +58,4 @@ Non lasciare il database pubblico.
 Questa versione sincronizza lo stato principale in un singolo documento Firestore per ridurre al minimo le letture e semplificare il realtime. Per sicurezza applica un limite operativo di circa 850 KB. Quando i prezzari diventeranno molto grandi, la versione desktop definitiva dovrà separare i prezzari in collezioni/chunk dedicati.
 
 ## Avvio
-Estrarre lo ZIP e aprire `index.html` con Chrome o Edge. Per l'app Windows installabile, il progetto potrà essere impacchettato successivamente con Tauri.
+Il progetto è già pubblicato come sorgente nel repository: aprire `index.html` con Chrome o Edge oppure collegare il repository a Netlify. Per l'app Windows installabile, il progetto potrà essere impacchettato successivamente con Tauri.
