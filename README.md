@@ -17,6 +17,19 @@ File sorgente stabili principali:
 - `app-sync.js` — snapshot, sincronizzazione e consuntivi;
 - `app-cloud.js` — Firebase, multiutente e backup.
 
+## Pubblicazione online senza Netlify
+La pubblicazione è predisposta con **GitHub Pages** tramite il workflow `.github/workflows/pages.yml`.
+
+URL previsto dell'app:
+`https://ionut290.github.io/VARGA-GESTIONALE/`
+
+Ogni push su `main` avvia automaticamente la pubblicazione su GitHub Pages.
+
+Per la prima attivazione del repository, in GitHub usare:
+`Settings → Pages → Build and deployment → Source → GitHub Actions`.
+
+Dopo questa attivazione iniziale non serve ripetere l'operazione: i successivi aggiornamenti su `main` vengono pubblicati automaticamente.
+
 ## Funzioni incluse
 - Dashboard aziendale
 - Clienti e anagrafiche
@@ -48,6 +61,8 @@ Google Drive non viene interrogato per mostrare continuamente gli elenchi: nel g
 6. Usa lo stesso `Workspace condiviso` su tutti i PC (es. `varga-azienda`).
 7. Crea o accedi con gli utenti autorizzati.
 
+Per l'accesso Google da GitHub Pages, aggiungere anche `ionut290.github.io` tra i domini autorizzati di Firebase Authentication.
+
 ### Regole Firestore iniziali consigliate per un test privato
 Per la produzione servono regole per workspace/ruoli. Per un test limitato ai soli utenti autenticati, la collection usata è:
 `vargaGestionaleWorkspaces/{workspaceId}`
@@ -58,4 +73,5 @@ Non lasciare il database pubblico.
 Questa versione sincronizza lo stato principale in un singolo documento Firestore per ridurre al minimo le letture e semplificare il realtime. Per sicurezza applica un limite operativo di circa 850 KB. Quando i prezzari diventeranno molto grandi, la versione desktop definitiva dovrà separare i prezzari in collezioni/chunk dedicati.
 
 ## Avvio
-Il progetto è già pubblicato come sorgente nel repository: aprire `index.html` con Chrome o Edge oppure collegare il repository a Netlify. Per l'app Windows installabile, il progetto potrà essere impacchettato successivamente con Tauri.
+Online: usare GitHub Pages.
+In locale: aprire `index.html` con Chrome o Edge. Per l'app Windows installabile, il progetto potrà essere impacchettato successivamente con Tauri.
