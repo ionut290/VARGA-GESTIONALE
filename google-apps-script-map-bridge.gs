@@ -3,19 +3,39 @@ VARGA GESTIONALE - PONTE MAP GMAIL/DRIVE
 Da copiare in un progetto Google Apps Script e distribuire come Web App.
 Impostare nelle Proprietà script: VARGA_MAP_TOKEN = una chiave privata scelta dall'amministratore.
 Creare anche un trigger temporale sulla funzione scanScheduled, ad esempio ogni ora.
+
+ARCHITETTURA A BASSO CONSUMO FIRESTORE:
+- il trigger controlla solo Gmail + Drive + ScriptProperties;
+- nessuna lettura/scrittura Firestore durante i controlli periodici;
+- quando trova un MAP salva una ricevuta locale nel ponte;
+- Varga Gestionale, quando aperto, legge le ricevute e aggiorna una sola volta il documento del giro.
 */
 
 const ROOT_FOLDER_NAME = 'Varga Gestionale';
 const ACCOUNTING_FOLDER_NAME = 'Contabilita';
 const STATE_PROP = 'VARGA_MAP_STATE';
+const RECEIPTS_PROP = 'VARGA_MAP_RECEIPTS';
+const MAX_RECEIPTS = 200;
 
 function doPost(e) {
   try {
     const payload = JSON.parse((e && e.postData && e.postData.contents) || '{}');
     checkToken_(payload.token);
-    saveState_(payload);
-    if (payload.action === 'ping') return json_({ok:true, service:'Varga MAP Bridge'});
-    if (payload.action === 'scan') return json_(scan_(payload));
+    const action = String(payload.action || '');
+    if (action === 'configure') {
+      saveState_(payload);
+      return json_({ok:true, configured:true});
+    }
+    if (action === 'ping') return json_({ok:true, service:'Varga MAP Bridge'});
+    if (action === 'scan') {
+      saveState_(payload);
+      return json_(scan_(payload));
+    }
+    if (action === 'receipts') return json_({ok:true, receipts:loadReceipts_().filter(r=>!r.acknowledged)});
+    if (action === 'acknowledge') {
+      acknowledgeReceipts_(payload.receiptIds || []);
+      return json_({ok:true});
+    }
     return json_({ok:false, error:'Azione non supportata'});
   } catch (err) {
     return json_({ok:false, error:String(err && err.message || err)});
@@ -62,36 +82,50 @@ function scan_(payload) {
       ambiguous += 1;
       return;
     }
-    archiveMap_(best, round, job);
-    matched += 1;
+    const receipt = archiveMap_(best, round, job);
+    if (receipt && saveReceipt_(receipt)) matched += 1;
   });
-  return {ok:true, matched, ambiguous, checked, scannedRounds:rounds.length, at:new Date().toISOString()};
+  return {ok:true, matched, ambiguous, checked, scannedRounds:rounds.length, pendingReceipts:loadReceipts_().filter(r=>!r.acknowledged).length, at:new Date().toISOString()};
 }
 
 function archiveMap_(candidate, round, job) {
+  const messageId = String(candidate.msg.getId() || '');
+  const receiptId = safeKey_([round.path || '', messageId, candidate.atts.map(a=>a.getName()).join('|')].join('::'));
+  const existingReceipt = loadReceipts_().find(r=>r.id===receiptId);
+  if (existingReceipt) return existingReceipt;
+
   const root = getOrCreateFolder_(DriveApp.getRootFolder(), ROOT_FOLDER_NAME);
   const accounting = getOrCreateFolder_(root, ACCOUNTING_FOLDER_NAME);
   const commessa = getOrCreateFolder_(accounting, safe_(round.commessaNome || job.title || 'Commessa'));
   const giro = getOrCreateFolder_(commessa, 'Giro-' + String(round.numeroGiro || '').padStart(2,'0'));
   const mapFolder = getOrCreateFolder_(giro, 'MAP');
+  const savedFiles = [];
   candidate.atts.forEach(att => {
     const name = att.getName() || ('MAP-' + Date.now());
     const existing = mapFolder.getFilesByName(name);
-    if (!existing.hasNext()) mapFolder.createFile(att.copyBlob()).setName(name);
+    let file;
+    if (existing.hasNext()) file = existing.next();
+    else file = mapFolder.createFile(att.copyBlob()).setName(name);
+    savedFiles.push({name, driveFileId:file.getId(), driveUrl:file.getUrl()});
   });
   const meta = {
+    id: receiptId,
     roundPath: round.path || '',
     commessa: round.commessaNome || job.title || '',
     giro: round.numeroGiro || '',
     from: candidate.from,
     subject: candidate.msg.getSubject(),
     emailDate: candidate.msg.getDate().toISOString(),
+    gmailMessageId: messageId,
     attachmentNames: candidate.atts.map(a=>a.getName()),
-    archivedAt: new Date().toISOString()
+    files: savedFiles,
+    archivedAt: new Date().toISOString(),
+    acknowledged: false
   };
   const files = giro.getFilesByName('MAP-ricevuto.json');
   while (files.hasNext()) files.next().setTrashed(true);
   giro.createFile('MAP-ricevuto.json', JSON.stringify(meta,null,2), MimeType.PLAIN_TEXT);
+  return meta;
 }
 
 function scoreMessage_(msg, round, job, atts) {
@@ -130,8 +164,13 @@ function normalizeEmail_(v) {
 }
 function normalizeText_(v){return String(v||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,' ').trim()}
 function safe_(v){return String(v||'Commessa').replace(/[\\/:*?"<>|]+/g,'-').replace(/\s+/g,' ').trim() || 'Commessa'}
+function safeKey_(v){const digest=Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256,String(v||''));return digest.map(b=>('0'+((b+256)%256).toString(16)).slice(-2)).join('').slice(0,40)}
 function getOrCreateFolder_(parent,name){const it=parent.getFoldersByName(name);return it.hasNext()?it.next():parent.createFolder(name)}
 function json_(o){return ContentService.createTextOutput(JSON.stringify(o)).setMimeType(ContentService.MimeType.JSON)}
 function checkToken_(token){const expected=PropertiesService.getScriptProperties().getProperty('VARGA_MAP_TOKEN')||'';if(!expected||String(token||'')!==expected)throw new Error('Token ponte non valido')}
-function saveState_(payload){PropertiesService.getScriptProperties().setProperty(STATE_PROP,JSON.stringify(payload||{}))}
+function saveState_(payload){const state={mapEmail:payload.mapEmail||'',jobs:payload.jobs||[],rounds:payload.rounds||[],updatedAt:new Date().toISOString()};PropertiesService.getScriptProperties().setProperty(STATE_PROP,JSON.stringify(state))}
 function loadState_(){const s=PropertiesService.getScriptProperties().getProperty(STATE_PROP);return s?JSON.parse(s):null}
+function loadReceipts_(){try{return JSON.parse(PropertiesService.getScriptProperties().getProperty(RECEIPTS_PROP)||'[]')||[]}catch(_){return[]}}
+function saveReceipts_(arr){PropertiesService.getScriptProperties().setProperty(RECEIPTS_PROP,JSON.stringify((arr||[]).slice(-MAX_RECEIPTS)))}
+function saveReceipt_(receipt){const arr=loadReceipts_();if(arr.some(r=>r.id===receipt.id))return false;arr.push(receipt);saveReceipts_(arr);return true}
+function acknowledgeReceipts_(ids){const set=new Set((ids||[]).map(String));if(!set.size)return;const arr=loadReceipts_();arr.forEach(r=>{if(set.has(String(r.id)))r.acknowledged=true});saveReceipts_(arr)}
