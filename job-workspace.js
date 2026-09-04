@@ -1,0 +1,132 @@
+/* Vista Commessa centralizzata - Varga Gestionale
+   Non sposta e non cancella dati: li raccoglie dagli archivi esistenti e li mostra per commessa. */
+(function(){
+'use strict';
+if(typeof db==='undefined'||typeof nav!=='function') return;
+
+const ACTIVE_KEY='vg_activeJobId';
+let activeJobId=localStorage.getItem(ACTIVE_KEY)||'';
+let activeTab='overview';
+const E=v=>typeof esc==='function'?esc(v):String(v??'');
+const N=v=>String(v||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim();
+const money=v=>typeof euro==='function'?euro(v):`${Number(v||0).toFixed(2)} €`;
+const date=v=>{if(!v)return'';try{return new Intl.DateTimeFormat('it-IT').format(new Date(v))}catch{return String(v)}};
+const arr=v=>Array.isArray(v)?v:[];
+
+function currentJob(){return arr(db.jobs).find(j=>j.id===activeJobId)||null}
+function client(job){return arr(db.clients).find(c=>c.id===job?.clientId)||null}
+function jobTerms(job){return [job?.code,job?.title].map(N).filter(x=>x.length>=3)}
+function textMatchesJob(value,job){const s=N(value),terms=jobTerms(job);if(!s||!terms.length)return false;return terms.some(t=>s===t||(t.length>=5&&s.includes(t)))}
+function requestForJob(r,job){return r?.jobId===job.id||(!r?.jobId&&textMatchesJob([r?.subject,r?.bodyPreview].join(' '),job))}
+function quoteForJob(q,job){if(q?.jobId===job.id)return true;if(q?.sourceRequestId){const r=arr(db.requests).find(x=>x.id===q.sourceRequestId);if(r&&requestForJob(r,job))return true}return false}
+function deadlineForJob(d,job){return d?.jobId===job.id||textMatchesJob([d?.title,d?.notes].join(' '),job)}
+function consForJob(c,job){if(c?.jobId===job.id)return true;const code=N(job.code),title=N(job.title),cc=N(c?.codiceCommessa),cn=N(c?.commessa);return !!((code&&(cc===code||cn===code||cc.includes(code)))||(title&&title.length>=5&&(cn===title||cn.includes(title))))}
+function plantForJob(p,job){if(p?.jobId===job.id||p?.commessaId===job.id)return true;return textMatchesJob([p?.commessa,p?.nomeCommessa,p?.codiceCommessa].join(' '),job)}
+function rowForJob(r,job){if(r?.jobId===job.id||r?.commessaId===job.id)return true;return textMatchesJob([r?.commessa,r?.codiceCommessa].join(' '),job)}
+function reportForJob(r,job){return r?.jobId===job.id||textMatchesJob([r?.jobName,r?.jobCode].join(' '),job)}
+
+function linked(job){
+  const requests=arr(db.requests).filter(x=>requestForJob(x,job));
+  const quotes=arr(db.quotes).filter(x=>quoteForJob(x,job));
+  const deadlines=arr(db.deadlines).filter(x=>deadlineForJob(x,job));
+  const documents=arr(db.documents).filter(x=>x.jobId===job.id);
+  const expenses=arr(db.expenses).filter(x=>x.jobId===job.id);
+  const invoices=arr(db.invoices).filter(x=>x.jobId===job.id);
+  const consuntivi=arr(db.consuntivi).filter(x=>consForJob(x,job));
+  const plants=arr(db.vcImpianti).filter(x=>plantForJob(x,job));
+  const rows=arr(db.cantieriRows).filter(x=>rowForJob(x,job));
+  const reports=arr(db.rapportini).filter(x=>reportForJob(x,job));
+  return{requests,quotes,deadlines,documents,expenses,invoices,consuntivi,plants,rows,reports};
+}
+
+function addStyles(){if(document.getElementById('vgJobWorkspaceStyles'))return;const st=document.createElement('style');st.id='vgJobWorkspaceStyles';st.textContent=`
+.vg-hidden-nav{display:none!important}.vg-nav-label{padding:18px 14px 6px;font-size:11px;letter-spacing:.12em;text-transform:uppercase;opacity:.6;font-weight:800}
+.vg-job-home{margin-top:18px}.vg-job-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px}.vg-job-card{border:1px solid #dfe4ea;border-radius:14px;background:#fff;padding:18px;box-shadow:0 3px 12px rgba(0,0,0,.04);cursor:pointer;transition:.15s}.vg-job-card:hover{transform:translateY(-1px);box-shadow:0 7px 20px rgba(0,0,0,.08)}.vg-job-card h3{margin:5px 0 8px}.vg-job-code{font-size:12px;font-weight:800;letter-spacing:.06em;opacity:.62}.vg-job-meta{font-size:13px;color:#667085;line-height:1.5}.vg-job-bottom{display:flex;justify-content:space-between;gap:8px;align-items:center;margin-top:14px}.vg-job-open{font-weight:800;color:#16794d}
+.vg-work-head{border-radius:18px;padding:22px;background:linear-gradient(135deg,#133c2e,#176b4b);color:#fff;margin-bottom:16px}.vg-work-head .subtitle{color:rgba(255,255,255,.78)}.vg-work-actions{display:flex;gap:8px;flex-wrap:wrap}.vg-work-actions button{background:#fff;color:#173f31;border:0;border-radius:9px;padding:9px 12px;font-weight:800;cursor:pointer}.vg-summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(135px,1fr));gap:10px;margin:14px 0 18px}.vg-stat{background:#fff;border:1px solid #dfe4ea;border-radius:12px;padding:13px}.vg-stat span{display:block;font-size:12px;color:#667085}.vg-stat strong{font-size:22px;display:block;margin-top:5px}.vg-tabs{display:flex;gap:7px;overflow:auto;padding:4px 0 12px;position:sticky;top:0;background:var(--bg,#f4f6f8);z-index:5}.vg-tab{white-space:nowrap;border:1px solid #d7dde5;background:#fff;padding:9px 12px;border-radius:999px;font-weight:750;cursor:pointer}.vg-tab.active{background:#183f31;color:#fff;border-color:#183f31}.vg-pane{display:none}.vg-pane.active{display:block}.vg-section-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px}.vg-section-head h2{margin:0}.vg-empty{padding:22px;border:1px dashed #ccd4dd;border-radius:12px;color:#667085;text-align:center}.vg-list-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;padding:13px 0;border-bottom:1px solid #edf0f3}.vg-list-row:last-child{border-bottom:0}.vg-row-title{font-weight:800}.vg-row-sub{font-size:13px;color:#667085;margin-top:4px;line-height:1.45}.vg-chip{display:inline-flex;border-radius:999px;padding:3px 8px;background:#edf4f0;font-size:11px;font-weight:800;margin-left:6px}.vg-kv{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:10px}.vg-kv>div{background:#f8fafb;border-radius:10px;padding:12px}.vg-kv small{display:block;color:#667085;margin-bottom:3px}.vg-note{white-space:pre-wrap;line-height:1.55}.vg-timeline{border-left:2px solid #d9e6df;margin-left:8px;padding-left:16px}.vg-event{position:relative;padding:0 0 16px}.vg-event:before{content:'';width:9px;height:9px;border-radius:50%;background:#1b7652;position:absolute;left:-21px;top:5px}.vg-legacy-link{font-size:12px}.vg-job-list-toolbar{display:flex;gap:8px;align-items:center;margin:0 0 12px}.vg-job-list-toolbar input{flex:1}@media(max-width:760px){.vg-work-head{padding:17px}.vg-summary{grid-template-columns:repeat(2,minmax(0,1fr))}.vg-list-row{grid-template-columns:1fr}.vg-work-actions button{flex:1 1 45%}}
+`;document.head.appendChild(st)}
+
+function simplifySidebar(){
+  const keep=new Set(['dashboard','commesse','clienti','prezzari','cloud','azienda','backup']);
+  document.querySelectorAll('.sidebar .nav').forEach(b=>{const v=b.dataset.view;if(!keep.has(v))b.classList.add('vg-hidden-nav');if(v==='dashboard')b.textContent='Home';if(v==='commesse')b.textContent='Commesse'});
+  const sidebar=document.querySelector('.sidebar');if(!sidebar||document.getElementById('vgArchiveLabel'))return;
+  const cloud=[...sidebar.querySelectorAll('.nav')].find(x=>x.dataset.view==='cloud');if(cloud){const label=document.createElement('div');label.id='vgArchiveLabel';label.className='vg-nav-label';label.textContent='Impostazioni';sidebar.insertBefore(label,cloud)}
+}
+
+function ensureWorkspace(){
+  if(document.getElementById('jobWorkspace'))return;
+  const s=document.createElement('section');s.id='jobWorkspace';s.className='view';s.innerHTML=`<div id="vgWorkspaceBody"></div>`;document.querySelector('.main')?.appendChild(s);
+}
+
+function statusBadge(value){return `<span class="vg-chip">${E(value||'-')}</span>`}
+function line(title,sub='',right=''){return `<div class="vg-list-row"><div><div class="vg-row-title">${title}</div><div class="vg-row-sub">${sub}</div></div><div>${right}</div></div>`}
+function empty(label){return `<div class="vg-empty">${E(label)}</div>`}
+function countOpen(deadlines){return deadlines.filter(x=>!x.done).length}
+
+function renderOverview(job,L){
+  const c=client(job),done=L.consuntivi.filter(x=>N(x.status)==='contabilizzato').length;
+  return `<div class="panel"><div class="vg-section-head"><h2>Panoramica commessa</h2><button class="ghost vg-legacy-link" data-open-module="commesse">MODIFICA COMMESSA</button></div><div class="vg-kv"><div><small>Cliente</small><strong>${E(c?.name||'Non associato')}</strong></div><div><small>Codice</small><strong>${E(job.code||'-')}</strong></div><div><small>Cantiere / luogo</small><strong>${E(job.site||'-')}</strong></div><div><small>Periodo</small><strong>${E(date(job.start)||'-')} → ${E(date(job.end)||'aperta')}</strong></div><div><small>Valore commessa</small><strong>${money(job.value)}</strong></div><div><small>Stato</small><strong>${E(job.status||'-')}</strong></div></div>${job.notes?`<h3 style="margin-top:18px">Note operative</h3><div class="vg-note">${E(job.notes)}</div>`:''}</div>
+  <div class="grid2"><div class="panel"><h2>Da gestire</h2>${L.requests.filter(x=>!['Completata','Archiviata'].includes(x.status)).slice(0,6).map(x=>line(E(x.subject||'Richiesta'),`${E(x.type||'')} • ${E(x.status||'')}`)).join('')||empty('Nessuna richiesta aperta.')}</div><div class="panel"><h2>Prossime scadenze</h2>${L.deadlines.filter(x=>!x.done).sort((a,b)=>String(a.date).localeCompare(String(b.date))).slice(0,6).map(x=>line(E(x.title),`${E(date(x.date))} • ${E(x.type||'')}`)).join('')||empty('Nessuna scadenza aperta.')}</div></div>
+  <div class="panel"><h2>Situazione economica</h2><div class="vg-kv"><div><small>Spese collegate</small><strong>${money(L.expenses.reduce((s,x)=>s+Number(x.amount||0),0))}</strong></div><div><small>Consuntivi</small><strong>${L.consuntivi.length}</strong></div><div><small>Contabilizzati</small><strong>${done}</strong></div><div><small>Documenti economici collegati</small><strong>${L.invoices.length}</strong></div></div></div>`;
+}
+
+function renderRequests(job,L){return `<div class="panel"><div class="vg-section-head"><h2>Email / richieste</h2><button class="primary" data-open-module="richieste">APRI CENTRO EMAIL</button></div>${L.requests.length?L.requests.slice().sort((a,b)=>String(b.receivedAt||b.emailDate).localeCompare(String(a.receivedAt||a.emailDate))).map(r=>line(E(r.subject||'Email senza oggetto'),`${E(r.fromName||r.from||'')} • ${E(date(r.emailDate||r.receivedAt))} • ${E(r.type||'')}`,statusBadge(r.status))).join(''):empty('Nessuna email o richiesta collegata a questa commessa.')}</div>`}
+function renderDeadlines(job,L){return `<div class="panel"><div class="vg-section-head"><h2>Scadenze</h2><button class="primary" data-open-module="scadenze">GESTISCI SCADENZE</button></div>${L.deadlines.length?L.deadlines.slice().sort((a,b)=>String(a.date).localeCompare(String(b.date))).map(d=>line(`${d.done?'✓ ':''}${E(d.title)}`,`${E(date(d.date))} • ${E(d.type||'')} ${d.notes?'• '+E(d.notes):''}`,statusBadge(d.done?'Fatta':'Aperta'))).join(''):empty('Nessuna scadenza collegata.')}</div>`}
+function renderQuotes(job,L){return `<div class="panel"><div class="vg-section-head"><h2>Preventivi</h2><button class="primary" data-job-action="quote">+ NUOVO PREVENTIVO</button></div>${L.quotes.length?L.quotes.slice().reverse().map(q=>line(`${E(q.number||'Preventivo')} — ${E(q.subject||'')}`,`${E(q.date||'')} • ${E(q.clientName||'')}`,`${statusBadge(q.status)} <strong>${money(q.total)}</strong>`)).join(''):empty('Nessun preventivo collegato.')}</div>`}
+function renderDocuments(job,L){return `<div class="panel"><div class="vg-section-head"><h2>Documenti e allegati</h2><button class="primary" data-job-action="document">+ DOCUMENTO</button></div>${L.documents.length?L.documents.slice().reverse().map(d=>line(`${E(d.name)} ${statusBadge(d.category)}`,`${E(date(d.date))} ${d.notes?'• '+E(d.notes):''}`,d.driveUrl?`<a class="mini linkbtn" target="_blank" rel="noopener" href="${E(d.driveUrl)}">APRI DRIVE</a>`:'')).join(''):empty('Nessun documento collegato alla commessa.')}</div>`}
+function renderAccounting(job,L){const totalExp=L.expenses.reduce((s,x)=>s+Number(x.amount||0),0);return `<div class="vg-summary"><div class="vg-stat"><span>Spese</span><strong>${money(totalExp)}</strong></div><div class="vg-stat"><span>Consuntivi</span><strong>${L.consuntivi.length}</strong></div><div class="vg-stat"><span>Da verificare</span><strong>${L.consuntivi.filter(x=>x.status==='Da verificare').length}</strong></div><div class="vg-stat"><span>Documenti economici</span><strong>${L.invoices.length}</strong></div></div><div class="grid2"><div class="panel"><div class="vg-section-head"><h2>Consuntivi</h2><button class="ghost" data-open-module="consuntivi">APRI CONTABILITÀ</button></div>${L.consuntivi.length?L.consuntivi.slice().reverse().map(c=>line(`${E(c.impianto||c.commessa||'Attività')}`,`${E(c.data||'')} • ${E(c.operatore||'')} • ${E(c.lavorazione||'')}`,statusBadge(c.status))).join(''):empty('Nessun consuntivo collegato.')}</div><div class="panel"><div class="vg-section-head"><h2>Spese</h2><button class="ghost" data-job-action="expense">+ SPESA</button></div>${L.expenses.length?L.expenses.slice().reverse().map(x=>line(`${E(x.supplier||'Spesa')} — ${E(x.category||'')}`,`${E(date(x.date))} ${x.notes?'• '+E(x.notes):''}`,`<strong>${money(x.amount)}</strong>`)).join(''):empty('Nessuna spesa collegata.')}</div></div>`}
+function renderSites(job,L){const plants=L.plants.length?L.plants:L.rows.reduce((out,r)=>{const key=N(r.impianto||r.idSap);if(key&&!out.some(x=>N(x.impianto||x.idSap)===key))out.push(r);return out},[]);return `<div class="panel"><div class="vg-section-head"><h2>Impianti / cantieri</h2><button class="ghost" data-open-module="cantieriSync">SINCRONIZZAZIONE VARGA CANTIERI</button></div>${plants.length?plants.map(p=>line(`${E(p.denominazione||p.impianto||p.name||p.nome||'Impianto')}`,`${p.idSap?'SAP '+E(p.idSap)+' • ':''}${E(p.comune||p.site||'')} ${p.stato?'• '+E(p.stato):''}`)).join(''):empty('Nessun impianto o attività Varga Cantieri riconosciuta per questa commessa.')}</div>`}
+function renderReports(job,L){return `<div class="panel"><div class="vg-section-head"><h2>Rapportini di lavoro</h2><button class="primary" data-job-action="report">+ NUOVO RAPPORTINO</button></div>${L.reports.length?L.reports.slice().reverse().map(r=>line(`Rapportino ${E(r.number||'')}`,`${E(date(r.date))} • ${E(r.site||'')} • ${E(r.type||'')}`,statusBadge(r.status))).join(''):empty('Nessun rapportino collegato.')}</div>`}
+function renderTimeline(job,L){let events=[];L.requests.forEach(x=>events.push({d:x.receivedAt||x.emailDate,t:'Email / richiesta',n:x.subject,s:x.status}));L.documents.forEach(x=>events.push({d:x.date,t:'Documento',n:x.name,s:x.category}));L.deadlines.forEach(x=>events.push({d:x.date,t:'Scadenza',n:x.title,s:x.done?'Fatta':'Aperta'}));L.quotes.forEach(x=>events.push({d:x.date,t:'Preventivo',n:`${x.number||''} ${x.subject||''}`,s:x.status}));L.reports.forEach(x=>events.push({d:x.date,t:'Rapportino',n:rName(x),s:x.status}));L.consuntivi.forEach(x=>events.push({d:x.data,t:'Attività / consuntivo',n:x.lavorazione||x.impianto,s:x.status}));events.sort((a,b)=>String(b.d||'').localeCompare(String(a.d||'')));return `<div class="panel"><h2>Storico della commessa</h2><div class="vg-timeline">${events.length?events.map(x=>`<div class="vg-event"><div class="vg-row-title">${E(x.t)} — ${E(x.n||'')}</div><div class="vg-row-sub">${E(date(x.d)||x.d||'')} ${x.s?'• '+E(x.s):''}</div></div>`).join(''):empty('Lo storico si riempirà automaticamente quando colleghi attività alla commessa.')}</div></div>`}
+function rName(r){return `Rapportino ${r?.number||''}`.trim()}
+
+const tabs=[['overview','Panoramica'],['requests','Email / Richieste'],['deadlines','Scadenze'],['quotes','Preventivi'],['documents','Documenti'],['accounting','Contabilità'],['sites','Impianti'],['reports','Rapportini'],['timeline','Storico']];
+function renderWorkspace(){
+  ensureWorkspace();const job=currentJob(),body=document.getElementById('vgWorkspaceBody');if(!body)return;
+  if(!job){body.innerHTML=`<div class="topline"><div><h1>Commessa</h1><p class="subtitle">Seleziona una commessa dalla Home.</p></div><button class="ghost" data-back-jobs>TORNA ALLE COMMESSE</button></div>`;bindWorkspace();return}
+  const L=linked(job),c=client(job),openReq=L.requests.filter(x=>!['Completata','Archiviata'].includes(x.status)).length;
+  body.innerHTML=`<div class="vg-work-head"><div class="topline"><div><div class="vg-job-code">${E(job.code||'COMMESSA')}</div><h1>${E(job.title||'Commessa')}</h1><p class="subtitle">${E(c?.name||'Cliente non associato')} ${job.site?'• '+E(job.site):''}</p></div><div>${statusBadge(job.status)}</div></div><div class="vg-work-actions"><button data-back-jobs>← COMMESSE</button><button data-job-action="request">EMAIL / RICHIESTE</button><button data-job-action="quote">+ PREVENTIVO</button><button data-job-action="document">+ DOCUMENTO</button><button data-job-action="report">+ RAPPORTINO</button></div></div>
+  <div class="vg-summary"><div class="vg-stat"><span>Richieste aperte</span><strong>${openReq}</strong></div><div class="vg-stat"><span>Scadenze aperte</span><strong>${countOpen(L.deadlines)}</strong></div><div class="vg-stat"><span>Documenti</span><strong>${L.documents.length}</strong></div><div class="vg-stat"><span>Preventivi</span><strong>${L.quotes.length}</strong></div><div class="vg-stat"><span>Impianti / attività</span><strong>${Math.max(L.plants.length,L.rows.length)}</strong></div><div class="vg-stat"><span>Rapportini</span><strong>${L.reports.length}</strong></div></div>
+  <div class="vg-tabs">${tabs.map(([id,label])=>`<button class="vg-tab ${id===activeTab?'active':''}" data-job-tab="${id}">${label}</button>`).join('')}</div>
+  <div class="vg-pane ${activeTab==='overview'?'active':''}" data-pane="overview">${renderOverview(job,L)}</div><div class="vg-pane ${activeTab==='requests'?'active':''}" data-pane="requests">${renderRequests(job,L)}</div><div class="vg-pane ${activeTab==='deadlines'?'active':''}" data-pane="deadlines">${renderDeadlines(job,L)}</div><div class="vg-pane ${activeTab==='quotes'?'active':''}" data-pane="quotes">${renderQuotes(job,L)}</div><div class="vg-pane ${activeTab==='documents'?'active':''}" data-pane="documents">${renderDocuments(job,L)}</div><div class="vg-pane ${activeTab==='accounting'?'active':''}" data-pane="accounting">${renderAccounting(job,L)}</div><div class="vg-pane ${activeTab==='sites'?'active':''}" data-pane="sites">${renderSites(job,L)}</div><div class="vg-pane ${activeTab==='reports'?'active':''}" data-pane="reports">${renderReports(job,L)}</div><div class="vg-pane ${activeTab==='timeline'?'active':''}" data-pane="timeline">${renderTimeline(job,L)}</div>`;
+  bindWorkspace();
+}
+
+function openJob(id){if(!arr(db.jobs).some(j=>j.id===id))return;activeJobId=id;activeTab='overview';localStorage.setItem(ACTIVE_KEY,id);renderWorkspace();nav('jobWorkspace');window.scrollTo({top:0,behavior:'smooth'})}
+function openModule(view,after){nav(view);setTimeout(()=>{try{after?.()}catch(_){}},50)}
+function jobAction(action){const j=currentJob();if(!j)return;
+  if(action==='request')return openModule('richieste');
+  if(action==='quote')return openModule('preventivo',()=>{const c=document.getElementById('qClient'),s=document.getElementById('qSubject'),site=document.getElementById('qSite');if(c)c.value=j.clientId||'';if(s&&!s.value)s.value=j.title||'';if(site&&!site.value)site.value=j.site||''});
+  if(action==='document')return openModule('documenti',()=>{const x=document.getElementById('docJob');if(x)x.value=j.id});
+  if(action==='expense')return openModule('spese',()=>{const x=document.getElementById('xJob');if(x)x.value=j.id});
+  if(action==='report')return openModule('rapportini',()=>{const x=document.getElementById('rpJob');if(x){x.value=j.id;x.dispatchEvent(new Event('change'))}});
+}
+function bindWorkspace(){
+  document.querySelectorAll('[data-back-jobs]').forEach(b=>b.onclick=()=>nav('commesse'));
+  document.querySelectorAll('[data-job-tab]').forEach(b=>b.onclick=()=>{activeTab=b.dataset.jobTab;document.querySelectorAll('.vg-tab').forEach(x=>x.classList.toggle('active',x===b));document.querySelectorAll('.vg-pane').forEach(x=>x.classList.toggle('active',x.dataset.pane===activeTab))});
+  document.querySelectorAll('[data-open-module]').forEach(b=>b.onclick=()=>openModule(b.dataset.openModule));
+  document.querySelectorAll('[data-job-action]').forEach(b=>b.onclick=()=>jobAction(b.dataset.jobAction));
+}
+
+function renderJobCards(){
+  const list=document.getElementById('jobsList');if(!list)return;const jobs=arr(db.jobs).slice().reverse();
+  list.innerHTML=`<div class="vg-job-list-toolbar"><input id="vgJobSearch" placeholder="Cerca commessa, codice, cliente, cantiere..."></div><div class="vg-job-grid" id="vgJobGrid"></div>`;
+  const render=q=>{const n=N(q),rows=jobs.filter(j=>!n||N([j.title,j.code,j.site,client(j)?.name].join(' ')).includes(n));document.getElementById('vgJobGrid').innerHTML=rows.length?rows.map(j=>jobCard(j)).join(''):empty('Nessuna commessa trovata.');document.querySelectorAll('[data-open-job]').forEach(b=>b.onclick=()=>openJob(b.dataset.openJob))};
+  document.getElementById('vgJobSearch').oninput=e=>render(e.target.value);render('');
+}
+function jobCard(j){const c=client(j),L=linked(j);return `<div class="vg-job-card" data-open-job="${E(j.id)}"><div class="vg-job-code">${E(j.code||'SENZA CODICE')}</div><h3>${E(j.title||'Commessa')}</h3><div class="vg-job-meta">${E(c?.name||'Cliente non associato')}<br>${E(j.site||'Nessun cantiere indicato')}</div><div class="vg-job-bottom"><span>${statusBadge(j.status)}</span><span class="vg-job-open">APRI →</span></div><div class="vg-job-meta" style="margin-top:10px">${L.requests.filter(x=>!['Completata','Archiviata'].includes(x.status)).length} richieste • ${countOpen(L.deadlines)} scadenze • ${L.documents.length} documenti</div></div>`}
+
+function enhanceDashboard(){
+  const dash=document.getElementById('dashboard');if(!dash)return;let area=document.getElementById('vgDashboardJobs');if(!area){area=document.createElement('div');area.id='vgDashboardJobs';area.className='panel vg-job-home';const grid=dash.querySelector('.grid2');dash.insertBefore(area,grid||null)}
+  const jobs=arr(db.jobs).filter(j=>j.status!=='Terminata').slice().reverse().slice(0,8);area.innerHTML=`<div class="vg-section-head"><div><h2>Commesse</h2><div class="muted">Apri una commessa per trovare tutto il lavoro collegato in un unico posto.</div></div><button class="ghost" data-go-jobs>TUTTE LE COMMESSE</button></div><div class="vg-job-grid">${jobs.length?jobs.map(jobCard).join(''):empty('Crea la prima commessa per iniziare.')}</div>`;area.querySelector('[data-go-jobs]').onclick=()=>nav('commesse');area.querySelectorAll('[data-open-job]').forEach(b=>b.onclick=()=>openJob(b.dataset.openJob));
+  const top=dash.querySelector('.topline .primary[data-go="preventivo"]');if(top){top.dataset.go='commesse';top.textContent='+ NUOVA COMMESSA';top.onclick=()=>nav('commesse')}
+}
+
+const originalRefresh=window.refresh;
+if(typeof originalRefresh==='function'){
+  window.refresh=function(){const out=originalRefresh.apply(this,arguments);try{renderJobCards();enhanceDashboard();if(document.getElementById('jobWorkspace')?.classList.contains('active-view'))renderWorkspace()}catch(e){console.warn('Vista commessa: aggiornamento parziale',e)}return out};
+}
+
+addStyles();simplifySidebar();ensureWorkspace();
+try{renderJobCards();enhanceDashboard();renderWorkspace()}catch(e){console.warn('Vista commessa non inizializzata completamente',e)}
+window.VargaOpenJob=openJob;
+})();
