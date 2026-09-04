@@ -162,11 +162,17 @@
     const lines=[c?.name,c?.address,c?.city].filter(Boolean);
     return `<strong>Spett.le</strong><br>${lines.map(E).join('<br>')}`;
   }
+  function embeddedImage(base64,fallback){
+    const value=String(base64||'').trim();
+    return value?`data:image/webp;base64,${value}`:fallback;
+  }
   function buildPrintMarkup(q){
     const d=q.date||dateIt(q.dateIso||todayIso());
     const total=Number(q.subtotal??q.total??0);
+    const sidebarSrc=embeddedImage(window.AVOLA_SIDEBAR_B64,SIDEBAR_IMG);
+    const signatureSrc=embeddedImage(window.AVOLA_SIGNATURE_B64,SIGNATURE_IMG);
     return `<div class="avola-print-doc">
-      <img class="avola-side" src="${SIDEBAR_IMG}" alt="Intestazione Avola">
+      <img class="avola-side" src="${sidebarSrc}" alt="Intestazione Avola">
       <div class="avola-content">
         <div class="avola-header-grid"><div class="avola-place">${E(q.place||DEFAULT_PLACE)}, il ${E(d)}</div><div class="avola-client">${clientBlock(q.client||{})}</div></div>
         <div class="avola-offer-title">OFFERTA ${E(q.number||'')} del ${E(d)}</div>
@@ -176,7 +182,7 @@
           ${(q.rows||[]).map(r=>`<tr><td>${E(r.code||'')}</td><td>${E(r.description||'')}</td><td>${priceCell(r)}</td><td>${qtyCell(r)}</td><td><strong>${money(Number(r.qty||0)*Number(r.price||0))}</strong></td></tr>`).join('')}
         </tbody></table>
         <div class="avola-reference">${E(referenceText(q))}</div>
-        <div class="avola-bottom"><div class="avola-total"><strong>TOTALE OFFERTA (IVA ESCLUSA)</strong><div>${money(total)}</div><em>(oneri della sicurezza inclusi)</em></div><div class="avola-sign-wrap"><div class="avola-sign-label">Timbro e Firma della Società Fornitrice</div><img class="avola-sign" src="${SIGNATURE_IMG}" alt="Timbro e firma Avola"></div></div>
+        <div class="avola-bottom"><div class="avola-total"><strong>TOTALE OFFERTA (IVA ESCLUSA)</strong><div>${money(total)}</div><em>(oneri della sicurezza inclusi)</em></div><div class="avola-sign-wrap"><div class="avola-sign-label">Timbro e Firma della Società Fornitrice</div><img class="avola-sign" src="${signatureSrc}" alt="Timbro e firma Avola"></div></div>
       </div>
     </div>`;
   }
