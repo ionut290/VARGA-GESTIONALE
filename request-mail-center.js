@@ -91,7 +91,7 @@ function install(){
     info.textContent='Email salvata su questo dispositivo. Aggiornamento del ponte Gmail in corso…';setBusy(button,true,'SALVA EMAIL');
     try{await call('configure',bridgePayload());info.textContent='Impostazioni salvate e ponte Gmail aggiornato correttamente.'}
     catch(e){info.textContent='Email salvata sul dispositivo, ma il ponte Gmail non ha risposto: '+(e.message||e)}
-    finally{setBusy(button,false,'SALVA EMAIL')}
+    finally{setBusy(button,false,'SALVA IMPOSTAZIONI')}
   };
   document.getElementById('addRequestSender').onclick=async()=>{const sender=document.getElementById('requestSenderEmail'),job=document.getElementById('requestSenderJob'),info=document.getElementById('requestSyncInfo'),address=sender.value.trim().toLowerCase();if(!validEmail(address)){info.textContent='Inserisci un indirizzo mittente valido.';sender.focus();return}if(!job.value){info.textContent='Scegli la commessa da collegare.';job.focus();return}const next=settings(),existing=next.senderRules.find(rule=>rule.email===address);if(existing)existing.jobId=job.value;else next.senderRules.push({id:uid(),email:address,jobId:job.value});saveSettings(next);sender.value='';job.value='';renderSenderRules();info.textContent='Mittente collegato alla commessa. Premi SALVA IMPOSTAZIONI per aggiornare anche Gmail.'};
   document.getElementById('checkRequestsNow').onclick=scan;
