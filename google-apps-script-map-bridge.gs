@@ -30,6 +30,11 @@ function doPost(e) {
       return json_({ok:true, configured:true});
     }
     if (action === 'ping') return json_({ok:true, service:'Varga MAP Bridge'});
+    if (action === 'installRequestSchedule') {
+      saveState_(payload);
+      return json_(installRequestSchedule_());
+    }
+    if (action === 'requestScheduleStatus') return json_(requestScheduleStatus_());
     if (action === 'scan') {
       saveState_(payload);
       return json_(scan_(payload));
@@ -60,6 +65,28 @@ function scanScheduled() {
   if (!payload) return;
   scan_(payload);
   scanRequests_(payload);
+}
+
+function scanRequestsScheduled() {
+  const lock = LockService.getScriptLock();
+  if (!lock.tryLock(5000)) return;
+  try {
+    const payload = loadState_();
+    if (payload) scanRequests_(Object.assign({}, payload, {forcePeriod:false}));
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function installRequestSchedule_() {
+  ScriptApp.getProjectTriggers().filter(t => t.getHandlerFunction() === 'scanRequestsScheduled').forEach(t => ScriptApp.deleteTrigger(t));
+  [5, 15].forEach(hour => ScriptApp.newTrigger('scanRequestsScheduled').timeBased().atHour(hour).nearMinute(0).everyDays(1).inTimezone('Europe/Rome').create());
+  return requestScheduleStatus_();
+}
+
+function requestScheduleStatus_() {
+  const triggers = ScriptApp.getProjectTriggers().filter(t => t.getHandlerFunction() === 'scanRequestsScheduled');
+  return {ok:true, active:triggers.length===2, times:['05:00','15:00'], timezone:'Europe/Rome', triggerCount:triggers.length};
 }
 
 function scanRequests_(payload) {
