@@ -212,9 +212,9 @@
     await loadExcelJs();
     const wb=new ExcelJS.Workbook();wb.creator='Varga Gestionale';wb.created=new Date();wb.calcProperties.fullCalcOnLoad=true;
     const ws=wb.addWorksheet('Preventivo');
-    ws.pageSetup={paperSize:9,orientation:'portrait',fitToPage:true,fitToWidth:1,fitToHeight:0,horizontalCentered:false,verticalCentered:false,margins:{left:0.1,right:0.1,top:0.1,bottom:0.1,header:0,footer:0}};
-    ws.views=[{showGridLines:false}];ws.properties.defaultRowHeight=15;ws.columns=[{width:18},{width:10},{width:34},{width:8},{width:9},{width:12},{width:12}];
-    const sidebar=await imageData(SIDEBAR_IMG,window.AVOLA_SIDEBAR_B64),sidebarId=wb.addImage({base64:sidebar,extension:'png'});ws.addImage(sidebarId,{tl:{col:0,row:0},ext:{width:145,height:965},editAs:'absolute'});
+    ws.pageSetup={paperSize:9,orientation:'portrait',fitToPage:false,scale:100,horizontalCentered:false,verticalCentered:false,margins:{left:0.1,right:0.1,top:0.1,bottom:0.1,header:0,footer:0}};
+    ws.views=[{showGridLines:false}];ws.properties.defaultRowHeight=15;ws.columns=[{width:15},{width:8},{width:26},{width:6},{width:7},{width:10},{width:10}];
+    const sidebar=await imageData(SIDEBAR_IMG,window.AVOLA_SIDEBAR_B64),sidebarId=wb.addImage({base64:sidebar,extension:'png'});ws.addImage(sidebarId,{tl:{col:0,row:0},ext:{width:120,height:965},editAs:'absolute'});
     const signature=await imageData(SIGNATURE_IMG,window.AVOLA_SIGNATURE_B64),signatureId=wb.addImage({base64:signature,extension:'png'});
     const d=q.date||dateIt(q.dateIso||todayIso()),client=q.client||{};
     ws.mergeCells('B2:D2');ws.getCell('B2').value=`${q.place||DEFAULT_PLACE}, il ${d}`;ws.getCell('B2').font={size:11};
@@ -224,9 +224,9 @@
     ws.mergeCells('B9:G9');ws.getCell('B9').value=`OGGETTO: ${q.subject||''}`;ws.getCell('B9').font={bold:true,size:12};
     ws.mergeCells('B11:G12');ws.getCell('B11').value=q.intro||DEFAULT_INTRO;ws.getCell('B11').font={size:11};ws.getCell('B11').alignment={wrapText:true,vertical:'top'};
     const headerRow=14,headers=['Codice','Descrizione','U.M.','Quantità','Prezzo unitario','Importo'];
-    headers.forEach((h,i)=>{const c=ws.getCell(headerRow,i+2);c.value=h;c.font={bold:true,color:{argb:'FFFFFFFF'}};c.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FF006B3C'}};c.alignment={horizontal:'center',vertical:'middle',wrapText:true};c.border={top:{style:'thin'},left:{style:'thin'},bottom:{style:'thin'},right:{style:'thin'}}});ws.getRow(headerRow).height=30;
+    headers.forEach((h,i)=>{const c=ws.getCell(headerRow,i+2);c.value=h;c.font={bold:true,size:11,color:{argb:'FFFFFFFF'}};c.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FF006B3C'}};c.alignment={horizontal:'center',vertical:'middle',wrapText:true};c.border={top:{style:'thin'},left:{style:'thin'},bottom:{style:'thin'},right:{style:'thin'}}});ws.getRow(headerRow).height=34;
     const firstData=headerRow+1;
-    (q.rows||[]).forEach((r,index)=>{const row=firstData+index;ws.getCell(row,2).value=r.code||'';ws.getCell(row,3).value=r.description||'';ws.getCell(row,4).value=r.unit||'';ws.getCell(row,5).value=Number(r.qty||0);ws.getCell(row,6).value=Number(r.price||0);ws.getCell(row,7).value={formula:`E${row}*F${row}`,result:Number(r.qty||0)*Number(r.price||0)};for(let col=2;col<=7;col++){const c=ws.getCell(row,col);c.alignment={vertical:'top',wrapText:col===3};c.border={top:{style:'thin',color:{argb:'FFAAAAAA'}},left:{style:'thin',color:{argb:'FFAAAAAA'}},bottom:{style:'thin',color:{argb:'FFAAAAAA'}},right:{style:'thin',color:{argb:'FFAAAAAA'}}}}ws.getRow(row).height=32});
+    (q.rows||[]).forEach((r,index)=>{const row=firstData+index;ws.getCell(row,2).value=r.code||'';ws.getCell(row,3).value=r.description||'';ws.getCell(row,4).value=r.unit||'';ws.getCell(row,5).value=Number(r.qty||0);ws.getCell(row,6).value=Number(r.price||0);ws.getCell(row,7).value={formula:`E${row}*F${row}`,result:Number(r.qty||0)*Number(r.price||0)};for(let col=2;col<=7;col++){const c=ws.getCell(row,col);c.font={size:11};c.alignment={vertical:'top',wrapText:true};c.border={top:{style:'thin',color:{argb:'FFAAAAAA'}},left:{style:'thin',color:{argb:'FFAAAAAA'}},bottom:{style:'thin',color:{argb:'FFAAAAAA'}},right:{style:'thin',color:{argb:'FFAAAAAA'}}}}ws.getRow(row).height=44});
     const lastData=Math.max(firstData,firstData+(q.rows||[]).length-1),referenceRow=lastData+2;
     ws.mergeCells(`B${referenceRow}:G${referenceRow}`);ws.getCell(referenceRow,2).value=referenceText(q);ws.getCell(referenceRow,2).font={italic:true,size:9};ws.getCell(referenceRow,2).alignment={wrapText:true};
     const discountRow=referenceRow+2,totalRow=referenceRow+3;ws.mergeCells(`E${discountRow}:F${discountRow}`);ws.getCell(`E${discountRow}`).value='Sconto %';ws.getCell(`G${discountRow}`).value=Number(q.discount||0);ws.getCell(`G${discountRow}`).numFmt='0.00';
