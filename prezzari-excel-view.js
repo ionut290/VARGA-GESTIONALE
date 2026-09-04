@@ -40,6 +40,9 @@
       .vg-pricebook-picker{border-color:#b9d8c8;background:linear-gradient(135deg,#ffffff,#f5fbf8)}
       .vg-pricebook-picker-grid{display:grid;grid-template-columns:minmax(260px,420px) 1fr;gap:18px;align-items:end}
       .vg-pricebook-manage{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+      .vg-new-pricebook-actions{margin-top:12px;padding:13px;border:2px solid #69b98f;border-radius:11px;background:#eef9f3}
+      .vg-new-pricebook-actions strong{display:block;color:#174f36;margin-bottom:5px}
+      .vg-new-pricebook-actions .actions{margin-top:10px;justify-content:flex-start}
       .vg-pricebook-picker select{font-size:15px;font-weight:800;border-color:#8bbda4}
       .vg-pricebook-chips{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
       .vg-pricebook-chip{border:1px solid #b7cfc2;background:#fff;color:#225d43;padding:8px 11px;border-radius:999px;font-weight:800;cursor:pointer}
@@ -128,7 +131,29 @@
     if(rename&&!rename.dataset.bound){rename.dataset.bound='1';rename.addEventListener('click',renameActivePriceList)}
     const remove=document.getElementById('vgDeletePriceList');
     if(remove&&!remove.dataset.bound){remove.dataset.bound='1';remove.addEventListener('click',deleteActivePriceList)}
+    const addPriceList=document.getElementById('addPriceList');
+    if(addPriceList)addPriceList.textContent='AGGIUNGI NUOVO PREZZIARIO';
     uiReady=true;
+  }
+
+  function showNewPriceListActions(pl){
+    document.getElementById('vgNewPriceListActions')?.remove();
+    const createPanel=document.getElementById('addPriceList')?.closest('.panel');
+    if(!createPanel)return;
+    const box=document.createElement('div');
+    box.id='vgNewPriceListActions';box.className='vg-new-pricebook-actions';
+    box.innerHTML=`<strong>Prezziario “${esc(pl.name)}” creato.</strong><div>Scegli ora come inserire le voci:</div><div class="actions"><button type="button" id="vgAttachNewPriceList" class="primary">ALLEGA PREZZIARIO EXCEL</button><button type="button" id="vgManualNewPriceList" class="ghost">AGGIUNGI VOCI MANUALMENTE</button></div>`;
+    createPanel.appendChild(box);
+    box.querySelector('#vgAttachNewPriceList').onclick=()=>{
+      const input=document.getElementById('excelFile');
+      if(input){input.value='';input.click()}
+    };
+    box.querySelector('#vgManualNewPriceList').onclick=()=>{
+      const field=document.getElementById('eCode');
+      field?.closest('.panel')?.scrollIntoView({behavior:'smooth',block:'start'});
+      setTimeout(()=>field?.focus(),250);
+    };
+    box.scrollIntoView({behavior:'smooth',block:'center'});
   }
 
   function renameActivePriceList(){
@@ -228,6 +253,7 @@
       if(input)input.value='';
       try{localStorage.setItem(ACTIVE_KEY,row.id)}catch(_){}
       save();
+      showNewPriceListActions(row);
     };
 
     const addEntry=document.getElementById('addEntry');
