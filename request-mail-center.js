@@ -2,6 +2,7 @@
 (function(){
 'use strict';
 const appliedKey='vg_requestMailApplied';
+const requestEmailKey='vg_requestEmail';
 const statuses=['Nuova','Presa in carico','Programmata','In lavorazione','Completata','Archiviata'];
 const getApplied=()=>{try{return new Set(JSON.parse(localStorage.getItem(appliedKey)||'[]'))}catch(_){return new Set()}};
 const setApplied=s=>localStorage.setItem(appliedKey,JSON.stringify([...s].slice(-1000)));
@@ -11,7 +12,9 @@ const call=(action,extra={})=>{
   if(typeof window.VargaMailBridgeCall!=='function')throw new Error('Configura prima il collegamento Gmail nella sezione Azienda.');
   return window.VargaMailBridgeCall(action,extra);
 };
-function requestEmail(){return String(db.company?.requestEmail||db.company?.mapEmail||db.company?.email||'').trim()}
+function requestEmail(){return String(localStorage.getItem(requestEmailKey)||db.company?.requestEmail||db.company?.mapEmail||db.company?.email||'').trim()}
+function validEmail(value){return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(value||'').trim())}
+function setBusy(button,busy,label){if(!button)return;button.disabled=busy;button.textContent=busy?'ATTENDI…':label}
 function suggestedJob(receipt){
   const text=normalize([receipt.subject,receipt.bodyPreview,receipt.from].join(' '));
   return (db.jobs||[]).map(j=>({j,score:[j.code,j.title,j.site].filter(Boolean).reduce((n,v)=>n+(text.includes(normalize(v))?1:0),0)})).sort((a,b)=>b.score-a.score)[0];
@@ -33,13 +36,16 @@ async function importReceipts(){
   return imported;
 }
 async function scan(){
-  const info=document.getElementById('requestSyncInfo');
+  const info=document.getElementById('requestSyncInfo'),button=document.getElementById('checkRequestsNow'),email=requestEmail();
   try{
+    if(!validEmail(email))throw new Error('Prima inserisci e salva un indirizzo email valido.');
+    setBusy(button,true,'CONTROLLA EMAIL ADESSO');
     if(info)info.textContent='Controllo email in corso…';
-    const out=await call('scanRequests',{requestEmail:requestEmail(),jobs:(db.jobs||[]).map(j=>({id:j.id,title:j.title,code:j.code||'',site:j.site||''}))});
+    const out=await call('scanRequests',{requestEmail:email,jobs:(db.jobs||[]).map(j=>({id:j.id,title:j.title,code:j.code||'',site:j.site||''}))});
     const imported=await importReceipts();
     if(info)info.textContent=`Controllo completato: ${Number(out?.found||0)} email riconosciute, ${imported} nuove richieste importate.`;
   }catch(e){if(info)info.textContent='Errore: '+(e.message||e)}
+  finally{setBusy(button,false,'CONTROLLA EMAIL ADESSO')}
 }
 function options(values,current){return values.map(v=>`<option${v===current?' selected':''}>${html(v)}</option>`).join('')}
 function jobOptions(current){return '<option value="">Da assegnare</option>'+db.jobs.map(j=>`<option value="${html(j.id)}"${j.id===current?' selected':''}>${html((j.code?j.code+' — ':'')+j.title)}</option>`).join('')}
@@ -68,7 +74,15 @@ function bindRows(){
 }
 function install(){
   const email=document.getElementById('requestEmailInput');if(!email||email.dataset.ready)return;email.dataset.ready='1';email.value=requestEmail();
-  document.getElementById('saveRequestEmail').onclick=async()=>{db.company.requestEmail=email.value.trim();save();try{await call('configure',{requestEmail:db.company.requestEmail,jobs:(db.jobs||[]).map(j=>({id:j.id,title:j.title,code:j.code||'',site:j.site||''}))});document.getElementById('requestSyncInfo').textContent='Email salvata e ponte aggiornato.'}catch(e){document.getElementById('requestSyncInfo').textContent='Email salvata. Configura il ponte Gmail in Azienda: '+(e.message||e)}};
+  document.getElementById('saveRequestEmail').onclick=async()=>{
+    const info=document.getElementById('requestSyncInfo'),button=document.getElementById('saveRequestEmail'),value=email.value.trim().toLowerCase();
+    if(!validEmail(value)){info.textContent='Inserisci un indirizzo email valido.';email.focus();return}
+    db.company=db.company||{};db.company.requestEmail=value;localStorage.setItem(requestEmailKey,value);save();email.value=value;
+    info.textContent='Email salvata su questo dispositivo. Aggiornamento del ponte Gmail in corso…';setBusy(button,true,'SALVA EMAIL');
+    try{await call('configure',{requestEmail:value,jobs:(db.jobs||[]).map(j=>({id:j.id,title:j.title,code:j.code||'',site:j.site||''}))});info.textContent='Email salvata e ponte Gmail aggiornato correttamente.'}
+    catch(e){info.textContent='Email salvata sul dispositivo, ma il ponte Gmail non ha risposto: '+(e.message||e)}
+    finally{setBusy(button,false,'SALVA EMAIL')}
+  };
   document.getElementById('checkRequestsNow').onclick=scan;
   ['requestStatusFilter','requestTypeFilter','requestSearch'].forEach(id=>document.getElementById(id).addEventListener(id==='requestSearch'?'input':'change',render));
   render();setTimeout(()=>importReceipts().catch(()=>{}),3500);setInterval(()=>importReceipts().catch(()=>{}),15*60*1000);
