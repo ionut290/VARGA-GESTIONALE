@@ -124,5 +124,15 @@
   }
   document.getElementById('rpNew').onclick=clearForm;document.getElementById('rpSaveDraft').onclick=()=>store('Bozza');document.getElementById('rpSaveSigned').onclick=()=>store('Da firmare');document.getElementById('rpComplete').onclick=()=>store('Completato',true);document.getElementById('rpPrefill').onclick=prefill;document.getElementById('rpSearch').oninput=render;document.getElementById('rpStatusFilter').onchange=render;
   document.getElementById('rpJob').onchange=()=>{const j=db.jobs.find(x=>x.id===document.getElementById('rpJob').value);if(j){document.getElementById('rpClient').value=j.clientId||'';if(!document.getElementById('rpSite').value)document.getElementById('rpSite').value=j.site||''}};
+  window.openReportFromRequest=function(request){
+    clearForm();fillSelects();
+    const job=db.jobs.find(x=>x.id===request.jobId);
+    document.getElementById('rpJob').value=request.jobId||'';
+    document.getElementById('rpClient').value=job?.clientId||request.clientId||'';
+    document.getElementById('rpSite').value=request.site||job?.site||'';
+    document.getElementById('rpDescription').value=request.notes||request.bodyPreview||request.subject||'';
+    document.getElementById('rpNotes').value='Creato dalla richiesta email: '+(request.subject||'')+(request.sourceReceiptId?'\nRiferimento: '+request.sourceReceiptId:'');
+    nav('rapportini');window.scrollTo({top:0,behavior:'smooth'});
+  };
   clearForm();render();
 })();

@@ -6,6 +6,17 @@ const dismissedKey='vg_requestMailDismissed';
 const requestEmailKey='vg_requestEmail';
 const requestSettingsKey='vg_requestSettings';
 const statuses=['Nuova','Presa in carico','Programmata','In lavorazione','Completata','Archiviata'];
+db.requests=Array.isArray(db.requests)?db.requests:S.get('vg_requests',[]);
+if(typeof save==='function'&&!save.__requestsPatched){
+  const baseSave=save;
+  save=function(opts={}){S.set('vg_requests',db.requests);return baseSave(opts)};
+  save.__requestsPatched=true;
+}
+if(typeof cloudState==='function'&&!cloudState.__requestsPatched){
+  const baseCloudState=cloudState;
+  cloudState=function(){return Object.assign({},baseCloudState(),{requests:db.requests})};
+  cloudState.__requestsPatched=true;
+}
 const getApplied=()=>{try{return new Set(JSON.parse(localStorage.getItem(appliedKey)||'[]'))}catch(_){return new Set()}};
 const setApplied=s=>localStorage.setItem(appliedKey,JSON.stringify([...s].slice(-1000)));
 const getDismissed=()=>{try{return new Set(JSON.parse(localStorage.getItem(dismissedKey)||'[]'))}catch(_){return new Set()}};
@@ -32,8 +43,9 @@ async function importReceipts(){
   const applied=getApplied(),dismissed=getDismissed(),ack=[];let imported=0;
   rows.forEach(r=>{
     if(!r?.id)return;
-    // Se la richiesta manca dopo un ripristino/sync, la email deve essere reimportata.
-    // Solo un'eliminazione esplicita dell'utente deve impedirne il ritorno.
+    // La memoria "applied" può sopravvivere a un ripristino/sync che ha perso la
+    // richiesta. In quel caso la email va reimportata. Solo una eliminazione
+    // esplicita dell'utente (dismissed) deve impedirne il ritorno.
     if(dismissed.has(r.id)||db.requests.some(x=>x.sourceReceiptId===r.id)){ack.push(r.id);applied.add(r.id);return}
     const match=suggestedJob(r);
     db.requests.push({id:uid(),sourceReceiptId:r.id,source:'Gmail',gmailMessageId:r.gmailMessageId||'',gmailThreadId:r.gmailThreadId||'',from:r.from||'',fromName:r.fromName||'',subject:r.subject||'Email senza oggetto',bodyPreview:r.bodyPreview||'',emailDate:r.emailDate||'',receivedAt:r.archivedAt||new Date().toISOString(),type:r.type||'Comunicazione',priority:r.priority||'Normale',status:'Nuova',jobId:r.jobId||(match?.score?match.j.id:''),clientId:'',assignedTo:'',dueDate:'',attachmentNames:r.attachmentNames||[],files:r.files||[],notes:'',updatedAt:new Date().toISOString()});
@@ -58,6 +70,53 @@ async function scan(){
 }
 function options(values,current){return values.map(v=>`<option${v===current?' selected':''}>${html(v)}</option>`).join('')}
 function jobOptions(current){return '<option value="">Da assegnare</option>'+db.jobs.map(j=>`<option value="${html(j.id)}"${j.id===current?' selected':''}>${html((j.code?j.code+' — ':'')+j.title)}</option>`).join('')}
+function plantLabel(p){return p?String(p.denominazione||p.name||p.nome||p.impianto||p.title||p.idSap||p.sap||'Impianto'):''}
+function plantCode(p){return String(p?.idSap||p?.sap||p?.codice||p?.code||'')}
+function plantId(p){return String(p?.sourceId||p?.vcSourceId||p?.id||plantCode(p)||plantLabel(p))}
+function plantOptions(current){return '<option value="">Nessun impianto collegato</option>'+(db.vcImpianti||[]).slice().sort((a,b)=>plantLabel(a).localeCompare(plantLabel(b))).map(p=>`<option value="${html(plantId(p))}"${plantId(p)===current?' selected':''}>${html((plantCode(p)?plantCode(p)+' — ':'')+plantLabel(p))}</option>`).join('')}
+function teamLabel(t){return String(t?.name||t?.nome||t?.title||t?.squadra||t?.caposquadra||'Squadra')}
+function teamId(t){return String(t?.sourceId||t?.vcSourceId||t?.id||teamLabel(t))}
+function teamOptions(current){return '<option value="">Da assegnare</option>'+(db.vcSquadre||[]).map(t=>`<option value="${html(teamId(t))}"${teamId(t)===current?' selected':''}>${html(teamLabel(t))}</option>`).join('')}
+function selectedPlant(r){return (db.vcImpianti||[]).find(p=>plantId(p)===String(r.plantId||''))}
+function requestSite(r){const p=selectedPlant(r);return plantLabel(p)||(db.jobs.find(j=>j.id===r.jobId)?.site||'')}
+function ensureModal(){
+  if(document.getElementById('requestWorkModal'))return;
+  document.body.insertAdjacentHTML('beforeend',`<div id="requestWorkModal" class="request-modal" hidden><div class="request-modal-card"><div class="topline"><div><h2 id="requestWorkTitle">Gestisci richiesta</h2><p id="requestWorkMeta" class="muted"></p></div><button class="mini" id="requestWorkClose">CHIUDI</button></div><div class="request-work-grid"><label>Commessa<select id="requestWorkJob"></select></label><label>Impianto<select id="requestWorkPlant"></select></label><label>Data intervento<input id="requestWorkDate" type="date"></label><label>Squadra<select id="requestWorkTeam"></select></label><label>Stato<select id="requestWorkStatus">${statuses.map(x=>`<option>${x}</option>`).join('')}</select></label><label>Scadenza<input id="requestWorkDue" type="date"></label></div><label>Descrizione operativa<textarea id="requestWorkNotes" rows="5"></textarea></label><div class="request-work-actions"><button class="primary" data-request-action="intervention">CREA INTERVENTO</button><button class="ghost" data-request-action="quote">CREA PREVENTIVO</button><button class="ghost" data-request-action="report">CREA SEGNALAZIONE</button><button class="ghost" data-request-action="schedule">PROGRAMMA LAVORO</button><button class="ghost" data-request-action="navigate">NAVIGA</button><button class="ghost" data-request-action="draft">GENERA RISPOSTA</button><button class="ghost" data-request-action="workreport">CREA RAPPORTINO</button><button class="primary" data-request-action="complete">CHIUDI RICHIESTA</button></div><div id="requestDraftBox" class="request-draft" hidden><label>Bozza di risposta<textarea id="requestDraftText" rows="7"></textarea></label><div class="actions left"><button class="ghost" id="requestDraftCopy">COPIA BOZZA</button></div></div><p class="muted request-safety">Tutte le azioni restano in Varga Gestionale. Nessuna email viene inviata automaticamente e nessun dato viene scritto su Varga Cantieri.</p></div></div>`);
+  document.getElementById('requestWorkClose').onclick=()=>document.getElementById('requestWorkModal').hidden=true;
+  document.getElementById('requestWorkModal').onclick=e=>{if(e.target.id==='requestWorkModal')e.currentTarget.hidden=true};
+  document.querySelectorAll('[data-request-action]').forEach(b=>b.onclick=()=>runAction(b.dataset.requestAction));
+  document.getElementById('requestDraftCopy').onclick=async()=>{const value=document.getElementById('requestDraftText').value;try{await navigator.clipboard.writeText(value);alert('Bozza copiata.')}catch(_){document.getElementById('requestDraftText').select();document.execCommand('copy');alert('Bozza copiata.')}};
+}
+let activeRequestId='';
+function modalValues(r){return{jobId:document.getElementById('requestWorkJob').value,plantId:document.getElementById('requestWorkPlant').value,date:document.getElementById('requestWorkDate').value,teamId:document.getElementById('requestWorkTeam').value,status:document.getElementById('requestWorkStatus').value,dueDate:document.getElementById('requestWorkDue').value,notes:document.getElementById('requestWorkNotes').value.trim()}}
+function storeModal(r){Object.assign(r,modalValues(r),{updatedAt:new Date().toISOString()});save()}
+function openManager(id){
+  const r=db.requests.find(x=>x.id===id);if(!r)return;activeRequestId=id;ensureModal();
+  document.getElementById('requestWorkTitle').textContent=r.subject||'Gestisci richiesta';
+  document.getElementById('requestWorkMeta').textContent=[r.fromName||r.from,r.type,r.priority].filter(Boolean).join(' • ');
+  document.getElementById('requestWorkJob').innerHTML=jobOptions(r.jobId);
+  document.getElementById('requestWorkPlant').innerHTML=plantOptions(r.plantId);
+  document.getElementById('requestWorkTeam').innerHTML=teamOptions(r.teamId);
+  document.getElementById('requestWorkDate').value=r.scheduledDate||'';document.getElementById('requestWorkDue').value=r.dueDate||'';
+  document.getElementById('requestWorkStatus').value=r.status||'Nuova';document.getElementById('requestWorkNotes').value=r.notes||r.bodyPreview||'';
+  document.getElementById('requestDraftBox').hidden=true;document.getElementById('requestWorkModal').hidden=false;
+}
+function addDeadlineFromRequest(r,v){if(!v.date&&!v.dueDate)return false;const existing=db.deadlines.find(x=>x.sourceRequestId===r.id);const d={id:existing?.id||uid(),sourceRequestId:r.id,title:r.subject||'Intervento da email',date:v.date||v.dueDate,type:'Commessa',notes:[jobName(v.jobId),requestSite({...r,...v}),v.notes].filter(Boolean).join(' • '),done:false};if(existing)Object.assign(existing,d);else db.deadlines.push(d);return true}
+function makeQuote(r,v){const job=db.jobs.find(j=>j.id===v.jobId),clientId=job?.clientId||r.clientId||'',client=db.clients.find(c=>c.id===clientId);const existing=db.quotes.find(q=>q.sourceRequestId===r.id);if(existing){alert('Per questa email esiste già il preventivo '+existing.number+'.');nav('preventivi');return}const number=`PREV-${new Date().getFullYear()}-${String(db.quotes.length+1).padStart(4,'0')}`;db.quotes.push({id:uid(),sourceRequestId:r.id,number,date:new Date().toISOString().slice(0,10),clientId,clientName:client?.name||r.fromName||r.from,client:client||{},subject:r.subject,site:requestSite({...r,...v}),rows:[{id:uid(),code:'',description:v.notes||r.bodyPreview||r.subject,unit:'cad',qty:1,price:0}],subtotal:0,vat:0,total:0,vatRate:22,discount:0,validity:30,payment:'',status:'Bozza'});r.quoteNumber=number;r.status='Presa in carico';save();document.getElementById('requestWorkModal').hidden=true;nav('preventivi')}
+function makeWorkReport(r,v){if(typeof window.openReportFromRequest==='function'){storeModal(r);document.getElementById('requestWorkModal').hidden=true;window.openReportFromRequest({...r,...v,site:requestSite({...r,...v})});return}alert('Il modulo Rapportini non è ancora pronto. Ricarica la pagina e riprova.')}
+function navigate(r,v){const p=(db.vcImpianti||[]).find(x=>plantId(x)===v.plantId);if(!p)return alert('Seleziona prima un impianto.');const lat=p.lat||p.latitude||p.latitudine||p.gpsY||p.coordinateY,lon=p.lng||p.lon||p.longitude||p.longitudine||p.gpsX||p.coordinateX,address=p.address||p.indirizzo||p.via||p.descrizioneVia||plantLabel(p);const target=lat&&lon?`${lat},${lon}`:address;if(!target)return alert('Questo impianto non contiene coordinate o indirizzo.');window.open('https://www.google.com/maps/dir/?api=1&destination='+encodeURIComponent(target),'_blank','noopener')}
+function draftText(r,v){const day=v.date?new Date(v.date+'T12:00:00').toLocaleDateString('it-IT'):'';return `Buongiorno ${r.fromName||''},\n\nabbiamo ricevuto la richiesta “${r.subject||''}” e l’abbiamo presa in carico.${day?' L’intervento è stato programmato per il '+day+'.':''}\n\nCordiali saluti`}
+function runAction(action){
+  const r=db.requests.find(x=>x.id===activeRequestId);if(!r)return;const v=modalValues(r);Object.assign(r,v);
+  if(action==='intervention'){r.activity={createdAt:new Date().toISOString(),description:v.notes||r.bodyPreview,jobId:v.jobId,plantId:v.plantId,status:'Da programmare'};r.status='Presa in carico';save();alert('Intervento creato nel Gestionale.')}
+  else if(action==='quote')makeQuote(r,v);
+  else if(action==='report'){r.type='Segnalazione';r.activity={createdAt:new Date().toISOString(),description:v.notes||r.bodyPreview,jobId:v.jobId,plantId:v.plantId,status:'Aperta'};r.status='Presa in carico';save();alert('Segnalazione creata nel Gestionale.')}
+  else if(action==='schedule'){if(!v.date)return alert('Scegli la data dell’intervento.');r.scheduledDate=v.date;r.assignedTeamId=v.teamId;r.status='Programmata';addDeadlineFromRequest(r,v);save();alert('Lavoro programmato e aggiunto alle scadenze.')}
+  else if(action==='navigate')navigate(r,v);
+  else if(action==='draft'){document.getElementById('requestDraftText').value=draftText(r,v);document.getElementById('requestDraftBox').hidden=false}
+  else if(action==='workreport')makeWorkReport(r,v);
+  else if(action==='complete'){r.status='Completata';r.completedAt=new Date().toISOString();const d=db.deadlines.find(x=>x.sourceRequestId===r.id);if(d)d.done=true;save();document.getElementById('requestWorkModal').hidden=true;alert('Richiesta completata e archiviata nello storico.')}
+}
 function render(){
   if(!document.getElementById('requestsList'))return;
   db.requests=Array.isArray(db.requests)?db.requests:[];
@@ -72,13 +131,14 @@ function render(){
     const pc=x.priority==='Urgente'?'priority-high':x.priority==='Alta'?'priority-medium':'priority-normal';
     const gmail=x.gmailThreadId?`<a class="mini linkbtn" target="_blank" rel="noopener" href="https://mail.google.com/mail/u/0/#all/${encodeURIComponent(x.gmailThreadId)}">APRI EMAIL</a>`:'';
     const files=(x.files||[]).map(f=>f.driveUrl?`<a class="mini linkbtn" target="_blank" rel="noopener" href="${html(f.driveUrl)}">${html(f.name||'ALLEGATO')}</a>`:'').join('');
-    return `<div class="item request-card"><div class="item-main"><div class="item-title">${html(x.subject)} <span class="badge ${pc}">${html(x.priority)}</span> <span class="badge">${html(x.type)}</span></div><div class="item-sub">${html(x.fromName||x.from)} • ${html(new Date(x.emailDate||x.receivedAt).toLocaleString('it-IT'))}${x.attachmentNames?.length?' • '+x.attachmentNames.length+' allegati':''}</div><div class="item-sub request-body">${html(x.bodyPreview)}</div><div class="request-links">${gmail}${files}</div></div><div class="item-actions"><select class="request-select" data-request-status="${x.id}">${options(statuses,x.status)}</select><select class="request-select" data-request-job="${x.id}">${jobOptions(x.jobId)}</select><button class="mini danger" data-request-delete="${x.id}">ELIMINA</button></div></div>`;
+    return `<div class="item request-card"><div class="item-main"><div class="item-title">${html(x.subject)} <span class="badge ${pc}">${html(x.priority)}</span> <span class="badge">${html(x.type)}</span></div><div class="item-sub">${html(x.fromName||x.from)} • ${html(new Date(x.emailDate||x.receivedAt).toLocaleString('it-IT'))}${x.attachmentNames?.length?' • '+x.attachmentNames.length+' allegati':''}${x.scheduledDate?' • programmata '+html(x.scheduledDate):''}</div><div class="item-sub request-body">${html(x.bodyPreview)}</div><div class="request-links">${gmail}${files}</div></div><div class="item-actions"><select class="request-select" data-request-status="${x.id}">${options(statuses,x.status)}</select><select class="request-select" data-request-job="${x.id}">${jobOptions(x.jobId)}</select><button class="mini primary" data-request-manage="${x.id}">GESTISCI</button><button class="mini danger" data-request-delete="${x.id}">ELIMINA</button></div></div>`;
   }).join(''):'<div class="empty">Nessuna richiesta trovata.</div>';
   bindRows();
 }
 function bindRows(){
   document.querySelectorAll('[data-request-status]').forEach(el=>el.onchange=()=>{const r=db.requests.find(x=>x.id===el.dataset.requestStatus);if(r){r.status=el.value;r.updatedAt=new Date().toISOString();save()}});
   document.querySelectorAll('[data-request-job]').forEach(el=>el.onchange=()=>{const r=db.requests.find(x=>x.id===el.dataset.requestJob);if(r){r.jobId=el.value;r.updatedAt=new Date().toISOString();save()}});
+  document.querySelectorAll('[data-request-manage]').forEach(el=>el.onclick=()=>openManager(el.dataset.requestManage));
   document.querySelectorAll('[data-request-delete]').forEach(el=>el.onclick=()=>{if(!confirm('Eliminare questa richiesta dal gestionale?'))return;const request=db.requests.find(x=>x.id===el.dataset.requestDelete);if(request?.sourceReceiptId){const dismissed=getDismissed();dismissed.add(request.sourceReceiptId);setDismissed(dismissed)}db.requests=db.requests.filter(x=>x.id!==el.dataset.requestDelete);save()});
 }
 function renderSenderRules(){
