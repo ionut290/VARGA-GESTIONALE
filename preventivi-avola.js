@@ -212,17 +212,17 @@
     await loadExcelJs();
     const wb=new ExcelJS.Workbook();wb.creator='Varga Gestionale';wb.created=new Date();wb.calcProperties.fullCalcOnLoad=true;
     const ws=wb.addWorksheet('Preventivo');
-    ws.pageSetup={paperSize:9,orientation:'portrait',fitToPage:true,fitToWidth:1,fitToHeight:1,horizontalCentered:false,verticalCentered:false,margins:{left:0.1,right:0.1,top:0.1,bottom:0.1,header:0,footer:0}};
-    ws.views=[{showGridLines:false}];ws.properties.defaultRowHeight=18;ws.columns=[{width:18},{width:10},{width:34},{width:8},{width:9},{width:12},{width:12}];
-    const sidebar=await imageData(SIDEBAR_IMG,window.AVOLA_SIDEBAR_B64),sidebarId=wb.addImage({base64:sidebar,extension:'png'});ws.addImage(sidebarId,{tl:{col:0,row:0},ext:{width:145,height:1055},editAs:'absolute'});
+    ws.pageSetup={paperSize:9,orientation:'portrait',fitToPage:true,fitToWidth:1,fitToHeight:0,horizontalCentered:false,verticalCentered:false,margins:{left:0.1,right:0.1,top:0.1,bottom:0.1,header:0,footer:0}};
+    ws.views=[{showGridLines:false}];ws.properties.defaultRowHeight=15;ws.columns=[{width:18},{width:10},{width:34},{width:8},{width:9},{width:12},{width:12}];
+    const sidebar=await imageData(SIDEBAR_IMG,window.AVOLA_SIDEBAR_B64),sidebarId=wb.addImage({base64:sidebar,extension:'png'});ws.addImage(sidebarId,{tl:{col:0,row:0},ext:{width:145,height:965},editAs:'absolute'});
     const signature=await imageData(SIGNATURE_IMG,window.AVOLA_SIGNATURE_B64),signatureId=wb.addImage({base64:signature,extension:'png'});
     const d=q.date||dateIt(q.dateIso||todayIso()),client=q.client||{};
-    ws.mergeCells('B2:C2');ws.getCell('B2').value=`${q.place||DEFAULT_PLACE}, il ${d}`;
+    ws.mergeCells('B2:D2');ws.getCell('B2').value=`${q.place||DEFAULT_PLACE}, il ${d}`;ws.getCell('B2').font={size:11};
     ws.mergeCells('E2:F2');ws.getCell('E2').value='Spett.le';ws.getCell('E2').font={bold:true,size:10};
     [['E3',client.name||q.clientName||''],['E4',client.address||''],['E5',client.city||'']].forEach(([cell,value])=>{ws.mergeCells(`${cell}:F${cell.slice(1)}`);ws.getCell(cell).value=value});
-    ws.mergeCells('B7:F7');ws.getCell('B7').value=`OFFERTA ${q.number||''} del ${d}`;ws.getCell('B7').font={bold:true,size:12};
-    ws.mergeCells('B9:F9');ws.getCell('B9').value=`OGGETTO: ${q.subject||''}`;ws.getCell('B9').font={bold:true,size:11};
-    ws.mergeCells('B11:F12');ws.getCell('B11').value=q.intro||DEFAULT_INTRO;ws.getCell('B11').alignment={wrapText:true,vertical:'top'};
+    ws.mergeCells('B7:G7');ws.getCell('B7').value=`OFFERTA ${q.number||''} del ${d}`;ws.getCell('B7').font={bold:true,size:13};
+    ws.mergeCells('B9:G9');ws.getCell('B9').value=`OGGETTO: ${q.subject||''}`;ws.getCell('B9').font={bold:true,size:12};
+    ws.mergeCells('B11:G12');ws.getCell('B11').value=q.intro||DEFAULT_INTRO;ws.getCell('B11').font={size:11};ws.getCell('B11').alignment={wrapText:true,vertical:'top'};
     const headerRow=14,headers=['Codice','Descrizione','U.M.','Quantità','Prezzo unitario','Importo'];
     headers.forEach((h,i)=>{const c=ws.getCell(headerRow,i+2);c.value=h;c.font={bold:true,color:{argb:'FFFFFFFF'}};c.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FF006B3C'}};c.alignment={horizontal:'center',vertical:'middle',wrapText:true};c.border={top:{style:'thin'},left:{style:'thin'},bottom:{style:'thin'},right:{style:'thin'}}});ws.getRow(headerRow).height=30;
     const firstData=headerRow+1;
@@ -232,7 +232,7 @@
     const discountRow=referenceRow+2,totalRow=referenceRow+3;ws.mergeCells(`E${discountRow}:F${discountRow}`);ws.getCell(`E${discountRow}`).value='Sconto %';ws.getCell(`G${discountRow}`).value=Number(q.discount||0);ws.getCell(`G${discountRow}`).numFmt='0.00';
     ws.mergeCells(`E${totalRow}:F${totalRow}`);ws.getCell(`E${totalRow}`).value='TOTALE OFFERTA (IVA ESCLUSA)';ws.getCell(`E${totalRow}`).font={bold:true,size:11};ws.getCell(`G${totalRow}`).value={formula:`SUM(G${firstData}:G${lastData})*(1-G${discountRow}/100)`,result:Number(q.subtotal??q.total??0)};ws.getCell(`G${totalRow}`).font={bold:true,size:12};
     ws.getColumn(5).numFmt='#,##0.###';ws.getColumn(6).numFmt='€ #,##0.000';ws.getColumn(7).numFmt='€ #,##0.00';
-    const signRow=totalRow+2;ws.mergeCells(`E${signRow}:G${signRow}`);ws.getCell(`E${signRow}`).value='Timbro e Firma della Società Fornitrice';ws.getCell(`E${signRow}`).alignment={horizontal:'center'};ws.getCell(`E${signRow}`).font={size:9};ws.addImage(signatureId,{tl:{col:4.35,row:signRow},ext:{width:190,height:87},editAs:'oneCell'});ws.getRow(signRow+1).height=64;ws.pageSetup.printArea='A1:G54';
+    const signRow=totalRow+2;ws.mergeCells(`E${signRow}:G${signRow}`);ws.getCell(`E${signRow}`).value='Timbro e Firma della Società Fornitrice';ws.getCell(`E${signRow}`).alignment={horizontal:'center'};ws.getCell(`E${signRow}`).font={size:10};ws.addImage(signatureId,{tl:{col:4.35,row:signRow},ext:{width:190,height:87},editAs:'oneCell'});ws.getRow(signRow+1).height=64;ws.pageSetup.printArea='A1:G44';
     const buffer=await wb.xlsx.writeBuffer(),blob=new Blob([buffer],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`Offerta-${safeFileName(q.number)}-${safeFileName(q.clientName||client.name)}.xlsx`;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);
   }
   async function downloadXlsx(q){try{await exportQuoteXlsx(q)}catch(err){console.error(err);alert('Non riesco a creare il file Excel. Controlla la connessione e riprova.')}}
