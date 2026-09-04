@@ -172,7 +172,10 @@
     const sidebarSrc=embeddedImage(window.AVOLA_SIDEBAR_B64,SIDEBAR_IMG);
     const signatureSrc=embeddedImage(window.AVOLA_SIGNATURE_B64,SIGNATURE_IMG);
     return `<div class="avola-print-doc">
-      <img class="avola-side" src="${sidebarSrc}" alt="Intestazione Avola">
+      <svg class="avola-letterhead" viewBox="0 0 210 297" preserveAspectRatio="none" aria-label="Foglio intestato Avola">
+        <rect x="0" y="0" width="210" height="297" fill="#ffffff"></rect>
+        <image href="${sidebarSrc}" x="0" y="0" width="48.5" height="297" preserveAspectRatio="none"></image>
+      </svg>
       <div class="avola-content">
         <div class="avola-header-grid"><div class="avola-place">${E(q.place||DEFAULT_PLACE)}, il ${E(d)}</div><div class="avola-client">${clientBlock(q.client||{})}</div></div>
         <div class="avola-offer-title">OFFERTA ${E(q.number||'')} del ${E(d)}</div>
@@ -215,8 +218,8 @@
         #preventivo{display:block!important}
         .quote-print{display:block!important;width:210mm!important;margin:0!important;padding:0!important}
         .avola-print-doc{position:relative;width:210mm;min-height:297mm;background:#fff;color:#000;font-family:Arial,Helvetica,sans-serif;font-size:10.2pt;line-height:1.18;overflow:hidden}
-        .avola-side{position:absolute;left:0;top:0;width:48.5mm;height:297mm;object-fit:fill;display:block}
-        .avola-content{margin-left:51mm;width:154mm;padding-top:25mm;padding-right:4mm;min-height:297mm}
+        .avola-letterhead{position:absolute;inset:0;width:210mm;height:297mm;display:block;z-index:0}
+        .avola-content{position:relative;z-index:1;margin-left:51mm;width:154mm;padding-top:25mm;padding-right:4mm;min-height:297mm}
         .avola-header-grid{display:grid;grid-template-columns:1fr 57mm;gap:8mm;align-items:start;min-height:28mm}
         .avola-place{padding-top:2mm;white-space:nowrap}.avola-client{font-size:9.6pt;line-height:1.2}
         .avola-offer-title{font-weight:800;font-size:11pt;margin:0 0 12mm}
