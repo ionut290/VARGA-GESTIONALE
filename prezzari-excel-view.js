@@ -3,6 +3,7 @@
   const ACTIVE_KEY='vg_activePriceListId_v2';
   let excelState=null;
   let uiReady=false;
+  let quickUploadMode=false;
 
   const ntext=value=>String(value??'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim();
   const numberFrom=value=>{
@@ -43,6 +44,10 @@
       .vg-new-pricebook-actions{margin-top:12px;padding:13px;border:2px solid #69b98f;border-radius:11px;background:#eef9f3}
       .vg-new-pricebook-actions strong{display:block;color:#174f36;margin-bottom:5px}
       .vg-new-pricebook-actions .actions{margin-top:10px;justify-content:flex-start}
+      .vg-quick-pricebook{border:2px solid #176b48;background:linear-gradient(135deg,#eaf8f0,#fff);text-align:center;padding:22px}
+      .vg-quick-pricebook h2{margin:0 0 6px;color:#174f36}
+      .vg-quick-pricebook p{margin:0 0 15px;color:#49685a}
+      .vg-quick-pricebook button{font-size:16px;padding:13px 22px;min-width:min(310px,100%)}
       .vg-pricebook-picker select{font-size:15px;font-weight:800;border-color:#8bbda4}
       .vg-pricebook-chips{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
       .vg-pricebook-chip{border:1px solid #b7cfc2;background:#fff;color:#225d43;padding:8px 11px;border-radius:999px;font-weight:800;cursor:pointer}
@@ -80,6 +85,15 @@
     const entries=document.getElementById('entriesList');
     if(!section||!entries)return;
     injectStyles();
+
+    if(!document.getElementById('vgQuickPriceBook')){
+      const quick=document.createElement('div');
+      quick.id='vgQuickPriceBook';
+      quick.className='panel vg-quick-pricebook';
+      quick.innerHTML=`<h2>Aggiungi un prezziario in modo semplice</h2><p>Premi il pulsante e scegli il file Excel. Il nome viene compilato automaticamente.</p><button type="button" id="vgQuickUpload" class="primary">CARICA NUOVO PREZZIARIO EXCEL</button>`;
+      const subtitle=section.querySelector('.subtitle');
+      if(subtitle)subtitle.insertAdjacentElement('afterend',quick); else section.prepend(quick);
+    }
 
     let picker=document.getElementById('vgPriceBookPicker');
     if(!picker){
@@ -243,6 +257,13 @@
   }
 
   function bindCreateAndManual(){
+    const quickUpload=document.getElementById('vgQuickUpload');
+    if(quickUpload)quickUpload.onclick=()=>{
+      quickUploadMode=true;
+      const input=document.getElementById('excelFile');
+      if(input){input.value='';input.click()}
+    };
+
     const addPL=document.getElementById('addPriceList');
     if(addPL)addPL.onclick=()=>{
       const input=document.getElementById('plName');
@@ -327,10 +348,25 @@
     if(!input)return;
     input.onchange=async event=>{
       const file=event.target.files?.[0];
-      if(!file)return;
+      if(!file){quickUploadMode=false;return;}
+      let createdPriceList=null;
+      if(quickUploadMode){
+        quickUploadMode=false;
+        const baseName=file.name.replace(/\.(xlsx|xls|csv)$/i,'').replace(/[_-]+/g,' ').replace(/\s+/g,' ').trim()||'Nuovo prezziario';
+        let name=baseName, suffix=2;
+        while(db.priceLists.some(p=>ntext(p.name)===ntext(name)))name=`${baseName} ${suffix++}`;
+        createdPriceList={id:uid(),name};
+        db.priceLists.push(createdPriceList);
+        try{localStorage.setItem(ACTIVE_KEY,createdPriceList.id)}catch(_){}
+        renderPriceLists();
+      }
       const active=activePriceListId();
       if(!active){input.value='';return alert('Crea o seleziona prima il prezziario di destinazione.');}
-      if(typeof XLSX==='undefined'){input.value='';return alert('Modulo Excel non disponibile: connetti il PC a Internet e riapri.');}
+      if(typeof XLSX==='undefined'){
+        if(createdPriceList){db.priceLists=db.priceLists.filter(p=>p.id!==createdPriceList.id);renderPriceLists()}
+        input.value='';
+        return alert('Modulo Excel non disponibile: connetti il PC a Internet e riapri.');
+      }
       try{
         const workbook=XLSX.read(await file.arrayBuffer(),{type:'array'});
         const sheetName=workbook.SheetNames.find(n=>ntext(n)==='prezziario')||workbook.SheetNames[0];
@@ -347,7 +383,7 @@
         const pl=db.priceLists.find(p=>p.id===active);
         if(pl&&ntext(file.name).includes('assoverde'))pl.name='Assoverde 2025';
         const area=document.getElementById('excelArea');
-        area.innerHTML=`<div class="warn">File: <strong>${esc(file.name)}</strong> • Foglio: <strong>${esc(sheetName)}</strong> • <strong>${parsed.length} voci valide</strong>.<br>Riconosciute: Codice ${map.code>=0?'✓':'—'}, Descrizione ✓, U.M. ${map.unit>=0?'✓':'—'}, Prezzo unitario ✓, Ribasso ${map.discount>=0?'✓':'—'}.</div>${previewHtml(parsed)}<div class="actions left"><button id="doExcel" class="primary">AGGIORNA ${esc(pl?.name||'PREZZIARIO')}</button></div>`;
+        area.innerHTML=`<div class="warn"><strong>File pronto:</strong> ${esc(file.name)} • Foglio: <strong>${esc(sheetName)}</strong> • <strong>${parsed.length} voci valide</strong>.<br>Riconosciute: Codice ${map.code>=0?'✓':'—'}, Descrizione ✓, U.M. ${map.unit>=0?'✓':'—'}, Prezzo unitario ✓, Ribasso ${map.discount>=0?'✓':'—'}.</div>${previewHtml(parsed)}<div class="actions left"><button id="doExcel" class="primary">IMPORTA ORA IN ${esc(pl?.name||'PREZZIARIO')}</button></div>`;
         document.getElementById('doExcel').onclick=()=>{
           const current=activePriceListId();
           if(current!==active)return alert('Hai cambiato prezziario. Ricarica il file per evitare di importarlo nel prezziario sbagliato.');
@@ -363,6 +399,12 @@
         };
       }catch(err){
         console.warn(err);
+        if(createdPriceList){
+          db.priceLists=db.priceLists.filter(p=>p.id!==createdPriceList.id);
+          const next=db.priceLists[0]?.id||'';
+          try{next?localStorage.setItem(ACTIVE_KEY,next):localStorage.removeItem(ACTIVE_KEY)}catch(_){}
+          renderPriceLists();
+        }
         const area=document.getElementById('excelArea');
         if(area)area.innerHTML=`<div class="warn">Errore importazione: ${esc(err.message||String(err))}</div>`;
         input.value='';
