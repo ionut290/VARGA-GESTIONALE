@@ -195,11 +195,56 @@
   }
   printCurrent=function(){if(!qrows.length)return alert('Inserisci almeno una voce.');return printQuoteObject(collectQ())};
 
+  function loadExcelJs(){
+    if(window.ExcelJS)return Promise.resolve();
+    if(window.__vgExcelJsPromise)return window.__vgExcelJsPromise;
+    window.__vgExcelJsPromise=new Promise((resolve,reject)=>{const s=document.createElement('script');s.src='https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js';s.onload=resolve;s.onerror=()=>reject(new Error('ExcelJS non disponibile'));document.head.appendChild(s)});
+    return window.__vgExcelJsPromise;
+  }
+  async function imageData(path,fallbackBase64){
+    try{const response=await fetch(path,{cache:'force-cache'});if(response.ok){const bytes=new Uint8Array(await response.arrayBuffer());let binary='';for(let i=0;i<bytes.length;i+=0x8000)binary+=String.fromCharCode(...bytes.subarray(i,i+0x8000));return btoa(binary)}}catch(_){}
+    const fallback=String(fallbackBase64||'').trim();if(!fallback)throw new Error(`Immagine non disponibile: ${path}`);
+    if(!fallback.startsWith('UklG'))return fallback;
+    return new Promise((resolve,reject)=>{const img=new Image();img.onload=()=>{const canvas=document.createElement('canvas');canvas.width=img.naturalWidth;canvas.height=img.naturalHeight;canvas.getContext('2d').drawImage(img,0,0);resolve(canvas.toDataURL('image/png').split(',')[1])};img.onerror=reject;img.src='data:image/webp;base64,'+fallback});
+  }
+  function safeFileName(value){return String(value||'preventivo').replace(/[\\/:*?"<>|]+/g,'-').replace(/\s+/g,' ').trim()||'preventivo'}
+  async function exportQuoteXlsx(q){
+    await loadExcelJs();
+    const wb=new ExcelJS.Workbook();wb.creator='Varga Gestionale';wb.created=new Date();wb.calcProperties.fullCalcOnLoad=true;
+    const ws=wb.addWorksheet('Preventivo',{pageSetup:{paperSize:9,orientation:'portrait',fitToPage:true,fitToWidth:1,fitToHeight:0,margins:{left:0,right:0.2,top:0.2,bottom:0.3,header:0,footer:0}}});
+    ws.views=[{showGridLines:false}];ws.properties.defaultRowHeight=18;ws.columns=[{width:24},{width:12},{width:42},{width:10},{width:11},{width:15},{width:15}];
+    const sidebar=await imageData(SIDEBAR_IMG,window.AVOLA_SIDEBAR_B64),sidebarId=wb.addImage({base64:sidebar,extension:'png'});ws.addImage(sidebarId,{tl:{col:0,row:0},ext:{width:180,height:1000},editAs:'absolute'});
+    const signature=await imageData(SIGNATURE_IMG,window.AVOLA_SIGNATURE_B64),signatureId=wb.addImage({base64:signature,extension:'png'});
+    const d=q.date||dateIt(q.dateIso||todayIso()),client=q.client||{};
+    ws.mergeCells('B2:C2');ws.getCell('B2').value=`${q.place||DEFAULT_PLACE}, il ${d}`;
+    ws.mergeCells('E2:F2');ws.getCell('E2').value='Spett.le';ws.getCell('E2').font={bold:true,size:10};
+    [['E3',client.name||q.clientName||''],['E4',client.address||''],['E5',client.city||'']].forEach(([cell,value])=>{ws.mergeCells(`${cell}:F${cell.slice(1)}`);ws.getCell(cell).value=value});
+    ws.mergeCells('B7:F7');ws.getCell('B7').value=`OFFERTA ${q.number||''} del ${d}`;ws.getCell('B7').font={bold:true,size:12};
+    ws.mergeCells('B9:F9');ws.getCell('B9').value=`OGGETTO: ${q.subject||''}`;ws.getCell('B9').font={bold:true,size:11};
+    ws.mergeCells('B11:F12');ws.getCell('B11').value=q.intro||DEFAULT_INTRO;ws.getCell('B11').alignment={wrapText:true,vertical:'top'};
+    const headerRow=14,headers=['Codice','Descrizione','U.M.','Quantità','Prezzo unitario','Importo'];
+    headers.forEach((h,i)=>{const c=ws.getCell(headerRow,i+2);c.value=h;c.font={bold:true,color:{argb:'FFFFFFFF'}};c.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FF006B3C'}};c.alignment={horizontal:'center',vertical:'middle',wrapText:true};c.border={top:{style:'thin'},left:{style:'thin'},bottom:{style:'thin'},right:{style:'thin'}}});ws.getRow(headerRow).height=30;
+    const firstData=headerRow+1;
+    (q.rows||[]).forEach((r,index)=>{const row=firstData+index;ws.getCell(row,2).value=r.code||'';ws.getCell(row,3).value=r.description||'';ws.getCell(row,4).value=r.unit||'';ws.getCell(row,5).value=Number(r.qty||0);ws.getCell(row,6).value=Number(r.price||0);ws.getCell(row,7).value={formula:`E${row}*F${row}`,result:Number(r.qty||0)*Number(r.price||0)};for(let col=2;col<=7;col++){const c=ws.getCell(row,col);c.alignment={vertical:'top',wrapText:col===3};c.border={top:{style:'thin',color:{argb:'FFAAAAAA'}},left:{style:'thin',color:{argb:'FFAAAAAA'}},bottom:{style:'thin',color:{argb:'FFAAAAAA'}},right:{style:'thin',color:{argb:'FFAAAAAA'}}}}ws.getRow(row).height=32});
+    const lastData=Math.max(firstData,firstData+(q.rows||[]).length-1),referenceRow=lastData+2;
+    ws.mergeCells(`B${referenceRow}:G${referenceRow}`);ws.getCell(referenceRow,2).value=referenceText(q);ws.getCell(referenceRow,2).font={italic:true,size:9};ws.getCell(referenceRow,2).alignment={wrapText:true};
+    const discountRow=referenceRow+2,totalRow=referenceRow+3;ws.mergeCells(`E${discountRow}:F${discountRow}`);ws.getCell(`E${discountRow}`).value='Sconto %';ws.getCell(`G${discountRow}`).value=Number(q.discount||0);ws.getCell(`G${discountRow}`).numFmt='0.00';
+    ws.mergeCells(`E${totalRow}:F${totalRow}`);ws.getCell(`E${totalRow}`).value='TOTALE OFFERTA (IVA ESCLUSA)';ws.getCell(`E${totalRow}`).font={bold:true,size:11};ws.getCell(`G${totalRow}`).value={formula:`SUM(G${firstData}:G${lastData})*(1-G${discountRow}/100)`,result:Number(q.subtotal??q.total??0)};ws.getCell(`G${totalRow}`).font={bold:true,size:12};
+    ws.getColumn(5).numFmt='#,##0.###';ws.getColumn(6).numFmt='€ #,##0.000';ws.getColumn(7).numFmt='€ #,##0.00';
+    const signRow=totalRow+2;ws.mergeCells(`E${signRow}:G${signRow}`);ws.getCell(`E${signRow}`).value='Timbro e Firma della Società Fornitrice';ws.getCell(`E${signRow}`).alignment={horizontal:'center'};ws.getCell(`E${signRow}`).font={size:9};ws.addImage(signatureId,{tl:{col:4.7,row:signRow},ext:{width:230,height:105},editAs:'oneCell'});ws.getRow(signRow+1).height=75;ws.pageSetup.printArea=`A1:G${signRow+5}`;
+    const buffer=await wb.xlsx.writeBuffer(),blob=new Blob([buffer],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`Offerta-${safeFileName(q.number)}-${safeFileName(q.clientName||client.name)}.xlsx`;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+  }
+  async function downloadXlsx(q){try{await exportQuoteXlsx(q)}catch(err){console.error(err);alert('Non riesco a creare il file Excel. Controlla la connessione e riprova.')}}
+  function addCurrentExcelButton(){
+    const pdf=$('printQuote');if(!pdf||$('excelQuote'))return;const b=document.createElement('button');b.id='excelQuote';b.className='ghost';b.textContent='SCARICA EXCEL';b.onclick=()=>{if(!qrows.length)return alert('Inserisci almeno una voce.');downloadXlsx(collectQ())};pdf.parentElement.insertBefore(b,pdf);
+  }
+
   function addSavedQuotePdfButtons(){
     const list=$('quotesList');if(!list)return;
     list.querySelectorAll('[data-del-quote]').forEach(del=>{
       const box=del.parentElement,id=del.dataset.delQuote;if(!box||box.querySelector(`[data-av-pdf="${CSS.escape(id)}"]`))return;
       const b=document.createElement('button');b.className='mini';b.dataset.avPdf=id;b.textContent='PDF';b.onclick=()=>{const q=(db.quotes||[]).find(x=>x.id===id);if(q)printQuoteObject(q)};box.insertBefore(b,box.firstChild);
+      const x=document.createElement('button');x.className='mini';x.dataset.avXlsx=id;x.textContent='EXCEL';x.onclick=()=>{const q=(db.quotes||[]).find(v=>v.id===id);if(q)downloadXlsx(q)};box.insertBefore(x,b);
     });
   }
 
@@ -234,7 +279,7 @@
   }
 
   function install(){
-    installStyles();enhanceForm();
+    installStyles();enhanceForm();addCurrentExcelButton();
     if($('smartSearch'))$('smartSearch').onclick=runPriceSearch;
     if($('newQuote'))$('newQuote').onclick=clearQuote;
     if($('printQuote'))$('printQuote').onclick=printCurrent;
@@ -242,7 +287,7 @@
     if($('qDiscount'))$('qDiscount').oninput=calcQ;
     const oldRefresh=typeof refresh==='function'?refresh:null;
     if(oldRefresh&&!oldRefresh.__avolaPreventivi){
-      refresh=function(){const r=oldRefresh();enhanceForm();renderPriceListPicker(false);updateClientPreview();addSavedQuotePdfButtons();return r};
+      refresh=function(){const r=oldRefresh();enhanceForm();addCurrentExcelButton();renderPriceListPicker(false);updateClientPreview();addSavedQuotePdfButtons();return r};
       refresh.__avolaPreventivi=true;
     }
     addSavedQuotePdfButtons();calcQ();
