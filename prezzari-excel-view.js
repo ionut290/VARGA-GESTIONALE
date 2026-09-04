@@ -54,9 +54,8 @@
       .vg-pricebook-sheet td{padding:6px 7px;border:1px solid #87cdeb;vertical-align:top;color:#14231c;line-height:1.25;word-break:break-word}
       .vg-pricebook-sheet tbody tr:nth-child(odd){background:#c7eaf7}
       .vg-pricebook-sheet tbody tr:nth-child(even){background:#fff}
-      .vg-pricebook-sheet .c-chapter{width:22%}
-      .vg-pricebook-sheet .c-code{width:14%;text-align:center;white-space:nowrap}
-      .vg-pricebook-sheet .c-desc{width:40%}
+      .vg-pricebook-sheet .c-code{width:17%;text-align:center;white-space:nowrap}
+      .vg-pricebook-sheet .c-desc{width:52%}
       .vg-pricebook-sheet .c-unit{width:9%;text-align:center}
       .vg-pricebook-sheet .c-price,.vg-pricebook-sheet .c-discount{width:9%;text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
       .vg-pricebook-manual-note{grid-column:span 2;background:#edf5f0;border:1px solid #cfe0d7;border-radius:9px;padding:9px 11px;color:#315743;font-size:12px;font-weight:800}
@@ -92,7 +91,7 @@
         const head=document.createElement('div');
         head.id='vgPriceBookTableHead';
         head.className='vg-pricebook-table-head';
-        head.innerHTML=`<div><h2>Voci del prezziario</h2><div id="vgPriceBookCount" class="vg-pricebook-count"></div></div><input id="vgPriceBookSearch" class="vg-pricebook-search" placeholder="Cerca capitolo, codice o descrizione...">`;
+        head.innerHTML=`<div><h2>Voci del prezziario</h2><div id="vgPriceBookCount" class="vg-pricebook-count"></div></div><input id="vgPriceBookSearch" class="vg-pricebook-search" placeholder="Cerca codice o descrizione...">`;
         listPanel.insertBefore(head,entries);
         head.querySelector('#vgPriceBookSearch').addEventListener('input',renderPriceLists);
       }
@@ -103,10 +102,7 @@
     const manualPanel=manualPL?.closest('.panel');
     if(manualPanel){
       manualPL.style.display='none';
-      if(!document.getElementById('eChapter')){
-        const ch=document.createElement('input'); ch.id='eChapter'; ch.placeholder='Capitolo';
-        manualPanel.insertBefore(ch,manualPL);
-      }
+      document.getElementById('eChapter')?.remove();
       if(!document.getElementById('eDiscount')){
         const discount=document.createElement('input'); discount.id='eDiscount'; discount.type='number'; discount.step='0.01'; discount.placeholder='Ribasso %';
         const button=document.getElementById('addEntry');
@@ -153,13 +149,13 @@
     const active=activePriceListId();
     const query=ntext(document.getElementById('vgPriceBookSearch')?.value||'');
     let rows=db.entries.filter(e=>e.priceListId===active);
-    if(query)rows=rows.filter(e=>ntext([e.chapter,e.code,e.description,e.unit,e.price,e.discount].join(' ')).includes(query));
+    if(query)rows=rows.filter(e=>ntext([e.code,e.description,e.unit,e.price,e.discount].join(' ')).includes(query));
     const total=db.entries.reduce((n,e)=>n+(e.priceListId===active?1:0),0);
     const count=document.getElementById('vgPriceBookCount');
     if(count)count.textContent=query?`${rows.length} risultati su ${total} voci`:`${total} voci caricate`;
     if(!active){target.innerHTML='<div class="empty">Crea o seleziona un prezziario.</div>';return;}
     if(!rows.length){target.innerHTML='<div class="empty">Nessuna voce in questo prezziario.</div>';return;}
-    target.innerHTML=`<div class="vg-pricebook-sheet-wrap"><table class="vg-pricebook-sheet"><thead><tr><th class="c-chapter">CAPITOLO</th><th class="c-code">CODICE PREZZO</th><th class="c-desc">DESCRIZIONE</th><th class="c-unit">UNITÀ DI MISURA</th><th class="c-price">PREZZO UNITARIO</th><th class="c-discount">RIBASSO %</th></tr></thead><tbody>${rows.map(e=>`<tr><td class="c-chapter">${esc(e.chapter||'')}</td><td class="c-code">${esc(e.code||'')}</td><td class="c-desc">${esc(e.description||'')}</td><td class="c-unit">${esc(e.unit||'')}</td><td class="c-price">${fixed2(e.price)}</td><td class="c-discount">${fixed2(e.discount||0)}</td></tr>`).join('')}</tbody></table></div>`;
+    target.innerHTML=`<div class="vg-pricebook-sheet-wrap"><table class="vg-pricebook-sheet"><thead><tr><th class="c-code">CODICE PREZZO</th><th class="c-desc">DESCRIZIONE</th><th class="c-unit">UNITÀ DI MISURA</th><th class="c-price">PREZZO UNITARIO</th><th class="c-discount">RIBASSO %</th></tr></thead><tbody>${rows.map(e=>`<tr><td class="c-code">${esc(e.code||'')}</td><td class="c-desc">${esc(e.description||'')}</td><td class="c-unit">${esc(e.unit||'')}</td><td class="c-price">${fixed2(e.price)}</td><td class="c-discount">${fixed2(e.discount||0)}</td></tr>`).join('')}</tbody></table></div>`;
   }
 
   function renderPriceLists(){
@@ -188,10 +184,10 @@
       const description=document.getElementById('eDesc')?.value.trim()||'';
       if(!description)return alert('Inserisci la descrizione della voce.');
       const code=(document.getElementById('eCode')?.value.trim()||'VOCE').trim();
-      const data={priceListId:pl,chapter:document.getElementById('eChapter')?.value.trim()||'',code,description,unit:document.getElementById('eUnit')?.value.trim()||'cad',price:numberFrom(document.getElementById('ePrice')?.value),discount:numberFrom(document.getElementById('eDiscount')?.value)};
+      const data={priceListId:pl,code,description,unit:document.getElementById('eUnit')?.value.trim()||'cad',price:numberFrom(document.getElementById('ePrice')?.value),discount:numberFrom(document.getElementById('eDiscount')?.value)};
       const existing=db.entries.find(e=>e.priceListId===pl&&ntext(e.code)===ntext(code));
       if(existing)Object.assign(existing,data); else db.entries.push({id:uid(),...data});
-      ['eChapter','eCode','eDesc','eUnit','ePrice','eDiscount'].forEach(id=>{const el=document.getElementById(id);if(el)el.value=''});
+      ['eCode','eDesc','eUnit','ePrice','eDiscount'].forEach(id=>{const el=document.getElementById(id);if(el)el.value=''});
       save();
     };
   }
@@ -210,7 +206,13 @@
     for(const a of as){const i=hs.findIndex(h=>h.includes(a));if(i>=0)return i;}
     return -1;
   }
-  function columnMap(headers){return{chapter:detectColumn(headers,'chapter'),code:detectColumn(headers,'code'),description:detectColumn(headers,'description'),unit:detectColumn(headers,'unit'),price:detectColumn(headers,'price'),discount:detectColumn(headers,'discount')}}
+  function detectUnitPriceColumn(headers){
+    const hs=headers.map(ntext);
+    const exact=['prezzo unitario','importo unitario','tariffa unitaria'];
+    for(const name of exact){const i=hs.findIndex(h=>h===name);if(i>=0)return i;}
+    return hs.findIndex(h=>(h.includes('prezzo')||h.includes('importo')||h.includes('tariffa'))&&!h.includes('codice'));
+  }
+  function columnMap(headers){return{chapter:detectColumn(headers,'chapter'),code:detectColumn(headers,'code'),description:detectColumn(headers,'description'),unit:detectColumn(headers,'unit'),price:detectUnitPriceColumn(headers),discount:detectColumn(headers,'discount')}}
   function findHeaderRow(matrix){
     const limit=Math.min(matrix.length,40);
     for(let i=0;i<limit;i++){
@@ -238,7 +240,7 @@
   function previewHtml(rows){
     const sample=rows.slice(0,8);
     if(!sample.length)return '';
-    return `<div class="vg-pricebook-preview"><table><thead><tr><th>CAPITOLO</th><th>CODICE PREZZO</th><th>DESCRIZIONE</th><th>UNITÀ DI MISURA</th><th>PREZZO UNITARIO</th><th>RIBASSO %</th></tr></thead><tbody>${sample.map(e=>`<tr><td>${esc(e.chapter)}</td><td>${esc(e.code)}</td><td>${esc(e.description)}</td><td>${esc(e.unit)}</td><td>${fixed2(e.price)}</td><td>${fixed2(e.discount)}</td></tr>`).join('')}</tbody></table></div>`;
+    return `<div class="vg-pricebook-preview"><table><thead><tr><th>CODICE PREZZO</th><th>DESCRIZIONE</th><th>UNITÀ DI MISURA</th><th>PREZZO UNITARIO</th><th>RIBASSO %</th></tr></thead><tbody>${sample.map(e=>`<tr><td>${esc(e.code)}</td><td>${esc(e.description)}</td><td>${esc(e.unit)}</td><td>${fixed2(e.price)}</td><td>${fixed2(e.discount)}</td></tr>`).join('')}</tbody></table></div>`;
   }
 
   function bindExcelImport(){
@@ -254,7 +256,7 @@
         const workbook=XLSX.read(await file.arrayBuffer(),{type:'array'});
         const sheetName=workbook.SheetNames.find(n=>ntext(n)==='prezziario')||workbook.SheetNames[0];
         const sheet=workbook.Sheets[sheetName];
-        const matrix=XLSX.utils.sheet_to_json(sheet,{header:1,defval:'',raw:false});
+        const matrix=XLSX.utils.sheet_to_json(sheet,{header:1,defval:'',raw:true});
         const headerRow=findHeaderRow(matrix);
         if(headerRow<0)throw new Error('Non trovo la riga delle intestazioni.');
         const headers=matrix[headerRow]||[];
@@ -264,8 +266,9 @@
         excelState={fileName:file.name,sheetName,headerRow,headers,rows,map};
         const parsed=buildImportedRows(excelState);
         const pl=db.priceLists.find(p=>p.id===active);
+        if(pl&&ntext(file.name).includes('assoverde'))pl.name='Assoverde 2025';
         const area=document.getElementById('excelArea');
-        area.innerHTML=`<div class="warn">File: <strong>${esc(file.name)}</strong> • Foglio: <strong>${esc(sheetName)}</strong> • <strong>${parsed.length} voci valide</strong>.<br>Riconosciute: Capitolo ${map.chapter>=0?'✓':'—'}, Codice ${map.code>=0?'✓':'—'}, Descrizione ✓, U.M. ${map.unit>=0?'✓':'—'}, Prezzo unitario ✓, Ribasso ${map.discount>=0?'✓':'—'}.</div>${previewHtml(parsed)}<div class="actions left"><button id="doExcel" class="primary">AGGIORNA ${esc(pl?.name||'PREZZIARIO')}</button></div>`;
+        area.innerHTML=`<div class="warn">File: <strong>${esc(file.name)}</strong> • Foglio: <strong>${esc(sheetName)}</strong> • <strong>${parsed.length} voci valide</strong>.<br>Riconosciute: Codice ${map.code>=0?'✓':'—'}, Descrizione ✓, U.M. ${map.unit>=0?'✓':'—'}, Prezzo unitario ✓, Ribasso ${map.discount>=0?'✓':'—'}.</div>${previewHtml(parsed)}<div class="actions left"><button id="doExcel" class="primary">AGGIORNA ${esc(pl?.name||'PREZZIARIO')}</button></div>`;
         document.getElementById('doExcel').onclick=()=>{
           const current=activePriceListId();
           if(current!==active)return alert('Hai cambiato prezziario. Ricarica il file per evitare di importarlo nel prezziario sbagliato.');
