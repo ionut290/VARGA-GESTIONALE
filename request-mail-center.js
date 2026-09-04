@@ -103,7 +103,7 @@ function openManager(id){
 }
 function addDeadlineFromRequest(r,v){if(!v.date&&!v.dueDate)return false;const existing=db.deadlines.find(x=>x.sourceRequestId===r.id);const d={id:existing?.id||uid(),sourceRequestId:r.id,title:r.subject||'Intervento da email',date:v.date||v.dueDate,type:'Commessa',notes:[jobName(v.jobId),requestSite({...r,...v}),v.notes].filter(Boolean).join(' • '),done:false};if(existing)Object.assign(existing,d);else db.deadlines.push(d);return true}
 function makeQuote(r,v){const job=db.jobs.find(j=>j.id===v.jobId),clientId=job?.clientId||r.clientId||'',client=db.clients.find(c=>c.id===clientId);const existing=db.quotes.find(q=>q.sourceRequestId===r.id);if(existing){alert('Per questa email esiste già il preventivo '+existing.number+'.');nav('preventivi');return}const number=`PREV-${new Date().getFullYear()}-${String(db.quotes.length+1).padStart(4,'0')}`;db.quotes.push({id:uid(),sourceRequestId:r.id,number,date:new Date().toISOString().slice(0,10),clientId,clientName:client?.name||r.fromName||r.from,client:client||{},subject:r.subject,site:requestSite({...r,...v}),rows:[{id:uid(),code:'',description:v.notes||r.bodyPreview||r.subject,unit:'cad',qty:1,price:0}],subtotal:0,vat:0,total:0,vatRate:22,discount:0,validity:30,payment:'',status:'Bozza'});r.quoteNumber=number;r.status='Presa in carico';save();document.getElementById('requestWorkModal').hidden=true;nav('preventivi')}
-function makeWorkReport(r,v){if(typeof window.openReportFromRequest==='function'){storeModal(r);document.getElementById('requestWorkModal').hidden=true;window.openReportFromRequest({...r,...v,site:requestSite({...r,...v})});return}alert('Il modulo Rapportini non è ancora pronto. Ricarica la pagina e riprova.')}
+function makeWorkReport(r,v){if(typeof window.openReportFromRequest==='function'){r.reportStartedAt=new Date().toISOString();storeModal(r);document.getElementById('requestWorkModal').hidden=true;window.openReportFromRequest({...r,...v,site:requestSite({...r,...v})});return}alert('Il modulo Rapportini non è ancora pronto. Ricarica la pagina e riprova.')}
 function navigate(r,v){const p=(db.vcImpianti||[]).find(x=>plantId(x)===v.plantId);if(!p)return alert('Seleziona prima un impianto.');const lat=p.lat||p.latitude||p.latitudine||p.gpsY||p.coordinateY,lon=p.lng||p.lon||p.longitude||p.longitudine||p.gpsX||p.coordinateX,address=p.address||p.indirizzo||p.via||p.descrizioneVia||plantLabel(p);const target=lat&&lon?`${lat},${lon}`:address;if(!target)return alert('Questo impianto non contiene coordinate o indirizzo.');window.open('https://www.google.com/maps/dir/?api=1&destination='+encodeURIComponent(target),'_blank','noopener')}
 function draftText(r,v){const day=v.date?new Date(v.date+'T12:00:00').toLocaleDateString('it-IT'):'';return `Buongiorno ${r.fromName||''},\n\nabbiamo ricevuto la richiesta “${r.subject||''}” e l’abbiamo presa in carico.${day?' L’intervento è stato programmato per il '+day+'.':''}\n\nCordiali saluti`}
 function runAction(action){
@@ -141,6 +141,39 @@ function bindRows(){
   document.querySelectorAll('[data-request-manage]').forEach(el=>el.onclick=()=>openManager(el.dataset.requestManage));
   document.querySelectorAll('[data-request-delete]').forEach(el=>el.onclick=()=>{if(!confirm('Eliminare questa richiesta dal gestionale?'))return;const request=db.requests.find(x=>x.id===el.dataset.requestDelete);if(request?.sourceReceiptId){const dismissed=getDismissed();dismissed.add(request.sourceReceiptId);setDismissed(dismissed)}db.requests=db.requests.filter(x=>x.id!==el.dataset.requestDelete);save()});
 }
+function activityKind(r){
+  const kinds=[];
+  if(r.activity?.status==='Aperta'||r.type==='Segnalazione'&&r.activity)kinds.push('Segnalazione');
+  else if(r.activity)kinds.push('Intervento');
+  if(r.quoteNumber)kinds.push('Preventivo');
+  if(r.scheduledDate)kinds.push('Programmato');
+  if(r.reportStartedAt)kinds.push('Rapportino');
+  return kinds;
+}
+function installActivityCenter(){
+  if(document.getElementById('emailActivities'))return;
+  const sidebar=document.querySelector('.sidebar'),requestNav=[...document.querySelectorAll('.nav')].find(x=>x.dataset.view==='richieste');
+  const navButton=document.createElement('button');navButton.className='nav';navButton.dataset.view='emailActivities';navButton.textContent='Attività da email';requestNav?.insertAdjacentElement('afterend',navButton);navButton.onclick=()=>nav('emailActivities');
+  const section=document.createElement('section');section.id='emailActivities';section.className='view';section.innerHTML=`<div class="topline"><div><h1>Attività da email</h1><p class="subtitle">Interventi, segnalazioni, preventivi, programmazioni e rapportini creati dalle email.</p></div><button class="ghost" id="emailActivitiesInbox">VAI ALLE EMAIL</button></div><div class="cards five"><div class="card"><span>Attività aperte</span><strong id="emailActOpen">0</strong></div><div class="card"><span>Interventi</span><strong id="emailActJobs">0</strong></div><div class="card"><span>Segnalazioni</span><strong id="emailActReports">0</strong></div><div class="card"><span>Programmate</span><strong id="emailActScheduled">0</strong></div><div class="card"><span>Completate</span><strong id="emailActDone">0</strong></div></div><div class="panel"><div class="email-activity-filters"><input id="emailActivitySearch" placeholder="Cerca attività, commessa, impianto..."><select id="emailActivityKind"><option value="">Tutti i tipi</option><option>Intervento</option><option>Segnalazione</option><option>Preventivo</option><option>Programmato</option><option>Rapportino</option></select><select id="emailActivityStatus"><option value="">Tutti gli stati</option>${statuses.map(x=>`<option>${x}</option>`).join('')}</select></div></div><div class="panel"><div id="emailActivitiesList" class="list"></div></div>`;
+  document.querySelector('.main')?.appendChild(section);
+  document.getElementById('emailActivitiesInbox').onclick=()=>nav('richieste');
+  document.getElementById('emailActivitySearch').oninput=renderActivityCenter;document.getElementById('emailActivityKind').onchange=renderActivityCenter;document.getElementById('emailActivityStatus').onchange=renderActivityCenter;
+}
+function renderActivityCenter(){
+  if(!document.getElementById('emailActivitiesList'))return;
+  const created=(db.requests||[]).filter(r=>activityKind(r).length||r.status==='Completata');
+  document.getElementById('emailActOpen').textContent=created.filter(r=>!['Completata','Archiviata'].includes(r.status)).length;
+  document.getElementById('emailActJobs').textContent=created.filter(r=>activityKind(r).includes('Intervento')).length;
+  document.getElementById('emailActReports').textContent=created.filter(r=>activityKind(r).includes('Segnalazione')).length;
+  document.getElementById('emailActScheduled').textContent=created.filter(r=>r.scheduledDate).length;
+  document.getElementById('emailActDone').textContent=created.filter(r=>r.status==='Completata').length;
+  const q=normalize(document.getElementById('emailActivitySearch').value),kind=document.getElementById('emailActivityKind').value,status=document.getElementById('emailActivityStatus').value;
+  const rows=created.filter(r=>(!kind||activityKind(r).includes(kind))&&(!status||r.status===status)&&(!q||normalize([r.subject,r.notes,r.bodyPreview,jobName(r.jobId),plantLabel(selectedPlant(r)),activityKind(r).join(' ')].join(' ')).includes(q))).sort((a,b)=>String(b.updatedAt||b.emailDate).localeCompare(String(a.updatedAt||a.emailDate)));
+  const card=r=>{const kinds=activityKind(r),plant=selectedPlant(r),team=(db.vcSquadre||[]).find(t=>teamId(t)===String(r.assignedTeamId||r.teamId||''));return `<div class="item email-activity-card"><div class="item-main"><div class="item-title">${html(r.subject||'Attività da email')} ${kinds.map(k=>`<span class="badge">${html(k)}</span>`).join(' ')}</div><div class="item-sub">${plant?html(plantLabel(plant))+' • ':''}${r.scheduledDate?html(r.scheduledDate)+' • ':''}${team?html(teamLabel(team))+' • ':''}<span class="badge">${html(r.status||'Nuova')}</span></div><div class="item-sub email-activity-note">${html(r.notes||r.activity?.description||r.bodyPreview||'')}</div></div><div class="item-actions"><button class="mini primary" data-email-activity-open="${html(r.id)}">APRI</button>${r.quoteNumber?`<button class="mini" data-email-activity-go="preventivi">PREVENTIVO</button>`:''}${r.scheduledDate?`<button class="mini" data-email-activity-go="scadenze">SCADENZA</button>`:''}${r.reportStartedAt?`<button class="mini" data-email-activity-go="rapportini">RAPPORTINO</button>`:''}</div></div>`};
+  const groups=new Map();rows.forEach(r=>{const name=jobName(r.jobId)||'Senza commessa';if(!groups.has(name))groups.set(name,[]);groups.get(name).push(r)});
+  document.getElementById('emailActivitiesList').innerHTML=rows.length?[...groups.entries()].map(([name,items])=>`<div class="email-activity-group"><div class="email-activity-group-title">${html(name)} · ${items.length} attività</div><div class="email-activity-group-list">${items.map(card).join('')}</div></div>`).join(''):'<div class="empty">Nessuna attività creata dalle email.</div>';
+  document.querySelectorAll('[data-email-activity-open]').forEach(b=>b.onclick=()=>openManager(b.dataset.emailActivityOpen));document.querySelectorAll('[data-email-activity-go]').forEach(b=>b.onclick=()=>nav(b.dataset.emailActivityGo));
+}
 function renderSenderRules(){
   const box=document.getElementById('requestSenderRules'),select=document.getElementById('requestSenderJob');if(!box||!select)return;
   const value=settings();select.innerHTML='<option value="">Scegli la commessa</option>'+db.jobs.map(j=>`<option value="${html(j.id)}">${html((j.code?j.code+' — ':'')+j.title)}</option>`).join('');
@@ -149,20 +182,22 @@ function renderSenderRules(){
 }
 function install(){
   const email=document.getElementById('requestEmailInput');if(!email||email.dataset.ready)return;email.dataset.ready='1';email.value=requestEmail();const initial=settings();document.getElementById('requestPeriodDays').value=String(initial.days);
+  const settingsBox=email.closest('.request-settings');if(settingsBox&&!document.getElementById('installRequestSchedule'))settingsBox.insertAdjacentHTML('beforeend','<button id="installRequestSchedule" class="primary">ATTIVA AUTOMATICO 05:00 / 15:00</button>');
+  document.getElementById('installRequestSchedule').onclick=async()=>{const info=document.getElementById('requestSyncInfo'),button=document.getElementById('installRequestSchedule');try{setBusy(button,true,'ATTIVA AUTOMATICO 05:00 / 15:00');info.textContent='Attivazione controllo automatico…';await call('configure',bridgePayload());const out=await call('installRequestSchedule',bridgePayload());info.textContent=out?.active?'Controllo automatico attivo ogni giorno alle 05:00 e alle 15:00 (ora italiana).':'Il ponte non ha confermato entrambi gli orari.'}catch(e){info.textContent='Impossibile attivare il controllo automatico: '+(e.message||e)}finally{setBusy(button,false,'ATTIVA AUTOMATICO 05:00 / 15:00')}};
   document.getElementById('saveRequestEmail').onclick=async()=>{
     const info=document.getElementById('requestSyncInfo'),button=document.getElementById('saveRequestEmail'),value=email.value.trim().toLowerCase();
     if(!validEmail(value)){info.textContent='Inserisci un indirizzo email valido.';email.focus();return}
     db.company=db.company||{};db.company.requestEmail=value;localStorage.setItem(requestEmailKey,value);const next=settings();next.days=Number(document.getElementById('requestPeriodDays').value)||30;saveSettings(next);email.value=value;
     info.textContent='Email salvata su questo dispositivo. Aggiornamento del ponte Gmail in corso…';setBusy(button,true,'SALVA EMAIL');
-    try{await call('configure',bridgePayload());info.textContent='Impostazioni salvate e ponte Gmail aggiornato correttamente.'}
+    try{await call('configure',bridgePayload());const schedule=await call('installRequestSchedule',bridgePayload());info.textContent=schedule?.active?'Impostazioni salvate. Controllo automatico attivo alle 05:00 e alle 15:00.':'Impostazioni salvate e ponte Gmail aggiornato.'}
     catch(e){info.textContent='Email salvata sul dispositivo, ma il ponte Gmail non ha risposto: '+(e.message||e)}
     finally{setBusy(button,false,'SALVA IMPOSTAZIONI')}
   };
   document.getElementById('addRequestSender').onclick=async()=>{const sender=document.getElementById('requestSenderEmail'),job=document.getElementById('requestSenderJob'),info=document.getElementById('requestSyncInfo'),address=sender.value.trim().toLowerCase();if(!validEmail(address)){info.textContent='Inserisci un indirizzo mittente valido.';sender.focus();return}if(!job.value){info.textContent='Scegli la commessa da collegare.';job.focus();return}const next=settings(),existing=next.senderRules.find(rule=>rule.email===address);if(existing)existing.jobId=job.value;else next.senderRules.push({id:uid(),email:address,jobId:job.value});saveSettings(next);sender.value='';job.value='';renderSenderRules();info.textContent='Mittente collegato alla commessa. Premi SALVA IMPOSTAZIONI per aggiornare anche Gmail.'};
   document.getElementById('checkRequestsNow').onclick=scan;
   ['requestStatusFilter','requestTypeFilter','requestSearch'].forEach(id=>document.getElementById(id).addEventListener(id==='requestSearch'?'input':'change',render));
-  renderSenderRules();render();setTimeout(()=>importReceipts().catch(()=>{}),3500);setInterval(()=>importReceipts().catch(()=>{}),15*60*1000);
+  installActivityCenter();renderSenderRules();render();renderActivityCenter();setTimeout(()=>importReceipts().catch(()=>{}),3500);setInterval(()=>importReceipts().catch(()=>{}),15*60*1000);
 }
-const baseRefresh=window.refresh;window.refresh=function(){baseRefresh();render();renderSenderRules()};
+const baseRefresh=window.refresh;window.refresh=function(){baseRefresh();render();renderSenderRules();renderActivityCenter()};
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',install);else install();
 })();
