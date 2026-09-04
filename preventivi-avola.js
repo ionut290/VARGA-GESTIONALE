@@ -212,6 +212,7 @@
       @media print{
         @page{size:A4 portrait;margin:0}
         html,body{width:210mm!important;margin:0!important;padding:0!important;background:#fff!important;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}
+        #preventivo{display:block!important}
         .quote-print{display:block!important;width:210mm!important;margin:0!important;padding:0!important}
         .avola-print-doc{position:relative;width:210mm;min-height:297mm;background:#fff;color:#000;font-family:Arial,Helvetica,sans-serif;font-size:10.2pt;line-height:1.18;overflow:hidden}
         .avola-side{position:absolute;left:0;top:0;width:48.5mm;height:297mm;object-fit:fill;display:block}
