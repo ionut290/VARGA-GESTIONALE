@@ -3,7 +3,8 @@
 // Firestore contiene un manifest leggero + un documento per sezione.
 // Ad ogni avvio/listener si legge il manifest; si scaricano solo le sezioni con versione cambiata.
 (function(){
-  const SECTION_KEYS=['priceLists','entries','clients','quotes','jobs','requests','invoices','expenses','deadlines','documents','consuntivi','company'];
+  const SECTION_KEYS=['priceLists','clients','quotes','jobs','invoices','expenses','deadlines','documents','consuntivi','company'];
+  const ENTRY_CHUNK_SIZE=900;
   const HASH_KEY='vg_cloudSectionHashes_v1';
   const VERSION_KEY='vg_cloudSectionVersions_v1';
   const LAST_PULL_KEY='vg_cloudIncrementalLastPull_v1';
@@ -19,6 +20,7 @@
   function docPrefix(){return 'vargaGestionaleWorkspace_'+safeWorkspaceId();}
   function manifestRef(){return cloudStore.collection('appConfig').doc(docPrefix()+'_manifest');}
   function sectionRef(key){return cloudStore.collection('appConfig').doc(docPrefix()+'_section_'+key);}
+  function entryChunkRef(index){return cloudStore.collection('appConfig').doc(docPrefix()+'_entries_'+String(index).padStart(4,'0'));}
   function legacyWorkspaceRef(){return cloudStore.collection('appConfig').doc(docPrefix());}
   function readLocalObject(key){try{return JSON.parse(localStorage.getItem(key)||'{}')||{}}catch(_){return{}}}
   function writeLocalObject(key,value){try{localStorage.setItem(key,JSON.stringify(value||{}))}catch(e){console.warn('Cache sync non salvata',e)}}
@@ -68,7 +70,8 @@
     const remoteVersions=manifest.versions||{};
     const localVersions=readLocalObject(VERSION_KEY);
     let keys=SECTION_KEYS.filter(k=>remoteVersions[k]!=null&&(forceAll||Number(remoteVersions[k])>Number(localVersions[k]||0)));
-    if(!keys.length){
+    const needEntries=remoteVersions.entries!=null&&(forceAll||Number(remoteVersions.entries)>Number(localVersions.entries||0));
+    if(!keys.length&&!needEntries){
       localStorage.setItem(LAST_PULL_KEY,new Date().toISOString());
       cloudStatus('Sincronizzato');
       return {downloaded:0};
@@ -82,6 +85,14 @@
         const row=doc.data()||{};
         try{db[key]=JSON.parse(row.dataJson||'null');localVersions[key]=Number(row.version||remoteVersions[key]||0);downloaded++;}catch(e){console.warn('Sezione cloud non valida:',key,e)}
       });
+      if(needEntries){
+        const count=Number(manifest.entryChunkCount||0),chunks=[];
+        for(let start=0;start<count;start+=20){
+          const part=await Promise.all(Array.from({length:Math.min(20,count-start)},(_,i)=>entryChunkRef(start+i).get()));
+          part.forEach(doc=>{if(!doc.exists)return;try{const values=JSON.parse(doc.data().dataJson||'[]');if(Array.isArray(values))chunks.push(...values)}catch(e){console.warn('Blocco prezziario non valido',e)}});
+        }
+        db.entries=chunks;localVersions.entries=Number(remoteVersions.entries||0);downloaded++;
+      }
       persistLocal();
       writeLocalObject(VERSION_KEY,localVersions);
       const hashes=readLocalObject(HASH_KEY);SECTION_KEYS.forEach(k=>hashes[k]=hashValue(db[k]));writeLocalObject(HASH_KEY,hashes);
@@ -130,7 +141,8 @@
     if(!(document.getElementById('workspaceId')?.value||cloudCfg.workspaceId||'').trim())return;
     const previousHashes=readLocalObject(HASH_KEY),current=sectionSnapshot(),changed=[];
     SECTION_KEYS.forEach(k=>{const h=hashValue(current[k]);if(previousHashes[k]!==h)changed.push({key:k,hash:h})});
-    if(!changed.length){if(!silent)setCloudInfo('Nessuna modifica da inviare: 0 scritture dati.');cloudStatus('Sincronizzato');return;}
+    const entriesHash=hashValue(db.entries),entriesChanged=previousHashes.entries!==entriesHash;
+    if(!changed.length&&!entriesChanged){if(!silent)setCloudInfo('Nessuna modifica da inviare: 0 scritture dati.');cloudStatus('Sincronizzato');return;}
     try{
       const versions=readLocalObject(VERSION_KEY),manifestSnap=await manifestRef().get(),remoteVersions=manifestSnap.exists?(manifestSnap.data().versions||{}):{};
       const batch=cloudStore.batch(),updatedVersions={...remoteVersions},base=Date.now();
@@ -139,11 +151,18 @@
         updatedVersions[item.key]=version;versions[item.key]=version;
         batch.set(sectionRef(item.key),{workspaceId:safeWorkspaceId(),section:item.key,dataJson:JSON.stringify(current[item.key]),version,updatedAt:firebase.firestore.FieldValue.serverTimestamp(),updatedBy:cloudUser.uid,updatedByName:cloudDisplayName()},{merge:true});
       });
-      batch.set(manifestRef(),{workspaceId:safeWorkspaceId(),mode:'incremental-v1',versions:updatedVersions,updatedSections:changed.map(x=>x.key),updatedAt:firebase.firestore.FieldValue.serverTimestamp(),updatedBy:cloudUser.uid,updatedByName:cloudDisplayName()},{merge:true});
+      let entryChunkCount=Number(manifestSnap.data()?.entryChunkCount||0);
+      if(entriesChanged){
+        const version=Math.max(base+changed.length,Number(remoteVersions.entries||0)+1,Number(versions.entries||0)+1);
+        updatedVersions.entries=version;versions.entries=version;entryChunkCount=Math.ceil(db.entries.length/ENTRY_CHUNK_SIZE);
+        for(let i=0;i<entryChunkCount;i++)batch.set(entryChunkRef(i),{workspaceId:safeWorkspaceId(),chunk:i,dataJson:JSON.stringify(db.entries.slice(i*ENTRY_CHUNK_SIZE,(i+1)*ENTRY_CHUNK_SIZE)),version,updatedAt:firebase.firestore.FieldValue.serverTimestamp(),updatedBy:cloudUser.uid},{merge:true});
+      }
+      const updatedSections=changed.map(x=>x.key);if(entriesChanged)updatedSections.push('entries');
+      batch.set(manifestRef(),{workspaceId:safeWorkspaceId(),mode:'incremental-v2',versions:updatedVersions,updatedSections,entryChunkCount,updatedAt:firebase.firestore.FieldValue.serverTimestamp(),updatedBy:cloudUser.uid,updatedByName:cloudDisplayName()},{merge:true});
       await batch.commit();
-      changed.forEach(x=>previousHashes[x.key]=x.hash);writeLocalObject(HASH_KEY,previousHashes);writeLocalObject(VERSION_KEY,versions);
+      changed.forEach(x=>previousHashes[x.key]=x.hash);if(entriesChanged)previousHashes.entries=entriesHash;writeLocalObject(HASH_KEY,previousHashes);writeLocalObject(VERSION_KEY,versions);
       cloudStatus('Sincronizzato');
-      if(!silent)setCloudInfo(`Sincronizzazione incrementale: ${changed.length} sezion${changed.length===1?'e':'i'} inviat${changed.length===1?'a':'e'} invece dell’intero archivio.`);
+      if(!silent)setCloudInfo(`Sincronizzazione completata: ${changed.length+(entriesChanged?1:0)} sezioni inviate${entriesChanged?` · ${entryChunkCount} blocchi prezziario`:''}.`);
     }catch(e){console.warn('Upload incrementale fallito',e);cloudStatus('Errore upload');if(!silent)alert('Errore durante il salvataggio cloud: '+e.message);}
   };
 
