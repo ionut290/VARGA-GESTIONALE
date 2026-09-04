@@ -39,6 +39,7 @@
     style.textContent=`
       .vg-pricebook-picker{border-color:#b9d8c8;background:linear-gradient(135deg,#ffffff,#f5fbf8)}
       .vg-pricebook-picker-grid{display:grid;grid-template-columns:minmax(260px,420px) 1fr;gap:18px;align-items:end}
+      .vg-pricebook-manage{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
       .vg-pricebook-picker select{font-size:15px;font-weight:800;border-color:#8bbda4}
       .vg-pricebook-chips{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
       .vg-pricebook-chip{border:1px solid #b7cfc2;background:#fff;color:#225d43;padding:8px 11px;border-radius:999px;font-weight:800;cursor:pointer}
@@ -58,6 +59,8 @@
       .vg-pricebook-sheet .c-desc{width:52%}
       .vg-pricebook-sheet .c-unit{width:9%;text-align:center}
       .vg-pricebook-sheet .c-price,.vg-pricebook-sheet .c-discount{width:9%;text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
+      .vg-pricebook-sheet .c-actions{width:12%;text-align:center;white-space:nowrap}
+      .vg-pricebook-row-actions{display:flex;gap:5px;justify-content:center}
       .vg-pricebook-manual-note{grid-column:span 2;background:#edf5f0;border:1px solid #cfe0d7;border-radius:9px;padding:9px 11px;color:#315743;font-size:12px;font-weight:800}
       .vg-pricebook-preview{margin-top:12px;border:1px solid #a8d4e8;border-radius:4px;overflow:auto;max-height:280px}
       .vg-pricebook-preview table{min-width:920px;font-size:11px}
@@ -80,7 +83,7 @@
       picker=document.createElement('div');
       picker.id='vgPriceBookPicker';
       picker.className='panel vg-pricebook-picker';
-      picker.innerHTML=`<div class="vg-pricebook-picker-grid"><div><h2>Prezziari caricati</h2><label>PREZZIARIO DA VISUALIZZARE<select id="vgActivePriceList"></select></label></div><div><div class="muted">Seleziona un prezziario: subito sotto vengono mostrate soltanto le sue voci, nello stesso ordine e con le colonne del file Excel.</div><div id="vgPriceBookChips" class="vg-pricebook-chips"></div></div></div>`;
+      picker.innerHTML=`<div class="vg-pricebook-picker-grid"><div><h2>Prezziari caricati</h2><label>PREZZIARIO DA VISUALIZZARE<select id="vgActivePriceList"></select></label><div class="vg-pricebook-manage"><button type="button" id="vgRenamePriceList" class="mini">RINOMINA</button><button type="button" id="vgDeletePriceList" class="mini danger">ELIMINA PREZZIARIO</button></div></div><div><div class="muted">Seleziona un prezziario: subito sotto vengono mostrate soltanto le sue voci, nello stesso ordine e con le colonne del file Excel.</div><div id="vgPriceBookChips" class="vg-pricebook-chips"></div></div></div>`;
       const subtitle=section.querySelector('.subtitle');
       if(subtitle)subtitle.insertAdjacentElement('afterend',picker); else section.prepend(picker);
     }
@@ -121,7 +124,55 @@
       active.dataset.bound='1';
       active.addEventListener('change',()=>setActivePriceListId(active.value));
     }
+    const rename=document.getElementById('vgRenamePriceList');
+    if(rename&&!rename.dataset.bound){rename.dataset.bound='1';rename.addEventListener('click',renameActivePriceList)}
+    const remove=document.getElementById('vgDeletePriceList');
+    if(remove&&!remove.dataset.bound){remove.dataset.bound='1';remove.addEventListener('click',deleteActivePriceList)}
     uiReady=true;
+  }
+
+  function renameActivePriceList(){
+    const id=activePriceListId(),pl=db.priceLists.find(p=>p.id===id);
+    if(!pl)return alert('Seleziona un prezziario.');
+    const name=prompt('Nuovo nome del prezziario:',pl.name||'');
+    if(name===null)return;
+    const clean=name.trim();
+    if(!clean)return alert('Il nome non può essere vuoto.');
+    if(db.priceLists.some(p=>p.id!==id&&ntext(p.name)===ntext(clean)))return alert('Esiste già un prezziario con questo nome.');
+    pl.name=clean;
+    save();
+  }
+
+  function deleteActivePriceList(){
+    const id=activePriceListId(),pl=db.priceLists.find(p=>p.id===id);
+    if(!pl)return alert('Seleziona un prezziario.');
+    const count=db.entries.filter(e=>e.priceListId===id).length;
+    if(!confirm(`Eliminare il prezziario “${pl.name}” e tutte le sue ${count} voci?\n\nQuesta operazione non può essere annullata.`))return;
+    db.priceLists=db.priceLists.filter(p=>p.id!==id);
+    db.entries=db.entries.filter(e=>e.priceListId!==id);
+    db.clients.forEach(c=>{if(c.priceListId===id)c.priceListId=''});
+    const next=db.priceLists[0]?.id||'';
+    try{next?localStorage.setItem(ACTIVE_KEY,next):localStorage.removeItem(ACTIVE_KEY)}catch(_){}
+    save();
+  }
+
+  function editPriceEntry(id){
+    const entry=db.entries.find(e=>e.id===id);if(!entry)return;
+    const code=prompt('Codice prezzo:',entry.code||'');if(code===null)return;
+    const description=prompt('Descrizione:',entry.description||'');if(description===null)return;
+    const unit=prompt('Unità di misura:',entry.unit||'');if(unit===null)return;
+    const price=prompt('Prezzo unitario:',fixed2(entry.price));if(price===null)return;
+    const discount=prompt('Ribasso %:',fixed2(entry.discount||0));if(discount===null)return;
+    if(!description.trim())return alert('La descrizione non può essere vuota.');
+    Object.assign(entry,{code:code.trim(),description:description.trim(),unit:unit.trim(),price:numberFrom(price),discount:numberFrom(discount)});
+    save();
+  }
+
+  function deletePriceEntry(id){
+    const entry=db.entries.find(e=>e.id===id);if(!entry)return;
+    if(!confirm(`Eliminare la voce ${entry.code||''} - ${entry.description||''}?`))return;
+    db.entries=db.entries.filter(e=>e.id!==id);
+    save();
   }
 
   function renderPicker(){
@@ -155,7 +206,9 @@
     if(count)count.textContent=query?`${rows.length} risultati su ${total} voci`:`${total} voci caricate`;
     if(!active){target.innerHTML='<div class="empty">Crea o seleziona un prezziario.</div>';return;}
     if(!rows.length){target.innerHTML='<div class="empty">Nessuna voce in questo prezziario.</div>';return;}
-    target.innerHTML=`<div class="vg-pricebook-sheet-wrap"><table class="vg-pricebook-sheet"><thead><tr><th class="c-code">CODICE PREZZO</th><th class="c-desc">DESCRIZIONE</th><th class="c-unit">UNITÀ DI MISURA</th><th class="c-price">PREZZO UNITARIO</th><th class="c-discount">RIBASSO %</th></tr></thead><tbody>${rows.map(e=>`<tr><td class="c-code">${esc(e.code||'')}</td><td class="c-desc">${esc(e.description||'')}</td><td class="c-unit">${esc(e.unit||'')}</td><td class="c-price">${fixed2(e.price)}</td><td class="c-discount">${fixed2(e.discount||0)}</td></tr>`).join('')}</tbody></table></div>`;
+    target.innerHTML=`<div class="vg-pricebook-sheet-wrap"><table class="vg-pricebook-sheet"><thead><tr><th class="c-code">CODICE PREZZO</th><th class="c-desc">DESCRIZIONE</th><th class="c-unit">UNITÀ DI MISURA</th><th class="c-price">PREZZO UNITARIO</th><th class="c-discount">RIBASSO %</th><th class="c-actions">AZIONI</th></tr></thead><tbody>${rows.map(e=>`<tr><td class="c-code">${esc(e.code||'')}</td><td class="c-desc">${esc(e.description||'')}</td><td class="c-unit">${esc(e.unit||'')}</td><td class="c-price">${fixed2(e.price)}</td><td class="c-discount">${fixed2(e.discount||0)}</td><td class="c-actions"><div class="vg-pricebook-row-actions"><button type="button" class="mini" data-vg-edit-entry="${esc(e.id)}">MODIFICA</button><button type="button" class="mini danger" data-vg-delete-entry="${esc(e.id)}">ELIMINA</button></div></td></tr>`).join('')}</tbody></table></div>`;
+    target.querySelectorAll('[data-vg-edit-entry]').forEach(b=>b.onclick=()=>editPriceEntry(b.dataset.vgEditEntry));
+    target.querySelectorAll('[data-vg-delete-entry]').forEach(b=>b.onclick=()=>deletePriceEntry(b.dataset.vgDeleteEntry));
   }
 
   function renderPriceLists(){
