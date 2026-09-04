@@ -65,27 +65,32 @@ function scanScheduled() {
 function scanRequests_(payload) {
   const now = new Date();
   const previous = PropertiesService.getScriptProperties().getProperty(REQUEST_LAST_SCAN_PROP);
-  const since = previous ? new Date(previous) : new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+  const scanDays = Math.max(1, Math.min(365, Number(payload.requestScanDays) || 30));
+  const periodStart = new Date(now.getTime() - scanDays * 24 * 60 * 60 * 1000);
+  const since = payload.forcePeriod ? periodStart : (previous ? new Date(previous) : periodStart);
   const afterDate = Utilities.formatDate(since, Session.getScriptTimeZone() || 'Europe/Rome', 'yyyy/MM/dd');
   const ownEmail = normalizeEmail_(payload.requestEmail || payload.mapEmail || '');
+  const senderRules = (payload.requestSenderRules || []).map(rule => ({email:normalizeEmail_(rule.email),jobId:String(rule.jobId||'')})).filter(rule=>rule.email);
   const query = `after:${afterDate} -in:spam -in:trash`;
   let found = 0, checked = 0;
   GmailApp.search(query, 0, 100).forEach(thread => thread.getMessages().forEach(msg => {
     if (msg.getDate().getTime() <= since.getTime()) return;
     const from = normalizeEmail_(msg.getFrom());
     if (!from || (ownEmail && from === ownEmail)) return;
+    const senderRule = senderRules.find(rule => rule.email === from);
+    if (senderRules.length && !senderRule) return;
     checked++;
     const subject = String(msg.getSubject() || '');
     const body = String(msg.getPlainBody() || '').replace(/\s+/g, ' ').trim();
     const classification = classifyRequest_([subject, body].join(' '));
-    if (!classification.relevant) return;
+    if (!classification.relevant && !senderRule) return;
     const id = safeKey_('request::' + msg.getId());
     if (loadRequestReceipts_().some(r => r.id === id)) return;
     const attachments = msg.getAttachments({includeInlineImages:false,includeAttachments:true});
     const files = archiveRequestAttachments_(attachments, id, subject);
     const senderRaw = String(msg.getFrom() || '');
     const nameMatch = senderRaw.match(/^\s*"?([^"<]+)"?\s*</);
-    const receipt = {id:id,from:from,fromName:nameMatch?nameMatch[1].trim():'',subject:subject,bodyPreview:body.slice(0,2200),emailDate:msg.getDate().toISOString(),gmailMessageId:String(msg.getId()||''),gmailThreadId:String(thread.getId()||''),type:classification.type,priority:classification.priority,attachmentNames:attachments.map(a=>a.getName()),files:files,archivedAt:new Date().toISOString(),acknowledged:false};
+    const receipt = {id:id,from:from,fromName:nameMatch?nameMatch[1].trim():'',subject:subject,bodyPreview:body.slice(0,2200),emailDate:msg.getDate().toISOString(),gmailMessageId:String(msg.getId()||''),gmailThreadId:String(thread.getId()||''),type:classification.type,priority:classification.priority,jobId:senderRule?senderRule.jobId:'',attachmentNames:attachments.map(a=>a.getName()),files:files,archivedAt:new Date().toISOString(),acknowledged:false};
     const rows = loadRequestReceipts_(); rows.push(receipt); saveRequestReceipts_(rows); found++;
   }));
   PropertiesService.getScriptProperties().setProperty(REQUEST_LAST_SCAN_PROP, now.toISOString());
@@ -233,7 +238,7 @@ function safeKey_(v){const digest=Utilities.computeDigest(Utilities.DigestAlgori
 function getOrCreateFolder_(parent,name){const it=parent.getFoldersByName(name);return it.hasNext()?it.next():parent.createFolder(name)}
 function json_(o){return ContentService.createTextOutput(JSON.stringify(o)).setMimeType(ContentService.MimeType.JSON)}
 function checkToken_(token){const expected=PropertiesService.getScriptProperties().getProperty('VARGA_MAP_TOKEN')||'';if(!expected||String(token||'')!==expected)throw new Error('Token ponte non valido')}
-function saveState_(payload){const previous=loadState_()||{};const state={mapEmail:payload.mapEmail||previous.mapEmail||'',requestEmail:payload.requestEmail||previous.requestEmail||'',jobs:payload.jobs||previous.jobs||[],rounds:payload.rounds||previous.rounds||[],updatedAt:new Date().toISOString()};PropertiesService.getScriptProperties().setProperty(STATE_PROP,JSON.stringify(state))}
+function saveState_(payload){const previous=loadState_()||{};const state={mapEmail:payload.mapEmail||previous.mapEmail||'',requestEmail:payload.requestEmail||previous.requestEmail||'',requestScanDays:Number(payload.requestScanDays)||previous.requestScanDays||30,requestSenderRules:Array.isArray(payload.requestSenderRules)?payload.requestSenderRules:(previous.requestSenderRules||[]),jobs:payload.jobs||previous.jobs||[],rounds:payload.rounds||previous.rounds||[],updatedAt:new Date().toISOString()};PropertiesService.getScriptProperties().setProperty(STATE_PROP,JSON.stringify(state))}
 function loadState_(){const s=PropertiesService.getScriptProperties().getProperty(STATE_PROP);return s?JSON.parse(s):null}
 function loadReceipts_(){try{return JSON.parse(PropertiesService.getScriptProperties().getProperty(RECEIPTS_PROP)||'[]')||[]}catch(_){return[]}}
 function saveReceipts_(arr){PropertiesService.getScriptProperties().setProperty(RECEIPTS_PROP,JSON.stringify((arr||[]).slice(-MAX_RECEIPTS)))}
