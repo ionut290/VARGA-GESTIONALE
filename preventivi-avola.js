@@ -198,7 +198,7 @@
   function loadExcelJs(){
     if(window.ExcelJS)return Promise.resolve();
     if(window.__vgExcelJsPromise)return window.__vgExcelJsPromise;
-    window.__vgExcelJsPromise=new Promise((resolve,reject)=>{const s=document.createElement('script');s.src='https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js';s.onload=resolve;s.onerror=()=>reject(new Error('ExcelJS non disponibile'));document.head.appendChild(s)});
+    window.__vgExcelJsPromise=new Promise((resolve,reject)=>{const s=document.createElement('script');s.src='vendor/exceljs.min.js?v='+encodeURIComponent(window.VG_BUILD||'local');s.onload=resolve;s.onerror=()=>reject(new Error('ExcelJS non disponibile'));document.head.appendChild(s)});
     return window.__vgExcelJsPromise;
   }
   async function imageData(path,fallbackBase64){
