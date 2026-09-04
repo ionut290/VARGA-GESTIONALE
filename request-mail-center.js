@@ -3,6 +3,7 @@
 'use strict';
 const appliedKey='vg_requestMailApplied';
 const requestEmailKey='vg_requestEmail';
+const requestSettingsKey='vg_requestSettings';
 const statuses=['Nuova','Presa in carico','Programmata','In lavorazione','Completata','Archiviata'];
 const getApplied=()=>{try{return new Set(JSON.parse(localStorage.getItem(appliedKey)||'[]'))}catch(_){return new Set()}};
 const setApplied=s=>localStorage.setItem(appliedKey,JSON.stringify([...s].slice(-1000)));
@@ -15,6 +16,9 @@ const call=(action,extra={})=>{
 function requestEmail(){return String(localStorage.getItem(requestEmailKey)||db.company?.requestEmail||db.company?.mapEmail||db.company?.email||'').trim()}
 function validEmail(value){return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(value||'').trim())}
 function setBusy(button,busy,label){if(!button)return;button.disabled=busy;button.textContent=busy?'ATTENDI…':label}
+function settings(){try{const value=JSON.parse(localStorage.getItem(requestSettingsKey)||'{}')||{};return{days:Number(db.company?.requestScanDays||value.days)||30,senderRules:Array.isArray(db.company?.requestSenderRules)?db.company.requestSenderRules:(Array.isArray(value.senderRules)?value.senderRules:[])}}catch(_){return{days:Number(db.company?.requestScanDays)||30,senderRules:Array.isArray(db.company?.requestSenderRules)?db.company.requestSenderRules:[]}}}
+function saveSettings(value){localStorage.setItem(requestSettingsKey,JSON.stringify(value));db.company=db.company||{};db.company.requestScanDays=value.days;db.company.requestSenderRules=value.senderRules;save()}
+function bridgePayload(){const value=settings();return{requestEmail:requestEmail(),requestScanDays:value.days,requestSenderRules:value.senderRules,jobs:(db.jobs||[]).map(j=>({id:j.id,title:j.title,code:j.code||'',site:j.site||''}))}}
 function suggestedJob(receipt){
   const text=normalize([receipt.subject,receipt.bodyPreview,receipt.from].join(' '));
   return (db.jobs||[]).map(j=>({j,score:[j.code,j.title,j.site].filter(Boolean).reduce((n,v)=>n+(text.includes(normalize(v))?1:0),0)})).sort((a,b)=>b.score-a.score)[0];
@@ -27,7 +31,7 @@ async function importReceipts(){
     if(!r?.id)return;
     if(applied.has(r.id)||db.requests.some(x=>x.sourceReceiptId===r.id)){ack.push(r.id);applied.add(r.id);return}
     const match=suggestedJob(r);
-    db.requests.push({id:uid(),sourceReceiptId:r.id,source:'Gmail',gmailMessageId:r.gmailMessageId||'',gmailThreadId:r.gmailThreadId||'',from:r.from||'',fromName:r.fromName||'',subject:r.subject||'Email senza oggetto',bodyPreview:r.bodyPreview||'',emailDate:r.emailDate||'',receivedAt:r.archivedAt||new Date().toISOString(),type:r.type||'Comunicazione',priority:r.priority||'Normale',status:'Nuova',jobId:match?.score?match.j.id:'',clientId:'',assignedTo:'',dueDate:'',attachmentNames:r.attachmentNames||[],files:r.files||[],notes:'',updatedAt:new Date().toISOString()});
+    db.requests.push({id:uid(),sourceReceiptId:r.id,source:'Gmail',gmailMessageId:r.gmailMessageId||'',gmailThreadId:r.gmailThreadId||'',from:r.from||'',fromName:r.fromName||'',subject:r.subject||'Email senza oggetto',bodyPreview:r.bodyPreview||'',emailDate:r.emailDate||'',receivedAt:r.archivedAt||new Date().toISOString(),type:r.type||'Comunicazione',priority:r.priority||'Normale',status:'Nuova',jobId:r.jobId||(match?.score?match.j.id:''),clientId:'',assignedTo:'',dueDate:'',attachmentNames:r.attachmentNames||[],files:r.files||[],notes:'',updatedAt:new Date().toISOString()});
     applied.add(r.id);ack.push(r.id);imported++;
   });
   if(imported)save();
@@ -41,7 +45,7 @@ async function scan(){
     if(!validEmail(email))throw new Error('Prima inserisci e salva un indirizzo email valido.');
     setBusy(button,true,'CONTROLLA EMAIL ADESSO');
     if(info)info.textContent='Controllo email in corso…';
-    const out=await call('scanRequests',{requestEmail:email,jobs:(db.jobs||[]).map(j=>({id:j.id,title:j.title,code:j.code||'',site:j.site||''}))});
+    const out=await call('scanRequests',{...bridgePayload(),forcePeriod:true});
     const imported=await importReceipts();
     if(info)info.textContent=`Controllo completato: ${Number(out?.found||0)} email riconosciute, ${imported} nuove richieste importate.`;
   }catch(e){if(info)info.textContent='Errore: '+(e.message||e)}
@@ -72,21 +76,28 @@ function bindRows(){
   document.querySelectorAll('[data-request-job]').forEach(el=>el.onchange=()=>{const r=db.requests.find(x=>x.id===el.dataset.requestJob);if(r){r.jobId=el.value;r.updatedAt=new Date().toISOString();save()}});
   document.querySelectorAll('[data-request-delete]').forEach(el=>el.onclick=()=>{if(!confirm('Eliminare questa richiesta dal gestionale?'))return;db.requests=db.requests.filter(x=>x.id!==el.dataset.requestDelete);save()});
 }
+function renderSenderRules(){
+  const box=document.getElementById('requestSenderRules'),select=document.getElementById('requestSenderJob');if(!box||!select)return;
+  const value=settings();select.innerHTML='<option value="">Scegli la commessa</option>'+db.jobs.map(j=>`<option value="${html(j.id)}">${html((j.code?j.code+' — ':'')+j.title)}</option>`).join('');
+  box.innerHTML=value.senderRules.length?value.senderRules.map(rule=>`<div class="item"><div class="item-main"><div class="item-title">${html(rule.email)}</div><div class="item-sub">Commessa: ${html(jobName(rule.jobId)||'Non disponibile')}</div></div><button class="mini danger" data-request-rule-delete="${html(rule.id)}">ELIMINA</button></div>`).join(''):'<div class="empty">Nessun mittente inserito: verranno considerate tutte le email riconosciute come richieste.</div>';
+  box.querySelectorAll('[data-request-rule-delete]').forEach(button=>button.onclick=()=>{const next=settings();next.senderRules=next.senderRules.filter(rule=>rule.id!==button.dataset.requestRuleDelete);saveSettings(next);renderSenderRules()});
+}
 function install(){
-  const email=document.getElementById('requestEmailInput');if(!email||email.dataset.ready)return;email.dataset.ready='1';email.value=requestEmail();
+  const email=document.getElementById('requestEmailInput');if(!email||email.dataset.ready)return;email.dataset.ready='1';email.value=requestEmail();const initial=settings();document.getElementById('requestPeriodDays').value=String(initial.days);
   document.getElementById('saveRequestEmail').onclick=async()=>{
     const info=document.getElementById('requestSyncInfo'),button=document.getElementById('saveRequestEmail'),value=email.value.trim().toLowerCase();
     if(!validEmail(value)){info.textContent='Inserisci un indirizzo email valido.';email.focus();return}
-    db.company=db.company||{};db.company.requestEmail=value;localStorage.setItem(requestEmailKey,value);save();email.value=value;
+    db.company=db.company||{};db.company.requestEmail=value;localStorage.setItem(requestEmailKey,value);const next=settings();next.days=Number(document.getElementById('requestPeriodDays').value)||30;saveSettings(next);email.value=value;
     info.textContent='Email salvata su questo dispositivo. Aggiornamento del ponte Gmail in corso…';setBusy(button,true,'SALVA EMAIL');
-    try{await call('configure',{requestEmail:value,jobs:(db.jobs||[]).map(j=>({id:j.id,title:j.title,code:j.code||'',site:j.site||''}))});info.textContent='Email salvata e ponte Gmail aggiornato correttamente.'}
+    try{await call('configure',bridgePayload());info.textContent='Impostazioni salvate e ponte Gmail aggiornato correttamente.'}
     catch(e){info.textContent='Email salvata sul dispositivo, ma il ponte Gmail non ha risposto: '+(e.message||e)}
     finally{setBusy(button,false,'SALVA EMAIL')}
   };
+  document.getElementById('addRequestSender').onclick=async()=>{const sender=document.getElementById('requestSenderEmail'),job=document.getElementById('requestSenderJob'),info=document.getElementById('requestSyncInfo'),address=sender.value.trim().toLowerCase();if(!validEmail(address)){info.textContent='Inserisci un indirizzo mittente valido.';sender.focus();return}if(!job.value){info.textContent='Scegli la commessa da collegare.';job.focus();return}const next=settings(),existing=next.senderRules.find(rule=>rule.email===address);if(existing)existing.jobId=job.value;else next.senderRules.push({id:uid(),email:address,jobId:job.value});saveSettings(next);sender.value='';job.value='';renderSenderRules();info.textContent='Mittente collegato alla commessa. Premi SALVA IMPOSTAZIONI per aggiornare anche Gmail.'};
   document.getElementById('checkRequestsNow').onclick=scan;
   ['requestStatusFilter','requestTypeFilter','requestSearch'].forEach(id=>document.getElementById(id).addEventListener(id==='requestSearch'?'input':'change',render));
-  render();setTimeout(()=>importReceipts().catch(()=>{}),3500);setInterval(()=>importReceipts().catch(()=>{}),15*60*1000);
+  renderSenderRules();render();setTimeout(()=>importReceipts().catch(()=>{}),3500);setInterval(()=>importReceipts().catch(()=>{}),15*60*1000);
 }
-const baseRefresh=window.refresh;window.refresh=function(){baseRefresh();render()};
+const baseRefresh=window.refresh;window.refresh=function(){baseRefresh();render();renderSenderRules()};
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',install);else install();
 })();
