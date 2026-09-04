@@ -71,9 +71,11 @@ function scanRequests_(payload) {
   const afterDate = Utilities.formatDate(since, Session.getScriptTimeZone() || 'Europe/Rome', 'yyyy/MM/dd');
   const ownEmail = normalizeEmail_(payload.requestEmail || payload.mapEmail || '');
   const senderRules = (payload.requestSenderRules || []).map(rule => ({email:normalizeEmail_(rule.email),jobId:String(rule.jobId||'')})).filter(rule=>rule.email);
-  const query = `after:${afterDate} -in:spam -in:trash`;
+  const senderQuery = senderRules.length ? '{' + senderRules.map(rule=>'from:'+rule.email).join(' ') + '} ' : '';
+  const query = `${senderQuery}after:${afterDate} -in:spam -in:trash`;
+  const stored = loadRequestReceipts_(), storedIds = new Set(stored.map(row=>String(row.id))), additions = [];
   let found = 0, checked = 0;
-  GmailApp.search(query, 0, 100).forEach(thread => thread.getMessages().forEach(msg => {
+  const inspectThread = thread => thread.getMessages().forEach(msg => {
     if (msg.getDate().getTime() <= since.getTime()) return;
     const from = normalizeEmail_(msg.getFrom());
     if (!from || (ownEmail && from === ownEmail)) return;
@@ -85,14 +87,20 @@ function scanRequests_(payload) {
     const classification = classifyRequest_([subject, body].join(' '));
     if (!classification.relevant && !senderRule) return;
     const id = safeKey_('request::' + msg.getId());
-    if (loadRequestReceipts_().some(r => r.id === id)) return;
+    if (storedIds.has(id)) return;
     const attachments = msg.getAttachments({includeInlineImages:false,includeAttachments:true});
     const files = archiveRequestAttachments_(attachments, id, subject);
     const senderRaw = String(msg.getFrom() || '');
     const nameMatch = senderRaw.match(/^\s*"?([^"<]+)"?\s*</);
     const receipt = {id:id,from:from,fromName:nameMatch?nameMatch[1].trim():'',subject:subject,bodyPreview:body.slice(0,2200),emailDate:msg.getDate().toISOString(),gmailMessageId:String(msg.getId()||''),gmailThreadId:String(thread.getId()||''),type:classification.type,priority:classification.priority,jobId:senderRule?senderRule.jobId:'',attachmentNames:attachments.map(a=>a.getName()),files:files,archivedAt:new Date().toISOString(),acknowledged:false};
-    const rows = loadRequestReceipts_(); rows.push(receipt); saveRequestReceipts_(rows); found++;
-  }));
+    additions.push(receipt);storedIds.add(id);found++;
+  });
+  for (let start=0; start<500; start+=100) {
+    const threads=GmailApp.search(query,start,100);
+    threads.forEach(inspectThread);
+    if (threads.length<100) break;
+  }
+  if (additions.length) saveRequestReceipts_(stored.concat(additions));
   PropertiesService.getScriptProperties().setProperty(REQUEST_LAST_SCAN_PROP, now.toISOString());
   return {ok:true,found:found,checked:checked,pendingRequests:loadRequestReceipts_().filter(r=>!r.acknowledged).length,at:now.toISOString()};
 }
