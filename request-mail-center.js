@@ -5,7 +5,7 @@ const appliedKey='vg_requestMailApplied';
 const dismissedKey='vg_requestMailDismissed';
 const requestEmailKey='vg_requestEmail';
 const requestSettingsKey='vg_requestSettings';
-const statuses=['Nuova','Presa in carico','Programmata','In lavorazione','Completata','Archiviata'];
+const statuses=['Nuova','Da verificare','Presa in carico','Programmata','In lavorazione','Completata','Archiviata'];
 db.requests=Array.isArray(db.requests)?db.requests:S.get('vg_requests',[]);
 if(typeof save==='function'&&!save.__requestsPatched){
   const baseSave=save;
@@ -37,6 +37,37 @@ function suggestedJob(receipt){
   const text=normalize([receipt.subject,receipt.bodyPreview,receipt.from].join(' '));
   return (db.jobs||[]).map(j=>({j,score:[j.code,j.title,j.site].filter(Boolean).reduce((n,v)=>n+(text.includes(normalize(v))?1:0),0)})).sort((a,b)=>b.score-a.score)[0];
 }
+function detectedPlant(receipt){
+  const text=normalize([receipt.subject,receipt.bodyPreview].join(' '));
+  return (db.vcImpianti||[]).map(p=>{const code=normalize(plantCode(p)),name=normalize(plantLabel(p));let score=0;if(code&&text.includes(code))score+=3;if(name.length>=5&&text.includes(name))score+=2;return{p,score}}).filter(x=>x.score).sort((a,b)=>b.score-a.score)[0]?.p||null;
+}
+function detectedWorkDate(receipt){
+  const text=normalize([receipt.subject,receipt.bodyPreview].join(' '));
+  const re=/(\d{1,2})[\/.\-](\d{1,2})[\/.\-](20\d{2})/g;let match;
+  while((match=re.exec(text))){
+    const context=text.slice(Math.max(0,match.index-60),match.index);
+    if(!/(entro|per il|dal giorno|inizio lavori|avvio|programm|eseguire)/.test(context))continue;
+    const day=Number(match[1]),month=Number(match[2]),year=Number(match[3]),date=new Date(Date.UTC(year,month-1,day));
+    if(date.getUTCFullYear()===year&&date.getUTCMonth()===month-1&&date.getUTCDate()===day)return `${year}-${String(month).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+  }
+  return'';
+}
+function autoQuoteFromRequest(r){
+  if(db.quotes.some(q=>q.sourceRequestId===r.id))return;
+  const job=db.jobs.find(j=>j.id===r.jobId),clientId=job?.clientId||'',client=db.clients.find(c=>c.id===clientId),number=`PREV-${new Date().getFullYear()}-${String(db.quotes.length+1).padStart(4,'0')}`;
+  db.quotes.push({id:uid(),sourceRequestId:r.id,number,date:new Date().toISOString().slice(0,10),clientId,clientName:client?.name||r.fromName||r.from,client:client||{},subject:r.subject,site:requestSite(r),rows:[{id:uid(),code:'',description:r.bodyPreview||r.subject,unit:'cad',qty:1,price:0}],subtotal:0,vat:0,total:0,vatRate:22,discount:0,validity:30,payment:'',status:'Bozza'});r.quoteNumber=number;
+}
+function autoOrganizeRequest(r){
+  if(r.autoOrganizedAt)return;const now=new Date().toISOString();r.autoOrganizedAt=now;
+  const actionable=['Richiesta intervento','Ordine di lavoro','Segnalazione','Richiesta preventivo'].includes(r.type);if(!actionable)return;
+  const plant=detectedPlant(r);if(plant)r.plantId=plantId(plant);
+  const workDate=detectedWorkDate(r);if(workDate){r.scheduledDate=workDate;r.dueDate=workDate}
+  if(r.type==='Richiesta preventivo')autoQuoteFromRequest(r);
+  else r.activity={createdAt:now,createdAutomatically:true,description:r.bodyPreview||r.subject,jobId:r.jobId||'',plantId:r.plantId||'',status:r.type==='Segnalazione'?'Aperta':'Da programmare'};
+  const needsReview=!r.jobId||(!r.plantId&&r.type!=='Richiesta preventivo');
+  r.autoCreated=true;r.needsReview=needsReview;r.status=needsReview?'Da verificare':workDate?'Programmata':'Presa in carico';
+  if(workDate)addDeadlineFromRequest(r,{date:workDate,dueDate:workDate,jobId:r.jobId,plantId:r.plantId,notes:r.bodyPreview||r.subject});
+}
 async function importReceipts(){
   const result=await call('requestReceipts');
   const rows=Array.isArray(result?.requests)?result.requests:[];
@@ -48,7 +79,8 @@ async function importReceipts(){
     // esplicita dell'utente (dismissed) deve impedirne il ritorno.
     if(dismissed.has(r.id)||db.requests.some(x=>x.sourceReceiptId===r.id)){ack.push(r.id);applied.add(r.id);return}
     const match=suggestedJob(r);
-    db.requests.push({id:uid(),sourceReceiptId:r.id,source:'Gmail',gmailMessageId:r.gmailMessageId||'',gmailThreadId:r.gmailThreadId||'',from:r.from||'',fromName:r.fromName||'',subject:r.subject||'Email senza oggetto',bodyPreview:r.bodyPreview||'',emailDate:r.emailDate||'',receivedAt:r.archivedAt||new Date().toISOString(),type:r.type||'Comunicazione',priority:r.priority||'Normale',status:'Nuova',jobId:r.jobId||(match?.score?match.j.id:''),clientId:'',assignedTo:'',dueDate:'',attachmentNames:r.attachmentNames||[],files:r.files||[],notes:'',updatedAt:new Date().toISOString()});
+    const request={id:uid(),sourceReceiptId:r.id,source:'Gmail',gmailMessageId:r.gmailMessageId||'',gmailThreadId:r.gmailThreadId||'',from:r.from||'',fromName:r.fromName||'',subject:r.subject||'Email senza oggetto',bodyPreview:r.bodyPreview||'',emailDate:r.emailDate||'',receivedAt:r.archivedAt||new Date().toISOString(),type:r.type||'Comunicazione',priority:r.priority||'Normale',status:'Nuova',jobId:r.jobId||(match?.score?match.j.id:''),clientId:'',assignedTo:'',dueDate:'',attachmentNames:r.attachmentNames||[],files:r.files||[],notes:'',updatedAt:new Date().toISOString()};
+    db.requests.push(request);autoOrganizeRequest(request);
     applied.add(r.id);ack.push(r.id);imported++;
   });
   if(imported)save();
@@ -169,7 +201,7 @@ function renderActivityCenter(){
   document.getElementById('emailActDone').textContent=created.filter(r=>r.status==='Completata').length;
   const q=normalize(document.getElementById('emailActivitySearch').value),kind=document.getElementById('emailActivityKind').value,status=document.getElementById('emailActivityStatus').value;
   const rows=created.filter(r=>(!kind||activityKind(r).includes(kind))&&(!status||r.status===status)&&(!q||normalize([r.subject,r.notes,r.bodyPreview,jobName(r.jobId),plantLabel(selectedPlant(r)),activityKind(r).join(' ')].join(' ')).includes(q))).sort((a,b)=>String(b.updatedAt||b.emailDate).localeCompare(String(a.updatedAt||a.emailDate)));
-  const card=r=>{const kinds=activityKind(r),plant=selectedPlant(r),team=(db.vcSquadre||[]).find(t=>teamId(t)===String(r.assignedTeamId||r.teamId||''));return `<div class="item email-activity-card"><div class="item-main"><div class="item-title">${html(r.subject||'Attività da email')} ${kinds.map(k=>`<span class="badge">${html(k)}</span>`).join(' ')}</div><div class="item-sub">${plant?html(plantLabel(plant))+' • ':''}${r.scheduledDate?html(r.scheduledDate)+' • ':''}${team?html(teamLabel(team))+' • ':''}<span class="badge">${html(r.status||'Nuova')}</span></div><div class="item-sub email-activity-note">${html(r.notes||r.activity?.description||r.bodyPreview||'')}</div></div><div class="item-actions"><button class="mini primary" data-email-activity-open="${html(r.id)}">APRI</button>${r.quoteNumber?`<button class="mini" data-email-activity-go="preventivi">PREVENTIVO</button>`:''}${r.scheduledDate?`<button class="mini" data-email-activity-go="scadenze">SCADENZA</button>`:''}${r.reportStartedAt?`<button class="mini" data-email-activity-go="rapportini">RAPPORTINO</button>`:''}</div></div>`};
+  const card=r=>{const kinds=activityKind(r),plant=selectedPlant(r),team=(db.vcSquadre||[]).find(t=>teamId(t)===String(r.assignedTeamId||r.teamId||''));return `<div class="item email-activity-card"><div class="item-main"><div class="item-title">${html(r.subject||'Attività da email')} ${kinds.map(k=>`<span class="badge">${html(k)}</span>`).join(' ')}</div><div class="item-sub">${plant?html(plantLabel(plant))+' • ':''}${r.scheduledDate?html(r.scheduledDate)+' • ':''}${team?html(teamLabel(team))+' • ':''}<span class="badge ${r.needsReview?'priority-high':''}">${html(r.status||'Nuova')}</span></div><div class="item-sub email-activity-note">${html(r.notes||r.activity?.description||r.bodyPreview||'')}</div></div><div class="item-actions"><button class="mini primary" data-email-activity-open="${html(r.id)}">APRI</button>${r.quoteNumber?`<button class="mini" data-email-activity-go="preventivi">PREVENTIVO</button>`:''}${r.scheduledDate?`<button class="mini" data-email-activity-go="scadenze">SCADENZA</button>`:''}${r.reportStartedAt?`<button class="mini" data-email-activity-go="rapportini">RAPPORTINO</button>`:''}</div></div>`};
   const groups=new Map();rows.forEach(r=>{const name=jobName(r.jobId)||'Senza commessa';if(!groups.has(name))groups.set(name,[]);groups.get(name).push(r)});
   document.getElementById('emailActivitiesList').innerHTML=rows.length?[...groups.entries()].map(([name,items])=>`<div class="email-activity-group"><div class="email-activity-group-title">${html(name)} · ${items.length} attività</div><div class="email-activity-group-list">${items.map(card).join('')}</div></div>`).join(''):'<div class="empty">Nessuna attività creata dalle email.</div>';
   document.querySelectorAll('[data-email-activity-open]').forEach(b=>b.onclick=()=>openManager(b.dataset.emailActivityOpen));document.querySelectorAll('[data-email-activity-go]').forEach(b=>b.onclick=()=>nav(b.dataset.emailActivityGo));
@@ -196,7 +228,7 @@ function install(){
   document.getElementById('addRequestSender').onclick=async()=>{const sender=document.getElementById('requestSenderEmail'),job=document.getElementById('requestSenderJob'),info=document.getElementById('requestSyncInfo'),address=sender.value.trim().toLowerCase();if(!validEmail(address)){info.textContent='Inserisci un indirizzo mittente valido.';sender.focus();return}if(!job.value){info.textContent='Scegli la commessa da collegare.';job.focus();return}const next=settings(),existing=next.senderRules.find(rule=>rule.email===address);if(existing)existing.jobId=job.value;else next.senderRules.push({id:uid(),email:address,jobId:job.value});saveSettings(next);sender.value='';job.value='';renderSenderRules();info.textContent='Mittente collegato alla commessa. Premi SALVA IMPOSTAZIONI per aggiornare anche Gmail.'};
   document.getElementById('checkRequestsNow').onclick=scan;
   ['requestStatusFilter','requestTypeFilter','requestSearch'].forEach(id=>document.getElementById(id).addEventListener(id==='requestSearch'?'input':'change',render));
-  installActivityCenter();renderSenderRules();render();renderActivityCenter();setTimeout(()=>importReceipts().catch(()=>{}),3500);setInterval(()=>importReceipts().catch(()=>{}),15*60*1000);
+  installActivityCenter();const oldRows=(db.requests||[]).filter(r=>!r.autoOrganizedAt);oldRows.forEach(autoOrganizeRequest);if(oldRows.length)save();renderSenderRules();render();renderActivityCenter();setTimeout(()=>importReceipts().catch(()=>{}),3500);setInterval(()=>importReceipts().catch(()=>{}),15*60*1000);
 }
 const baseRefresh=window.refresh;window.refresh=function(){baseRefresh();render();renderSenderRules();renderActivityCenter()};
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',install);else install();
