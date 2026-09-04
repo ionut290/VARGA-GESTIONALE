@@ -211,9 +211,10 @@
   async function exportQuoteXlsx(q){
     await loadExcelJs();
     const wb=new ExcelJS.Workbook();wb.creator='Varga Gestionale';wb.created=new Date();wb.calcProperties.fullCalcOnLoad=true;
-    const ws=wb.addWorksheet('Preventivo',{pageSetup:{paperSize:9,orientation:'portrait',fitToPage:true,fitToWidth:1,fitToHeight:0,margins:{left:0,right:0.2,top:0.2,bottom:0.3,header:0,footer:0}}});
-    ws.views=[{showGridLines:false}];ws.properties.defaultRowHeight=18;ws.columns=[{width:24},{width:12},{width:42},{width:10},{width:11},{width:15},{width:15}];
-    const sidebar=await imageData(SIDEBAR_IMG,window.AVOLA_SIDEBAR_B64),sidebarId=wb.addImage({base64:sidebar,extension:'png'});ws.addImage(sidebarId,{tl:{col:0,row:0},ext:{width:180,height:1000},editAs:'absolute'});
+    const ws=wb.addWorksheet('Preventivo');
+    ws.pageSetup={paperSize:9,orientation:'portrait',fitToPage:true,fitToWidth:1,fitToHeight:1,horizontalCentered:false,verticalCentered:false,margins:{left:0.1,right:0.1,top:0.1,bottom:0.1,header:0,footer:0}};
+    ws.views=[{showGridLines:false}];ws.properties.defaultRowHeight=18;ws.columns=[{width:18},{width:10},{width:34},{width:8},{width:9},{width:12},{width:12}];
+    const sidebar=await imageData(SIDEBAR_IMG,window.AVOLA_SIDEBAR_B64),sidebarId=wb.addImage({base64:sidebar,extension:'png'});ws.addImage(sidebarId,{tl:{col:0,row:0},ext:{width:145,height:1055},editAs:'absolute'});
     const signature=await imageData(SIGNATURE_IMG,window.AVOLA_SIGNATURE_B64),signatureId=wb.addImage({base64:signature,extension:'png'});
     const d=q.date||dateIt(q.dateIso||todayIso()),client=q.client||{};
     ws.mergeCells('B2:C2');ws.getCell('B2').value=`${q.place||DEFAULT_PLACE}, il ${d}`;
@@ -231,7 +232,7 @@
     const discountRow=referenceRow+2,totalRow=referenceRow+3;ws.mergeCells(`E${discountRow}:F${discountRow}`);ws.getCell(`E${discountRow}`).value='Sconto %';ws.getCell(`G${discountRow}`).value=Number(q.discount||0);ws.getCell(`G${discountRow}`).numFmt='0.00';
     ws.mergeCells(`E${totalRow}:F${totalRow}`);ws.getCell(`E${totalRow}`).value='TOTALE OFFERTA (IVA ESCLUSA)';ws.getCell(`E${totalRow}`).font={bold:true,size:11};ws.getCell(`G${totalRow}`).value={formula:`SUM(G${firstData}:G${lastData})*(1-G${discountRow}/100)`,result:Number(q.subtotal??q.total??0)};ws.getCell(`G${totalRow}`).font={bold:true,size:12};
     ws.getColumn(5).numFmt='#,##0.###';ws.getColumn(6).numFmt='€ #,##0.000';ws.getColumn(7).numFmt='€ #,##0.00';
-    const signRow=totalRow+2;ws.mergeCells(`E${signRow}:G${signRow}`);ws.getCell(`E${signRow}`).value='Timbro e Firma della Società Fornitrice';ws.getCell(`E${signRow}`).alignment={horizontal:'center'};ws.getCell(`E${signRow}`).font={size:9};ws.addImage(signatureId,{tl:{col:4.7,row:signRow},ext:{width:230,height:105},editAs:'oneCell'});ws.getRow(signRow+1).height=75;ws.pageSetup.printArea=`A1:G${signRow+5}`;
+    const signRow=totalRow+2;ws.mergeCells(`E${signRow}:G${signRow}`);ws.getCell(`E${signRow}`).value='Timbro e Firma della Società Fornitrice';ws.getCell(`E${signRow}`).alignment={horizontal:'center'};ws.getCell(`E${signRow}`).font={size:9};ws.addImage(signatureId,{tl:{col:4.35,row:signRow},ext:{width:190,height:87},editAs:'oneCell'});ws.getRow(signRow+1).height=64;ws.pageSetup.printArea='A1:G54';
     const buffer=await wb.xlsx.writeBuffer(),blob=new Blob([buffer],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`Offerta-${safeFileName(q.number)}-${safeFileName(q.clientName||client.name)}.xlsx`;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);
   }
   async function downloadXlsx(q){try{await exportQuoteXlsx(q)}catch(err){console.error(err);alert('Non riesco a creare il file Excel. Controlla la connessione e riprova.')}}
