@@ -15,6 +15,9 @@ const ROOT_FOLDER_NAME = 'Varga Gestionale';
 const ACCOUNTING_FOLDER_NAME = 'Contabilita';
 const STATE_PROP = 'VARGA_MAP_STATE';
 const RECEIPTS_PROP = 'VARGA_MAP_RECEIPTS';
+const REQUEST_RECEIPTS_PROP = 'VARGA_REQUEST_RECEIPTS';
+const REQUEST_ITEM_PREFIX = 'VARGA_REQUEST_ITEM_';
+const REQUEST_LAST_SCAN_PROP = 'VARGA_REQUEST_LAST_SCAN';
 const MAX_RECEIPTS = 200;
 
 function doPost(e) {
@@ -31,9 +34,19 @@ function doPost(e) {
       saveState_(payload);
       return json_(scan_(payload));
     }
+    if (action === 'scanRequests') {
+      const state = Object.assign({}, loadState_() || {}, payload || {});
+      saveState_(state);
+      return json_(scanRequests_(state));
+    }
     if (action === 'receipts') return json_({ok:true, receipts:loadReceipts_().filter(r=>!r.acknowledged)});
+    if (action === 'requestReceipts') return json_({ok:true, requests:loadRequestReceipts_().filter(r=>!r.acknowledged)});
     if (action === 'acknowledge') {
       acknowledgeReceipts_(payload.receiptIds || []);
+      return json_({ok:true});
+    }
+    if (action === 'acknowledgeRequests') {
+      acknowledgeRequestReceipts_(payload.requestIds || []);
       return json_({ok:true});
     }
     return json_({ok:false, error:'Azione non supportata'});
@@ -46,6 +59,58 @@ function scanScheduled() {
   const payload = loadState_();
   if (!payload) return;
   scan_(payload);
+  scanRequests_(payload);
+}
+
+function scanRequests_(payload) {
+  const now = new Date();
+  const previous = PropertiesService.getScriptProperties().getProperty(REQUEST_LAST_SCAN_PROP);
+  const since = previous ? new Date(previous) : new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+  const afterDate = Utilities.formatDate(since, Session.getScriptTimeZone() || 'Europe/Rome', 'yyyy/MM/dd');
+  const ownEmail = normalizeEmail_(payload.requestEmail || payload.mapEmail || '');
+  const query = `after:${afterDate} -in:spam -in:trash`;
+  let found = 0, checked = 0;
+  GmailApp.search(query, 0, 100).forEach(thread => thread.getMessages().forEach(msg => {
+    if (msg.getDate().getTime() <= since.getTime()) return;
+    const from = normalizeEmail_(msg.getFrom());
+    if (!from || (ownEmail && from === ownEmail)) return;
+    checked++;
+    const subject = String(msg.getSubject() || '');
+    const body = String(msg.getPlainBody() || '').replace(/\s+/g, ' ').trim();
+    const classification = classifyRequest_([subject, body].join(' '));
+    if (!classification.relevant) return;
+    const id = safeKey_('request::' + msg.getId());
+    if (loadRequestReceipts_().some(r => r.id === id)) return;
+    const attachments = msg.getAttachments({includeInlineImages:false,includeAttachments:true});
+    const files = archiveRequestAttachments_(attachments, id, subject);
+    const senderRaw = String(msg.getFrom() || '');
+    const nameMatch = senderRaw.match(/^\s*"?([^"<]+)"?\s*</);
+    const receipt = {id:id,from:from,fromName:nameMatch?nameMatch[1].trim():'',subject:subject,bodyPreview:body.slice(0,2200),emailDate:msg.getDate().toISOString(),gmailMessageId:String(msg.getId()||''),gmailThreadId:String(thread.getId()||''),type:classification.type,priority:classification.priority,attachmentNames:attachments.map(a=>a.getName()),files:files,archivedAt:new Date().toISOString(),acknowledged:false};
+    const rows = loadRequestReceipts_(); rows.push(receipt); saveRequestReceipts_(rows); found++;
+  }));
+  PropertiesService.getScriptProperties().setProperty(REQUEST_LAST_SCAN_PROP, now.toISOString());
+  return {ok:true,found:found,checked:checked,pendingRequests:loadRequestReceipts_().filter(r=>!r.acknowledged).length,at:now.toISOString()};
+}
+
+function classifyRequest_(value) {
+  const text = normalizeText_(value);
+  let type = 'Comunicazione', relevant = false;
+  if (/segnal|pericol|guasto|danno|anomali|cadut|ostru|urgente|emergenza/.test(text)) {type='Segnalazione';relevant=true;}
+  else if (/richiest.*preventiv|offerta|quotazione/.test(text)) {type='Richiesta preventivo';relevant=true;}
+  else if (/ordine.*lavor|odl|incarico|affidamento/.test(text)) {type='Ordine di lavoro';relevant=true;}
+  else if (/intervento|manutenz|sfalcio|potatur|abbatt|diserb|ripristin|sopralluogo/.test(text)) {type='Richiesta intervento';relevant=true;}
+  else if (/fattur|pagament|contabil|document|contratt|pec/.test(text)) {type='Amministrazione';relevant=true;}
+  const priority = /emergenza|immediato|pericolo|rischio|urgente|cadut/.test(text) ? 'Urgente' : /entro oggi|sollecito|priorita|quanto prima/.test(text) ? 'Alta' : 'Normale';
+  return {type:type,priority:priority,relevant:relevant};
+}
+
+function archiveRequestAttachments_(attachments, receiptId, subject) {
+  if (!attachments || !attachments.length) return [];
+  const root = getOrCreateFolder_(DriveApp.getRootFolder(), ROOT_FOLDER_NAME);
+  const requests = getOrCreateFolder_(root, 'Richieste e segnalazioni');
+  const day = Utilities.formatDate(new Date(), Session.getScriptTimeZone() || 'Europe/Rome', 'yyyy-MM-dd');
+  const folder = getOrCreateFolder_(requests, day + ' - ' + safe_(subject).slice(0,80) + ' - ' + receiptId.slice(0,8));
+  return attachments.map(att => {const file=folder.createFile(att.copyBlob()).setName(att.getName()||('Allegato-'+Date.now()));return{name:file.getName(),driveFileId:file.getId(),driveUrl:file.getUrl()};});
 }
 
 function scan_(payload) {
@@ -168,9 +233,29 @@ function safeKey_(v){const digest=Utilities.computeDigest(Utilities.DigestAlgori
 function getOrCreateFolder_(parent,name){const it=parent.getFoldersByName(name);return it.hasNext()?it.next():parent.createFolder(name)}
 function json_(o){return ContentService.createTextOutput(JSON.stringify(o)).setMimeType(ContentService.MimeType.JSON)}
 function checkToken_(token){const expected=PropertiesService.getScriptProperties().getProperty('VARGA_MAP_TOKEN')||'';if(!expected||String(token||'')!==expected)throw new Error('Token ponte non valido')}
-function saveState_(payload){const state={mapEmail:payload.mapEmail||'',jobs:payload.jobs||[],rounds:payload.rounds||[],updatedAt:new Date().toISOString()};PropertiesService.getScriptProperties().setProperty(STATE_PROP,JSON.stringify(state))}
+function saveState_(payload){const previous=loadState_()||{};const state={mapEmail:payload.mapEmail||previous.mapEmail||'',requestEmail:payload.requestEmail||previous.requestEmail||'',jobs:payload.jobs||previous.jobs||[],rounds:payload.rounds||previous.rounds||[],updatedAt:new Date().toISOString()};PropertiesService.getScriptProperties().setProperty(STATE_PROP,JSON.stringify(state))}
 function loadState_(){const s=PropertiesService.getScriptProperties().getProperty(STATE_PROP);return s?JSON.parse(s):null}
 function loadReceipts_(){try{return JSON.parse(PropertiesService.getScriptProperties().getProperty(RECEIPTS_PROP)||'[]')||[]}catch(_){return[]}}
 function saveReceipts_(arr){PropertiesService.getScriptProperties().setProperty(RECEIPTS_PROP,JSON.stringify((arr||[]).slice(-MAX_RECEIPTS)))}
 function saveReceipt_(receipt){const arr=loadReceipts_();if(arr.some(r=>r.id===receipt.id))return false;arr.push(receipt);saveReceipts_(arr);return true}
 function acknowledgeReceipts_(ids){const set=new Set((ids||[]).map(String));if(!set.size)return;const arr=loadReceipts_();arr.forEach(r=>{if(set.has(String(r.id)))r.acknowledged=true});saveReceipts_(arr)}
+function loadRequestReceipts_(){
+  const props=PropertiesService.getScriptProperties();
+  try{
+    const index=JSON.parse(props.getProperty(REQUEST_RECEIPTS_PROP)||'[]')||[];
+    if(index.length&&typeof index[0]==='object')return index; // compatibilità con la prima versione
+    return index.map(id=>{try{return JSON.parse(props.getProperty(REQUEST_ITEM_PREFIX+id)||'null')}catch(_){return null}}).filter(Boolean);
+  }catch(_){return[]}
+}
+function saveRequestReceipts_(arr){
+  const props=PropertiesService.getScriptProperties(),rows=(arr||[]).slice(-MAX_RECEIPTS),values={};
+  rows.forEach(r=>{values[REQUEST_ITEM_PREFIX+r.id]=JSON.stringify(r)});
+  if(Object.keys(values).length)props.setProperties(values,false);
+  props.setProperty(REQUEST_RECEIPTS_PROP,JSON.stringify(rows.map(r=>r.id)));
+}
+function acknowledgeRequestReceipts_(ids){
+  const props=PropertiesService.getScriptProperties(),set=new Set((ids||[]).map(String));if(!set.size)return;
+  const remaining=loadRequestReceipts_().filter(r=>!set.has(String(r.id)));
+  set.forEach(id=>props.deleteProperty(REQUEST_ITEM_PREFIX+id));
+  saveRequestReceipts_(remaining);
+}

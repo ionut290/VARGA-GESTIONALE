@@ -3,7 +3,7 @@
 // Firestore contiene un manifest leggero + un documento per sezione.
 // Ad ogni avvio/listener si legge il manifest; si scaricano solo le sezioni con versione cambiata.
 (function(){
-  const SECTION_KEYS=['priceLists','entries','clients','quotes','jobs','invoices','expenses','deadlines','documents','consuntivi','company'];
+  const SECTION_KEYS=['priceLists','entries','clients','quotes','jobs','requests','invoices','expenses','deadlines','documents','consuntivi','company'];
   const HASH_KEY='vg_cloudSectionHashes_v1';
   const VERSION_KEY='vg_cloudSectionVersions_v1';
   const LAST_PULL_KEY='vg_cloudIncrementalLastPull_v1';
