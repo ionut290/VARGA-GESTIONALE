@@ -30,6 +30,13 @@
     try{localStorage.setItem(ACTIVE_KEY,id)}catch(_){}
     const hidden=document.getElementById('ePL');
     if(hidden)hidden.value=id;
+    if(excelState){
+      excelState=null;
+      const input=document.getElementById('excelFile');
+      if(input)input.value='';
+      const area=document.getElementById('excelArea');
+      if(area)area.innerHTML='<div class="warn">Hai cambiato prezziario. Premi SCEGLI FILE per caricare il file nel prezziario selezionato.</div>';
+    }
     renderPriceLists();
   }
 
@@ -381,7 +388,6 @@
         excelState={fileName:file.name,sheetName,headerRow,headers,rows,map};
         const parsed=buildImportedRows(excelState);
         const pl=db.priceLists.find(p=>p.id===active);
-        if(pl&&ntext(file.name).includes('assoverde'))pl.name='Assoverde 2025';
         const area=document.getElementById('excelArea');
         area.innerHTML=`<div class="warn"><strong>File pronto:</strong> ${esc(file.name)} • Foglio: <strong>${esc(sheetName)}</strong> • <strong>${parsed.length} voci valide</strong>.<br>Riconosciute: Codice ${map.code>=0?'✓':'—'}, Descrizione ✓, U.M. ${map.unit>=0?'✓':'—'}, Prezzo unitario ✓, Ribasso ${map.discount>=0?'✓':'—'}.</div>${previewHtml(parsed)}<div class="actions left"><button id="doExcel" class="primary">IMPORTA ORA IN ${esc(pl?.name||'PREZZIARIO')}</button></div>`;
         document.getElementById('doExcel').onclick=()=>{
