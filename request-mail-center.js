@@ -2,11 +2,14 @@
 (function(){
 'use strict';
 const appliedKey='vg_requestMailApplied';
+const dismissedKey='vg_requestMailDismissed';
 const requestEmailKey='vg_requestEmail';
 const requestSettingsKey='vg_requestSettings';
 const statuses=['Nuova','Presa in carico','Programmata','In lavorazione','Completata','Archiviata'];
 const getApplied=()=>{try{return new Set(JSON.parse(localStorage.getItem(appliedKey)||'[]'))}catch(_){return new Set()}};
 const setApplied=s=>localStorage.setItem(appliedKey,JSON.stringify([...s].slice(-1000)));
+const getDismissed=()=>{try{return new Set(JSON.parse(localStorage.getItem(dismissedKey)||'[]'))}catch(_){return new Set()}};
+const setDismissed=s=>localStorage.setItem(dismissedKey,JSON.stringify([...s].slice(-1000)));
 const html=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const normalize=v=>String(v||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
 const call=(action,extra={})=>{
@@ -26,10 +29,12 @@ function suggestedJob(receipt){
 async function importReceipts(){
   const result=await call('requestReceipts');
   const rows=Array.isArray(result?.requests)?result.requests:[];
-  const applied=getApplied(),ack=[];let imported=0;
+  const applied=getApplied(),dismissed=getDismissed(),ack=[];let imported=0;
   rows.forEach(r=>{
     if(!r?.id)return;
-    if(applied.has(r.id)||db.requests.some(x=>x.sourceReceiptId===r.id)){ack.push(r.id);applied.add(r.id);return}
+    // Se la richiesta manca dopo un ripristino/sync, la email deve essere reimportata.
+    // Solo un'eliminazione esplicita dell'utente deve impedirne il ritorno.
+    if(dismissed.has(r.id)||db.requests.some(x=>x.sourceReceiptId===r.id)){ack.push(r.id);applied.add(r.id);return}
     const match=suggestedJob(r);
     db.requests.push({id:uid(),sourceReceiptId:r.id,source:'Gmail',gmailMessageId:r.gmailMessageId||'',gmailThreadId:r.gmailThreadId||'',from:r.from||'',fromName:r.fromName||'',subject:r.subject||'Email senza oggetto',bodyPreview:r.bodyPreview||'',emailDate:r.emailDate||'',receivedAt:r.archivedAt||new Date().toISOString(),type:r.type||'Comunicazione',priority:r.priority||'Normale',status:'Nuova',jobId:r.jobId||(match?.score?match.j.id:''),clientId:'',assignedTo:'',dueDate:'',attachmentNames:r.attachmentNames||[],files:r.files||[],notes:'',updatedAt:new Date().toISOString()});
     applied.add(r.id);ack.push(r.id);imported++;
@@ -74,7 +79,7 @@ function render(){
 function bindRows(){
   document.querySelectorAll('[data-request-status]').forEach(el=>el.onchange=()=>{const r=db.requests.find(x=>x.id===el.dataset.requestStatus);if(r){r.status=el.value;r.updatedAt=new Date().toISOString();save()}});
   document.querySelectorAll('[data-request-job]').forEach(el=>el.onchange=()=>{const r=db.requests.find(x=>x.id===el.dataset.requestJob);if(r){r.jobId=el.value;r.updatedAt=new Date().toISOString();save()}});
-  document.querySelectorAll('[data-request-delete]').forEach(el=>el.onclick=()=>{if(!confirm('Eliminare questa richiesta dal gestionale?'))return;db.requests=db.requests.filter(x=>x.id!==el.dataset.requestDelete);save()});
+  document.querySelectorAll('[data-request-delete]').forEach(el=>el.onclick=()=>{if(!confirm('Eliminare questa richiesta dal gestionale?'))return;const request=db.requests.find(x=>x.id===el.dataset.requestDelete);if(request?.sourceReceiptId){const dismissed=getDismissed();dismissed.add(request.sourceReceiptId);setDismissed(dismissed)}db.requests=db.requests.filter(x=>x.id!==el.dataset.requestDelete);save()});
 }
 function renderSenderRules(){
   const box=document.getElementById('requestSenderRules'),select=document.getElementById('requestSenderJob');if(!box||!select)return;
