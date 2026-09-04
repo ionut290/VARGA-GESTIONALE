@@ -116,7 +116,8 @@ function scanRequests_(payload) {
     const id = safeKey_('request::' + msg.getId());
     if (storedIds.has(id)) return;
     const attachments = msg.getAttachments({includeInlineImages:false,includeAttachments:true});
-    const files = archiveRequestAttachments_(attachments, id, subject);
+    const requestJob = senderRule ? (payload.jobs||[]).find(job=>String(job.id||'')===senderRule.jobId) : null;
+    const files = archiveRequestAttachments_(attachments, id, subject, requestJob, msg.getDate());
     const senderRaw = String(msg.getFrom() || '');
     const nameMatch = senderRaw.match(/^\s*"?([^"<]+)"?\s*</);
     const receipt = {id:id,from:from,fromName:nameMatch?nameMatch[1].trim():'',subject:subject,bodyPreview:body.slice(0,2200),emailDate:msg.getDate().toISOString(),gmailMessageId:String(msg.getId()||''),gmailThreadId:String(thread.getId()||''),type:classification.type,priority:classification.priority,jobId:senderRule?senderRule.jobId:'',attachmentNames:attachments.map(a=>a.getName()),files:files,archivedAt:new Date().toISOString(),acknowledged:false};
@@ -144,13 +145,16 @@ function classifyRequest_(value) {
   return {type:type,priority:priority,relevant:relevant};
 }
 
-function archiveRequestAttachments_(attachments, receiptId, subject) {
+function archiveRequestAttachments_(attachments, receiptId, subject, job, emailDate) {
   if (!attachments || !attachments.length) return [];
   const root = getOrCreateFolder_(DriveApp.getRootFolder(), ROOT_FOLDER_NAME);
   const requests = getOrCreateFolder_(root, 'Richieste e segnalazioni');
-  const day = Utilities.formatDate(new Date(), Session.getScriptTimeZone() || 'Europe/Rome', 'yyyy-MM-dd');
-  const folder = getOrCreateFolder_(requests, day + ' - ' + safe_(subject).slice(0,80) + ' - ' + receiptId.slice(0,8));
-  return attachments.map(att => {const file=folder.createFile(att.copyBlob()).setName(att.getName()||('Allegato-'+Date.now()));return{name:file.getName(),driveFileId:file.getId(),driveUrl:file.getUrl()};});
+  const commessa = getOrCreateFolder_(requests, safe_(job ? ((job.code?job.code+' - ':'')+(job.title||'Commessa')) : 'Da classificare'));
+  const date = emailDate instanceof Date ? emailDate : new Date();
+  const year = getOrCreateFolder_(commessa, Utilities.formatDate(date, Session.getScriptTimeZone() || 'Europe/Rome', 'yyyy'));
+  const day = Utilities.formatDate(date, Session.getScriptTimeZone() || 'Europe/Rome', 'yyyy-MM-dd');
+  const folder = getOrCreateFolder_(year, day + ' - ' + safe_(subject).slice(0,80) + ' - ' + receiptId.slice(0,8));
+  return attachments.map(att => {const name=att.getName()||('Allegato-'+Date.now()),existing=folder.getFilesByName(name),file=existing.hasNext()?existing.next():folder.createFile(att.copyBlob()).setName(name);return{name:file.getName(),driveFileId:file.getId(),driveUrl:file.getUrl()};});
 }
 
 function scan_(payload) {
@@ -294,8 +298,7 @@ function saveRequestReceipts_(arr){
   props.setProperty(REQUEST_RECEIPTS_PROP,JSON.stringify(rows.map(r=>r.id)));
 }
 function acknowledgeRequestReceipts_(ids){
-  const props=PropertiesService.getScriptProperties(),set=new Set((ids||[]).map(String));if(!set.size)return;
-  const remaining=loadRequestReceipts_().filter(r=>!set.has(String(r.id)));
-  set.forEach(id=>props.deleteProperty(REQUEST_ITEM_PREFIX+id));
-  saveRequestReceipts_(remaining);
+  const set=new Set((ids||[]).map(String));if(!set.size)return;
+  const rows=loadRequestReceipts_();rows.forEach(r=>{if(set.has(String(r.id)))r.acknowledged=true});
+  saveRequestReceipts_(rows);
 }
