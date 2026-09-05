@@ -14,6 +14,7 @@ ARCHITETTURA A BASSO CONSUMO FIRESTORE:
 
 const ROOT_FOLDER_NAME = 'Varga Gestionale';
 const ACCOUNTING_FOLDER_NAME = 'Contabilita';
+const DEPURAZIONE_CONSUNTIVI_ROOT_ID = '1ZTsKCV5zrH2KemJLbgac6pIPRMqye8ku';
 const STATE_PROP = 'VARGA_MAP_STATE';
 const RECEIPTS_PROP = 'VARGA_MAP_RECEIPTS';
 const REQUEST_RECEIPTS_PROP = 'VARGA_REQUEST_RECEIPTS';
@@ -59,6 +60,7 @@ function doPost(e) {
     if (action === 'driveList') return json_(driveList_(payload, false));
     if (action === 'driveCreateFolder') return json_(driveCreateFolder_(payload));
     if (action === 'driveUpload') return json_(driveUpload_(payload));
+    if (action === 'saveDepurazioneConsuntivo') return json_(saveDepurazioneConsuntivo_(payload));
     if (action === 'driveGetFile') return json_(driveGetFile_(payload));
     if (action === 'driveRename') return json_(driveRename_(payload));
     if (action === 'driveTrash') return json_(driveTrash_(payload));
@@ -351,6 +353,15 @@ function driveSafeFile_(payload,root){const file=DriveApp.getFileById(String(pay
 function driveList_(payload,ensure){const root=driveJobFolder_(payload,ensure),folder=driveSafeFolder_(payload,root),folders=[],files=[],fit=folder.getFolders();while(fit.hasNext()){const f=fit.next();if(!f.isTrashed())folders.push({id:f.getId(),name:f.getName(),kind:'folder'})}const it=folder.getFiles();while(it.hasNext()){const f=it.next();if(!f.isTrashed())files.push({id:f.getId(),name:f.getName(),kind:'file',mimeType:f.getMimeType(),size:f.getSize(),updatedAt:f.getLastUpdated().toISOString()})}folders.sort((a,b)=>a.name.localeCompare(b.name));files.sort((a,b)=>b.updatedAt.localeCompare(a.updatedAt));return{ok:true,rootId:root.getId(),folderId:folder.getId(),folderName:folder.getName(),folders,files}}
 function driveCreateFolder_(payload){const root=driveJobFolder_(payload,true),parent=driveSafeFolder_(payload,root),name=safe_(payload.name);if(!name)throw new Error('Inserisci il nome della cartella');const folder=getOrCreateFolder_(parent,name);return{ok:true,id:folder.getId(),name:folder.getName()}}
 function driveUpload_(payload){const root=driveJobFolder_(payload,true),parent=driveSafeFolder_(payload,root),name=safe_(payload.name),raw=String(payload.base64||'');if(!name||!raw)throw new Error('File non valido');const bytes=Utilities.base64Decode(raw);if(bytes.length>8*1024*1024)throw new Error('Il file supera il limite di 8 MB');const file=parent.createFile(Utilities.newBlob(bytes,String(payload.mimeType||'application/octet-stream'),name));return{ok:true,id:file.getId(),name:file.getName(),mimeType:file.getMimeType(),size:file.getSize()}}
+function saveDepurazioneConsuntivo_(payload){
+  const raw=String(payload.base64||''),plant=safe_(payload.plantName||'Impianto'),dateKey=String(payload.dateKey||'').replace(/[^0-9]/g,'');
+  if(!raw||!/^[0-9]{8}$/.test(dateKey))throw new Error('PDF, data o impianto non validi');
+  const bytes=Utilities.base64Decode(raw);if(bytes.length>8*1024*1024)throw new Error('Il PDF supera il limite di 8 MB');
+  const root=DriveApp.getFolderById(DEPURAZIONE_CONSUNTIVI_ROOT_ID),folderName=dateKey+' - '+plant,folder=getOrCreateFolder_(root,folderName),fileName=dateKey+' - '+plant+'.pdf';
+  const existing=folder.getFilesByName(fileName);while(existing.hasNext())existing.next().setTrashed(true);
+  const file=folder.createFile(Utilities.newBlob(bytes,'application/pdf',fileName));
+  return{ok:true,folderId:folder.getId(),folderName:folder.getName(),folderUrl:folder.getUrl(),fileId:file.getId(),fileName:file.getName(),fileUrl:file.getUrl()};
+}
 function driveGetFile_(payload){const root=driveJobFolder_(payload,false),file=driveSafeFile_(payload,root),blob=file.getBlob(),bytes=blob.getBytes();if(bytes.length>8*1024*1024)throw new Error('File oltre il limite di 8 MB');return{ok:true,id:file.getId(),name:file.getName(),mimeType:file.getMimeType(),base64:Utilities.base64Encode(bytes)}}
 function driveRename_(payload){const root=driveJobFolder_(payload,false),name=safe_(payload.name);if(!name)throw new Error('Inserisci il nuovo nome');if(payload.kind==='folder'){const folder=driveSafeFolder_({folderId:payload.itemId},root);if(folder.getId()===root.getId())throw new Error('La cartella principale non può essere rinominata');folder.setName(name)}else driveSafeFile_(payload,root).setName(name);return{ok:true}}
 function driveTrash_(payload){const root=driveJobFolder_(payload,false);if(payload.kind==='folder'){const folder=driveSafeFolder_({folderId:payload.itemId},root);if(folder.getId()===root.getId())throw new Error('La cartella principale non può essere eliminata');folder.setTrashed(true)}else driveSafeFile_(payload,root).setTrashed(true);return{ok:true}}
