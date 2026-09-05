@@ -6,6 +6,7 @@
   const DEFAULT_PLACE='Castel Maggiore';
   const DEFAULT_INTRO='A seguito della Vostra richiesta, si formula la seguente offerta per l’esecuzione delle lavorazioni richieste.';
   let selectedPriceLists=new Set();
+  let editingQuoteId='';
 
   const E=s=>typeof esc==='function'?esc(s):String(s??'');
   const todayIso=()=>new Date().toISOString().slice(0,10);
@@ -132,6 +133,7 @@
   };
 
   clearQuote=function(){
+    editingQuoteId='';
     if($('qNumber'))$('qNumber').value=nextAvolaNumber();
     if($('qDate'))$('qDate').value=todayIso();
     if($('qPlace'))$('qPlace').value=DEFAULT_PLACE;
@@ -286,6 +288,22 @@
     const buffer=await wb.xlsx.writeBuffer(),blob=new Blob([buffer],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`Offerta-${safeFileName(q.number)}-${safeFileName(q.clientName||client.name)}.xlsx`;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);
   }
   async function downloadXlsx(q){try{await exportQuoteXlsx(q)}catch(err){console.error(err);alert('Non riesco a creare il file Excel. Controlla la connessione e riprova.')}}
+  function openSavedQuote(id){
+    const q=(db.quotes||[]).find(x=>x.id===id);if(!q)return alert('Preventivo non trovato.');
+    editingQuoteId=q.id;
+    if($('qClient'))$('qClient').value=q.clientId||'';
+    if($('qNumber'))$('qNumber').value=q.number||'';
+    if($('qDate'))$('qDate').value=q.dateIso||todayIso();
+    if($('qPlace'))$('qPlace').value=q.place||DEFAULT_PLACE;
+    if($('qSubject'))$('qSubject').value=q.subject||'';
+    if($('qSite'))$('qSite').value=q.site||'';
+    if($('qIntro'))$('qIntro').value=q.intro||DEFAULT_INTRO;
+    if($('qValidity'))$('qValidity').value=q.validity||30;
+    if($('qPayment'))$('qPayment').value=q.payment||'';
+    if($('qDiscount'))$('qDiscount').value=q.discount||0;
+    qrows=(q.rows||[]).map(x=>({...x}));selectedPriceLists=new Set(q.priceListIds||[]);
+    updateClientPreview();renderPriceListPicker(false);renderQ();nav('preventivo');window.scrollTo({top:0,behavior:'smooth'});
+  }
   function addCurrentExcelButton(){
     const pdf=$('printQuote');if(!pdf||$('excelQuote'))return;const b=document.createElement('button');b.id='excelQuote';b.className='ghost';b.textContent='SCARICA EXCEL';b.onclick=()=>{if(!qrows.length)return alert('Inserisci almeno una voce.');downloadXlsx(collectQ())};pdf.parentElement.insertBefore(b,pdf);
   }
@@ -332,6 +350,7 @@
     installStyles();enhanceForm();addCurrentExcelButton();
     if($('smartSearch'))$('smartSearch').onclick=runPriceSearch;
     if($('newQuote'))$('newQuote').onclick=clearQuote;
+    if($('saveQuote'))$('saveQuote').onclick=()=>{if(!qrows.length)return alert('Inserisci almeno una voce.');const q=collectQ();if(editingQuoteId){const index=(db.quotes||[]).findIndex(x=>x.id===editingQuoteId);if(index>=0)db.quotes[index]={...db.quotes[index],...q,id:editingQuoteId,jobId:db.quotes[index].jobId||''};alert('Preventivo aggiornato.')}else{db.quotes.push(q);alert('Preventivo salvato.')}save();clearQuote()};
     if($('printQuote')){$('printQuote').textContent='SCARICA PDF COMPILABILE';$('printQuote').onclick=printCurrent;}
     if($('qClient'))$('qClient').onchange=()=>{updateClientPreview();renderPriceListPicker(true)};
     if($('qDiscount'))$('qDiscount').oninput=calcQ;
@@ -341,6 +360,7 @@
       refresh.__avolaPreventivi=true;
     }
     addSavedQuotePdfButtons();calcQ();
+    window.VargaQuoteActions={open:openSavedQuote,pdf:id=>{const q=(db.quotes||[]).find(x=>x.id===id);if(q)downloadEditablePdf(q)},excel:id=>{const q=(db.quotes||[]).find(x=>x.id===id);if(q)downloadXlsx(q)}};
   }
 
   install();
