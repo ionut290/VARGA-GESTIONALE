@@ -22,6 +22,15 @@ const getApplied=()=>{try{return new Set(JSON.parse(localStorage.getItem(applied
 const setApplied=s=>localStorage.setItem(appliedKey,JSON.stringify([...s].slice(-1000)));
 const getDismissed=()=>{let local=[];try{local=JSON.parse(localStorage.getItem(dismissedKey)||'[]')}catch(_){}return new Set([...(Array.isArray(local)?local:[]),...(Array.isArray(db.dismissedRequestReceiptIds)?db.dismissedRequestReceiptIds:[])])};
 const setDismissed=s=>{const values=[...s].slice(-2000);db.dismissedRequestReceiptIds=values;localStorage.setItem(dismissedKey,JSON.stringify(values))};
+function purgeCompletedRequests(){
+  const removed=(db.requests||[]).filter(r=>['Completata','Archiviata'].includes(r.status));
+  if(!removed.length)return false;
+  const dismissed=getDismissed();
+  removed.forEach(r=>{if(r.sourceReceiptId)dismissed.add(r.sourceReceiptId)});
+  setDismissed(dismissed);
+  db.requests=(db.requests||[]).filter(r=>!['Completata','Archiviata'].includes(r.status));
+  return true;
+}
 const html=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const normalize=v=>String(v||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
 const call=(action,extra={})=>{
@@ -207,7 +216,7 @@ function installActivityCenter(){
 }
 function renderActivityCenter(){
   if(!document.getElementById('emailActivitiesList'))return;
-  const created=(db.requests||[]).filter(r=>activityKind(r).length||r.status==='Completata');
+  const created=(db.requests||[]).filter(r=>!['Completata','Archiviata'].includes(r.status)&&activityKind(r).length);
   document.getElementById('emailActOpen').textContent=created.filter(r=>!['Completata','Archiviata'].includes(r.status)).length;
   document.getElementById('emailActJobs').textContent=created.filter(r=>activityKind(r).includes('Intervento')).length;
   document.getElementById('emailActReports').textContent=created.filter(r=>activityKind(r).includes('Segnalazione')).length;
@@ -242,8 +251,9 @@ function install(){
   document.getElementById('addRequestSender').onclick=async()=>{const sender=document.getElementById('requestSenderEmail'),job=document.getElementById('requestSenderJob'),info=document.getElementById('requestSyncInfo'),address=sender.value.trim().toLowerCase();if(!validEmail(address)){info.textContent='Inserisci un indirizzo mittente valido.';sender.focus();return}if(!job.value){info.textContent='Scegli la commessa da collegare.';job.focus();return}const next=settings(),existing=next.senderRules.find(rule=>rule.email===address);if(existing)existing.jobId=job.value;else next.senderRules.push({id:uid(),email:address,jobId:job.value});saveSettings(next);sender.value='';job.value='';renderSenderRules();info.textContent='Mittente collegato alla commessa. Premi SALVA IMPOSTAZIONI per aggiornare anche Gmail.'};
   document.getElementById('checkRequestsNow').onclick=scan;
   ['requestStatusFilter','requestTypeFilter','requestSearch'].forEach(id=>document.getElementById(id).addEventListener(id==='requestSearch'?'input':'change',render));
-  installActivityCenter();const oldRows=(db.requests||[]).filter(r=>!r.autoOrganizedAt);oldRows.forEach(autoOrganizeRequest);if(oldRows.length)save();renderSenderRules();render();renderActivityCenter();setTimeout(()=>importReceipts().catch(()=>{}),3500);setInterval(()=>importReceipts().catch(()=>{}),15*60*1000);
+  installActivityCenter();const removedCompleted=purgeCompletedRequests(),oldRows=(db.requests||[]).filter(r=>!r.autoOrganizedAt);oldRows.forEach(autoOrganizeRequest);if(oldRows.length||removedCompleted)save();renderSenderRules();render();renderActivityCenter();setTimeout(()=>importReceipts().catch(()=>{}),3500);setInterval(()=>importReceipts().catch(()=>{}),15*60*1000);
 }
-const baseRefresh=window.refresh;window.refresh=function(){baseRefresh();render();renderSenderRules();renderActivityCenter()};
+let purgeSaveQueued=false;
+const baseRefresh=window.refresh;window.refresh=function(){const removedCompleted=purgeCompletedRequests();baseRefresh();render();renderSenderRules();renderActivityCenter();if(removedCompleted&&!purgeSaveQueued){purgeSaveQueued=true;setTimeout(()=>{purgeSaveQueued=false;save()},0)}};
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',install);else install();
 })();
