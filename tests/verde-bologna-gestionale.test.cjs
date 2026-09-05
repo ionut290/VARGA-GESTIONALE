@@ -24,4 +24,17 @@ test('il Catasto alberi resta interno al Gestionale', () => {
   const row = source.split('\n').find((line) => line.includes('id: "alberi-manutenzioni"')) || '';
   assert.doesNotMatch(row, /delegate/);
   assert.match(row, /searchHint/);
+  assert.match(row, /codeFields: \["num_pt", "cod_alb"\]/);
+  assert.doesNotMatch(row, /"numpt"|"id", "codice"/);
+});
+
+test('la testata Verde Bologna usa lo spazio del Gestionale senza comprimere il titolo', () => {
+  const headerRule = source.split('\n').find((line) => line.includes('.verde-bologna-header{')) || '';
+  assert.match(headerRule, /padding:max\(12px,env\(safe-area-inset-top\)\) 24px 12px/);
+  assert.doesNotMatch(headerRule, /100vw - 1180px/);
+});
+
+test('Verde Bologna occupa armoniosamente tutto lo schermo desktop', () => {
+  assert.match(source, /\.verde-bologna-shell\{width:100%;max-width:none/);
+  assert.match(source, /height:clamp\(460px,60vh,760px\)/);
 });
