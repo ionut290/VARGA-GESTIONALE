@@ -50,7 +50,7 @@ function organizeMenu(){
     ['Lavoro',['dashboard','emailActivities','commesse','scadenze']],
     ['Gestione',['clienti','preventivi','prezzari','documenti','rapportini']],
     ['Economia',['consuntivi','fatture','spese']],
-    ['Strumenti',['openVargaCantieriDesktop','eggsNextBoard','open-verde-bologna-btn','squadreGestione','cantieriSync']],
+    ['Strumenti',['openVargaCantieriDesktop','eggsNextBoard','open-verde-bologna-btn','squadreGestione','cantieriSync','installVargaDesktop']],
     ['Impostazioni',['cloud','azienda','backup']]
   ];
   const find=key=>navBox.querySelector(`.nav[data-view="${key}"]`)||$(key);
@@ -111,6 +111,21 @@ function improveLabels(){
   Object.entries(names).forEach(([view,label])=>{const button=document.querySelector(`.nav[data-view="${view}"]`);if(button)button.textContent=label});
 }
 
+function installDesktopDownload(){
+  const navBox=document.querySelector('.sidebar-nav');if(!navBox)return;
+  let button=$('installVargaDesktop');
+  if(!button){button=document.createElement('button');button.id='installVargaDesktop';button.className='nav';button.type='button';button.textContent='💻 Installa sul PC';navBox.appendChild(button)}
+  const desktop=new URLSearchParams(location.search).get('desktop')==='1'||Boolean(window.__TAURI_INTERNALS__);
+  button.hidden=desktop;button.classList.toggle('vg-hidden-nav',desktop);
+  button.onclick=()=>{
+    const accepted=window.confirm('AVVISO PRIMA DELL’INSTALLAZIONE\n\nWindows potrebbe mostrare “Autore sconosciuto” perché l’installer non possiede ancora una firma digitale. Questo avviso non significa che il file sia un virus: è l’installer ufficiale di Varga Gestionale, generato e pubblicato dal nostro progetto.\n\nPER PROSEGUIRE SU WINDOWS:\n1. Apri il file scaricato.\n2. Se compare “PC protetto da Windows”, premi “Ulteriori informazioni”.\n3. Premi “Esegui comunque”.\n\nPremi OK per scaricare l’installer oppure Annulla per tornare indietro.');
+    if(!accepted)return;
+    const link=document.createElement('a');
+    link.href='https://github.com/ionut290/VARGA-GESTIONALE/releases/download/desktop-v0.1.1/Varga.Gestionale_0.1.1_x64-setup.exe';
+    link.download='Varga.Gestionale_0.1.1_x64-setup.exe';document.body.appendChild(link);link.click();link.remove();
+  };
+}
+
 function improveTables(){
   document.querySelectorAll('table').forEach(table=>{
     if(table.closest('.table-wrap,.vg-account-wrap'))return;
@@ -119,7 +134,7 @@ function improveTables(){
   });
 }
 
-function run(){addStyles();improveLabels();organizeMenu();improveDashboard();installDashboardHelp();installWelcome();accessibleFields();improveTables()}
+function run(){addStyles();improveLabels();installDesktopDownload();organizeMenu();improveDashboard();installDashboardHelp();installWelcome();accessibleFields();improveTables()}
 
 run();
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>window.setTimeout(run,0),{once:true});
