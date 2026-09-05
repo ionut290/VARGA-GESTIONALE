@@ -61,10 +61,48 @@ function doPost(e) {
     if (action === 'driveGetFile') return json_(driveGetFile_(payload));
     if (action === 'driveRename') return json_(driveRename_(payload));
     if (action === 'driveTrash') return json_(driveTrash_(payload));
+    if (action === 'calendarUpsert') return json_(calendarUpsert_(payload));
+    if (action === 'calendarDelete') return json_(calendarDelete_(payload));
     return json_({ok:false, error:'Azione non supportata'});
   } catch (err) {
     return json_({ok:false, error:String(err && err.message || err)});
   }
+}
+
+function calendarUpsert_(payload) {
+  const task = payload.task || {};
+  if (!task.id || !task.title || !task.date) throw new Error('Attività o scadenza non completa');
+  const calendar = CalendarApp.getDefaultCalendar();
+  let event = task.calendarEventId ? calendar.getEventById(String(task.calendarEventId)) : null;
+  const title = '[VARGA] ' + String(task.title);
+  const description = [
+    task.jobName ? 'Commessa: ' + task.jobName : '',
+    task.assignee ? 'Responsabile: ' + task.assignee : '',
+    task.priority ? 'Priorità: ' + task.priority : '',
+    task.notes || '',
+    'ID attività Varga: ' + task.id
+  ].filter(Boolean).join('\n');
+  const start = task.time ? new Date(String(task.date) + 'T' + String(task.time) + ':00') : null;
+  if (!event) {
+    event = start
+      ? calendar.createEvent(title, start, new Date(start.getTime() + 30 * 60 * 1000), {description:description})
+      : calendar.createAllDayEvent(title, new Date(String(task.date) + 'T12:00:00'), {description:description});
+  } else {
+    event.setTitle(title).setDescription(description);
+    if (start) event.setTime(start, new Date(start.getTime() + 30 * 60 * 1000));
+    else event.setAllDayDate(new Date(String(task.date) + 'T12:00:00'));
+  }
+  event.removeAllReminders();
+  event.addPopupReminder(Number(task.reminderMinutes) || 60);
+  return {ok:true,eventId:event.getId(),eventUrl:'https://calendar.google.com/calendar/u/0/r/eventedit/' + encodeURIComponent(event.getId())};
+}
+
+function calendarDelete_(payload) {
+  const id = String(payload.calendarEventId || '');
+  if (!id) return {ok:true,deleted:false};
+  const event = CalendarApp.getDefaultCalendar().getEventById(id);
+  if (event) event.deleteEvent();
+  return {ok:true,deleted:Boolean(event)};
 }
 
 function scanScheduled() {
