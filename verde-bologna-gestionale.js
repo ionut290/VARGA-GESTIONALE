@@ -117,6 +117,7 @@
       .verde-bologna-status{margin:0 0 12px;padding:9px 11px;border-radius:10px;background:#edf7f0;color:#315b3e;font-size:.85rem}.verde-bologna-status.error{background:#fff0ef;color:#9b281f}.verde-bologna-status.warning{background:#fff7df;color:#7b5304}.verde-bologna-map-card{display:grid;gap:8px;margin:12px 0 16px;padding:12px;border:1px solid #cdded2;border-radius:16px;background:#f9fcfa}
       .verde-bologna-map-toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.verde-bologna-map-toolbar strong{margin-right:auto}.verde-bologna-map-toolbar label{font-size:.78rem;font-weight:800}.verde-bologna-map-toolbar select{min-height:40px;padding:7px 9px;border:1px solid #aebfb2;border-radius:9px;background:#fff;font:inherit}.verde-bologna-map{height:clamp(460px,60vh,760px);min-height:460px;border-radius:12px;overflow:hidden}.verde-bologna-map.is-interactive{touch-action:none!important}.verde-bologna-map-status{margin:0;color:#5d7464;font-size:.8rem}body.verde-bologna-fullscreen-open{overflow:hidden}.verde-bologna-map-card.is-fullscreen{position:fixed;inset:0;z-index:12060;margin:0;padding:max(8px,env(safe-area-inset-top)) max(8px,env(safe-area-inset-right)) max(8px,env(safe-area-inset-bottom)) max(8px,env(safe-area-inset-left));border-radius:0;background:#eef5f0;grid-template-rows:auto auto minmax(0,1fr)}.verde-bologna-map-card.is-fullscreen .verde-bologna-map{height:100%;min-height:0}
       .verde-bologna-overview-legend{display:flex;flex-wrap:wrap;gap:6px;margin:2px 0 8px}.verde-bologna-legend-item{display:inline-flex;align-items:center;gap:5px;padding:5px 8px;border:1px solid #d4e1d7;border-radius:999px;background:#fff;color:#315b3e;font-size:.72rem;font-weight:800}.verde-bologna-legend-dot{width:9px;height:9px;border-radius:50%;flex:0 0 auto}.verde-bologna-page.is-overview .verde-bologna-search,.verde-bologna-page.is-overview .verde-bologna-source-link,.verde-bologna-page.is-overview .verde-bologna-results,.verde-bologna-page.is-overview .verde-bologna-load-more{display:none!important}
+      .verde-bologna-overview-marker-wrap{background:transparent!important;border:0!important}.verde-bologna-overview-marker{display:inline-flex;align-items:center;gap:3px;min-width:28px;height:24px;padding:0 6px;border:2px solid #fff;border-radius:13px;color:#fff;box-shadow:0 2px 6px rgba(0,0,0,.42);font-size:.68rem;font-weight:900;white-space:nowrap}
       .verde-bologna-marker-wrap{background:transparent!important;border:0!important}.verde-bologna-marker{display:flex;align-items:center;justify-content:center;min-width:38px;height:28px;padding:0 7px;border:2px solid #fff;border-radius:15px;color:#fff;background:#08783f;box-shadow:0 2px 7px rgba(0,0,0,.42);font-size:.72rem;font-weight:900;white-space:nowrap}.verde-bologna-popup-open{margin-top:7px;padding:7px 9px;border:0;border-radius:7px;background:#126b40;color:#fff;font-weight:800;cursor:pointer}
       .verde-bologna-results{display:grid;gap:10px}.verde-bologna-result{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;padding:13px;border:1px solid #d6e3d9;border-radius:14px;background:#fbfdfb}.verde-bologna-result h3{margin:0;color:#174d30;font-size:1rem}.verde-bologna-result p{margin:4px 0 0;color:#617667;font-size:.84rem;line-height:1.4}.verde-bologna-result-actions{display:flex;gap:6px;align-items:center;flex-wrap:wrap;justify-content:flex-end}.verde-bologna-result-actions .btn,.verde-bologna-result-actions a{min-height:38px;padding:7px 10px;font-size:.76rem;text-decoration:none}
       .verde-bologna-details{grid-column:1/-1;display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:7px}.verde-bologna-details div{padding:8px;border-radius:9px;background:#eff6f1}.verde-bologna-details span{display:block;color:#6c7f70;font-size:.7rem}.verde-bologna-details strong{display:block;margin-top:3px;color:#294d35;font-size:.8rem;overflow-wrap:anywhere}.verde-bologna-load-more{display:block;width:100%;margin-top:12px;min-height:46px}.verde-bologna-empty{padding:18px;text-align:center;color:#65796a}
@@ -634,15 +635,18 @@
     legend.innerHTML = DATASETS.map((dataset) => `<span class="verde-bologna-legend-item"><i class="verde-bologna-legend-dot" style="background:${overviewColor(dataset)}"></i>${dataset.icon} ${esc(dataset.title)}${counts.has(dataset.id) ? ` · ${counts.get(dataset.id)}` : ""}</span>`).join("");
   }
 
-  function addOverviewGeometry(dataset, record, index, group) {
+  function addOverviewGeometry(dataset, record, index, group, showCode) {
     const geometry = geometryOf(record), center = centerOfGeometry(geometry); if (!geometry || !center) return false;
     const color = overviewColor(dataset), title = recordTitle(record, index, dataset), code = recordCode(record, index, dataset);
     const popup = `<strong>${dataset.icon} ${esc(dataset.title)}</strong><br>${esc(title)}${code.official ? `<br>Codice: ${esc(code.value)}` : ""}<br><button type="button" class="verde-bologna-popup-open" data-vb-overview-open="${esc(dataset.id)}">APRI CATEGORIA</button>`;
     try {
+      const attachPopup = (target) => target.bindPopup(popup).on("popupopen", (event) => event.popup?.getElement?.()?.querySelector?.("[data-vb-overview-open]")?.addEventListener("click", () => openDataset(dataset.id), { once: true }));
+      const numberedIcon = () => L.divIcon({ className: "verde-bologna-overview-marker-wrap", html: `<span class="verde-bologna-overview-marker" style="background:${color}">${dataset.icon} ${esc(code.value)}</span>`, iconSize: null, iconAnchor: [18, 12], popupAnchor: [0, -13] });
       const layer = geometry.type === "Point" || geometry.type === "MultiPoint"
-        ? L.circleMarker([center.lat, center.lon], { radius: dataset.id === TREES_DATASET_ID ? 5 : 7, color: "#fff", weight: 1.5, fillColor: color, fillOpacity: .9 })
+        ? (showCode && code.official ? L.marker([center.lat, center.lon], { icon: numberedIcon(), keyboard: true, riseOnHover: true, title: `${code.value} · ${title}` }) : L.circleMarker([center.lat, center.lon], { radius: dataset.id === TREES_DATASET_ID ? 5 : 7, color: "#fff", weight: 1.5, fillColor: color, fillOpacity: .9 }))
         : L.geoJSON({ type: "Feature", geometry, properties: {} }, { style: { color, weight: 2, fillColor: color, fillOpacity: .2 } });
-      layer.addTo(group).bindPopup(popup).on("popupopen", (event) => event.popup?.getElement?.()?.querySelector?.("[data-vb-overview-open]")?.addEventListener("click", () => openDataset(dataset.id), { once: true }));
+      attachPopup(layer.addTo(group));
+      if (showCode && code.official && geometry.type !== "Point" && geometry.type !== "MultiPoint") attachPopup(L.marker([center.lat, center.lon], { icon: numberedIcon(), keyboard: true, riseOnHover: true, title: `${code.value} · ${title}` }).addTo(group));
       return true;
     } catch (_) { return false; }
   }
@@ -673,11 +677,11 @@
       settled.forEach((result) => {
         if (result.status !== "fulfilled") return;
         const { dataset, records, total } = result.value, group = L.layerGroup().addTo(state.map); state.overviewLayers.set(dataset.id, group);
-        let shown = 0; records.forEach((record, index) => { if (addOverviewGeometry(dataset, record, index, group)) shown += 1; });
+        let shown = 0; records.forEach((record, index) => { if (addOverviewGeometry(dataset, record, index, group, zoom >= 16)) shown += 1; });
         counts.set(dataset.id, shown); visible += shown; available += total;
       });
       state.overviewLastKey = key; renderOverviewLegend(counts);
-      if (mapStatus) mapStatus.textContent = `${visible} elementi di ${counts.size} categorie visualizzati nella zona${available > visible ? `. Sono mostrati i primi ${visible} di ${available}: aumenta ancora lo zoom per vedere più dettagli` : ""}. Tocca un elemento per identificarlo.`;
+      if (mapStatus) mapStatus.textContent = `${visible} elementi di ${counts.size} categorie visualizzati nella zona${available > visible ? `. Sono mostrati i primi ${visible} di ${available}: aumenta ancora lo zoom per vedere più dettagli` : ""}. Dal livello 16 compaiono anche numeri e codici ufficiali.`;
       setStatus(`Mappa completa aggiornata: ${visible} elementi ufficiali visibili. Sposta o ingrandisci la mappa per esplorare un’altra zona.`);
     } catch (error) { if (error?.name !== "AbortError" && requestId === state.overviewSerial && mapStatus) mapStatus.textContent = "Non riesco ad aggiornare ora i dati comunali. Sposta leggermente la mappa o riprova."; }
     finally { if (timeout) window.clearTimeout(timeout); if (state.overviewAbort === controller) state.overviewAbort = null; }
