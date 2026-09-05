@@ -232,7 +232,7 @@
   function loadPdfLib(){
     if(window.PDFLib)return Promise.resolve();
     if(window.__vgPdfLibPromise)return window.__vgPdfLibPromise;
-    window.__vgPdfLibPromise=new Promise((resolve,reject)=>{const s=document.createElement('script');s.src='vendor/pdf-lib.min.js?v='+encodeURIComponent(window.VG_BUILD||'local');s.onload=resolve;s.onerror=()=>reject(new Error('Modulo PDF compilabile non disponibile'));document.head.appendChild(s)});
+    window.__vgPdfLibPromise=new Promise((resolve,reject)=>{const s=document.createElement('script');s.src='https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js';s.onload=resolve;s.onerror=()=>reject(new Error('Modulo PDF compilabile non disponibile'));document.head.appendChild(s)});
     return window.__vgPdfLibPromise;
   }
   function pdfLines(text,font,size,maxWidth){
