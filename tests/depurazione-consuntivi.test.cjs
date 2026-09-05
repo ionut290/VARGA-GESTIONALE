@@ -46,3 +46,21 @@ test('i consuntivi salvati possono essere modificati ed eliminati anche da Drive
   assert.match(bridge,/function deleteDepurazioneConsuntivo_/);
   assert.match(bridge,/folder\.setTrashed\(true\)/);
 });
+
+test('database impianti DEPURAZIONE compila solo nome e comune lasciandoli modificabili',()=>{
+  const context={window:{}};vm.createContext(context);
+  vm.runInContext(fs.readFileSync(path.join(root,'assets/depurazione-bologna-plants.js'),'utf8'),context);
+  const plants=context.window.DEPURAZIONE_BOLOGNA_PLANTS;
+  assert.ok(plants.length>=480);
+  assert.deepEqual(Object.keys(plants[0]).sort(),['code','municipality','name']);
+  const code=fs.readFileSync(path.join(root,'depurazione-consuntivi.js'),'utf8');
+  assert.match(code,/input\.value=plant\.name;comune\.value=plant\.municipality/);
+  assert.doesNotMatch(code,/depOdl[^\n]+plant\.code/);
+  assert.doesNotMatch(code,/id="depPlant"[^>]+readonly/);
+  assert.doesNotMatch(code,/id="depComune"[^>]+readonly/);
+});
+
+test('database impianti viene caricato prima del modulo consuntivi',()=>{
+  const code=fs.readFileSync(path.join(root,'app.js'),'utf8');
+  assert.ok(code.indexOf('assets/depurazione-bologna-plants.js')<code.indexOf("'depurazione-consuntivi.js'"));
+});
