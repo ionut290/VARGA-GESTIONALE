@@ -7,20 +7,21 @@ const requestEmailKey='vg_requestEmail';
 const requestSettingsKey='vg_requestSettings';
 const statuses=['Nuova','Da verificare','Presa in carico','Programmata','In lavorazione','Completata','Archiviata'];
 db.requests=Array.isArray(db.requests)?db.requests:S.get('vg_requests',[]);
+db.dismissedRequestReceiptIds=Array.isArray(db.dismissedRequestReceiptIds)?db.dismissedRequestReceiptIds:S.get('vg_dismissedRequestReceiptIds',[]);
 if(typeof save==='function'&&!save.__requestsPatched){
   const baseSave=save;
-  save=function(opts={}){S.set('vg_requests',db.requests);return baseSave(opts)};
+  save=function(opts={}){S.set('vg_requests',db.requests);S.set('vg_dismissedRequestReceiptIds',db.dismissedRequestReceiptIds);return baseSave(opts)};
   save.__requestsPatched=true;
 }
 if(typeof cloudState==='function'&&!cloudState.__requestsPatched){
   const baseCloudState=cloudState;
-  cloudState=function(){return Object.assign({},baseCloudState(),{requests:db.requests})};
+  cloudState=function(){return Object.assign({},baseCloudState(),{requests:db.requests,dismissedRequestReceiptIds:db.dismissedRequestReceiptIds})};
   cloudState.__requestsPatched=true;
 }
 const getApplied=()=>{try{return new Set(JSON.parse(localStorage.getItem(appliedKey)||'[]'))}catch(_){return new Set()}};
 const setApplied=s=>localStorage.setItem(appliedKey,JSON.stringify([...s].slice(-1000)));
-const getDismissed=()=>{try{return new Set(JSON.parse(localStorage.getItem(dismissedKey)||'[]'))}catch(_){return new Set()}};
-const setDismissed=s=>localStorage.setItem(dismissedKey,JSON.stringify([...s].slice(-1000)));
+const getDismissed=()=>{let local=[];try{local=JSON.parse(localStorage.getItem(dismissedKey)||'[]')}catch(_){}return new Set([...(Array.isArray(local)?local:[]),...(Array.isArray(db.dismissedRequestReceiptIds)?db.dismissedRequestReceiptIds:[])])};
+const setDismissed=s=>{const values=[...s].slice(-2000);db.dismissedRequestReceiptIds=values;localStorage.setItem(dismissedKey,JSON.stringify(values))};
 const html=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const normalize=v=>String(v||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
 const call=(action,extra={})=>{
@@ -151,7 +152,7 @@ function runAction(action){
   else if(action==='navigate')navigate(r,v);
   else if(action==='draft'){document.getElementById('requestDraftText').value=draftText(r,v);document.getElementById('requestDraftBox').hidden=false}
   else if(action==='workreport')makeWorkReport(r,v);
-  else if(action==='complete'){r.status='Completata';r.completedAt=new Date().toISOString();r.hiddenFromInbox=true;if(r.sourceReceiptId){const dismissed=getDismissed();dismissed.add(r.sourceReceiptId);setDismissed(dismissed)}const d=db.deadlines.find(x=>x.sourceRequestId===r.id);if(d)d.done=true;save();document.getElementById('requestWorkModal').hidden=true;render();renderActivityCenter();alert('Richiesta completata: rimossa dall’elenco email e conservata nello storico.')}
+  else if(action==='complete'){if(r.sourceReceiptId){const dismissed=getDismissed();dismissed.add(r.sourceReceiptId);setDismissed(dismissed)}const d=db.deadlines.find(x=>x.sourceRequestId===r.id);if(d)d.done=true;db.requests=db.requests.filter(x=>x.id!==r.id);save();document.getElementById('requestWorkModal').hidden=true;render();renderActivityCenter();alert('Richiesta completata ed eliminata definitivamente dall’elenco email.')}
 }
 function render(){
   if(!document.getElementById('requestsList'))return;
@@ -172,7 +173,7 @@ function render(){
   bindRows();
 }
 function bindRows(){
-  document.querySelectorAll('[data-request-status]').forEach(el=>el.onchange=()=>{const r=db.requests.find(x=>x.id===el.dataset.requestStatus);if(r){r.status=el.value;r.updatedAt=new Date().toISOString();if(['Completata','Archiviata'].includes(el.value)){r.hiddenFromInbox=true;r.completedAt=r.completedAt||new Date().toISOString();if(r.sourceReceiptId){const dismissed=getDismissed();dismissed.add(r.sourceReceiptId);setDismissed(dismissed)}}save();render();renderActivityCenter()}});
+  document.querySelectorAll('[data-request-status]').forEach(el=>el.onchange=()=>{const r=db.requests.find(x=>x.id===el.dataset.requestStatus);if(!r)return;if(['Completata','Archiviata'].includes(el.value)){if(r.sourceReceiptId){const dismissed=getDismissed();dismissed.add(r.sourceReceiptId);setDismissed(dismissed)}db.requests=db.requests.filter(x=>x.id!==r.id)}else{r.status=el.value;r.updatedAt=new Date().toISOString()}save();render();renderActivityCenter()});
   document.querySelectorAll('[data-request-job]').forEach(el=>el.onchange=()=>{const r=db.requests.find(x=>x.id===el.dataset.requestJob);if(r){r.jobId=el.value;r.updatedAt=new Date().toISOString();save()}});
   document.querySelectorAll('[data-request-manage]').forEach(el=>el.onclick=()=>openManager(el.dataset.requestManage));
   document.querySelectorAll('[data-request-delete]').forEach(el=>el.onclick=()=>{if(!confirm('Eliminare questa richiesta dal gestionale?'))return;const request=db.requests.find(x=>x.id===el.dataset.requestDelete);if(request?.sourceReceiptId){const dismissed=getDismissed();dismissed.add(request.sourceReceiptId);setDismissed(dismissed)}db.requests=db.requests.filter(x=>x.id!==el.dataset.requestDelete);save()});
