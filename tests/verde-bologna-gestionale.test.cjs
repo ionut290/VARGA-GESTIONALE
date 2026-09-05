@@ -39,6 +39,14 @@ test('Verde Bologna occupa armoniosamente tutto lo schermo desktop', () => {
   assert.match(source, /height:clamp\(460px,60vh,760px\)/);
 });
 
+test('la mappa generale carica insieme tutte le categorie in base allo zoom', () => {
+  assert.match(source, /async function loadOverviewRecords/);
+  assert.match(source, /Promise\.allSettled\(DATASETS\.map/);
+  assert.match(source, /state\.overviewMode \? loadOverviewRecords\(\) : loadViewportRecords\(\)/);
+  assert.match(source, /Mappa completa del verde/);
+  assert.match(source, /verde-bologna-overview-legend/);
+});
+
 test('la scheda albero include Whazzup, manutenzione completa e crea cantiere', () => {
   assert.match(source, /INVIA TRAMITE WHAZZUP/);
   assert.match(source, /data-vb-tree-maintenance/);
