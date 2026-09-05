@@ -2,7 +2,7 @@
    Il file OOXML viene aggiornato direttamente per conservare fogli, Pivot, formule e formattazione. */
 (function(){
 'use strict';
-const TEMPLATE='assets/contabilita-inrete-template.xlsx';
+const TEMPLATE='assets/contabilita-inrete-template.xlsx.b64';
 const txt=v=>String(v??'').trim();
 const norm=v=>txt(v).toLocaleLowerCase('it-IT').normalize('NFD').replace(/[\u0300-\u036f]/g,'');
 const num=v=>{if(v==null||v==='')return 0;if(typeof v==='number')return Number.isFinite(v)?v:0;let s=txt(v).replace(/\s/g,'').replace(/€/g,'');const c=s.lastIndexOf(','),d=s.lastIndexOf('.');if(c>=0&&d>=0)s=c>d?s.replace(/\./g,'').replace(',','.'):s.replace(/,/g,'');else if(c>=0)s=s.replace(/\./g,'').replace(',','.');const n=Number(s);return Number.isFinite(n)?n:0};
@@ -65,7 +65,7 @@ function refreshPivot(xml,lastRow,pivotEnd){const d=parse(xml),root=d.documentEl
 function pivotTable(xml,end){const d=parse(xml),loc=d.getElementsByTagNameNS('*','location')[0];if(loc)loc.setAttribute('ref',`A3:E${end}`);return serialize(d)}
 async function ensureZip(){if(window.JSZip)return;if(window.__vgJsZipPromise)return window.__vgJsZipPromise;window.__vgJsZipPromise=new Promise((ok,no)=>{const s=document.createElement('script');s.src='https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js';s.onload=ok;s.onerror=()=>no(new Error('Componente Excel non disponibile'));document.head.appendChild(s)});return window.__vgJsZipPromise}
 async function generate(job,rows,form){
-  if(!isInrete(job))return false;await ensureZip();const response=await fetch(`${TEMPLATE}?v=${encodeURIComponent(window.VG_BUILD||'1')}`);if(!response.ok)throw new Error('Modello contabilità INRETE non disponibile');const zip=await JSZip.loadAsync(await response.arrayBuffer());
+  if(!isInrete(job))return false;await ensureZip();const response=await fetch(`${TEMPLATE}?v=${encodeURIComponent(window.VG_BUILD||'1')}`);if(!response.ok)throw new Error('Modello contabilità INRETE non disponibile');const encoded=(await response.text()).replace(/\s/g,''),bytes=Uint8Array.from(atob(encoded),c=>c.charCodeAt(0)),zip=await JSZip.loadAsync(bytes);
   const read=p=>zip.file(p).async('string');const [main,pivot,cache,pivotDef]=await Promise.all([read('xl/worksheets/sheet1.xml'),read('xl/worksheets/sheet3.xml'),read('xl/pivotCache/pivotCacheDefinition1.xml'),read('xl/pivotTables/pivotTable1.xml')]);
   zip.file('xl/worksheets/sheet1.xml',mainSheet(main,rows,job,form));const p=pivotSheet(pivot,rows);zip.file('xl/worksheets/sheet3.xml',p.xml);zip.file('xl/pivotCache/pivotCacheDefinition1.xml',refreshPivot(cache,rows.length+3,p.end));zip.file('xl/pivotTables/pivotTable1.xml',pivotTable(pivotDef,p.end));
   const blob=await zip.generateAsync({type:'blob',mimeType:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`Contabilita-INRETE-${txt(job.title).replace(/[^a-z0-9_-]+/gi,'-')||'commessa'}.xlsx`;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1500);return true
