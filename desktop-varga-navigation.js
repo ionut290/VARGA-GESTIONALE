@@ -16,7 +16,26 @@
 
   function openVargaCantieri() {
     if (!isDesktopBrowser()) return;
-    window.location.assign(VARGA_CANTIERI_URL);
+    const button = document.getElementById('openVargaCantieriDesktop');
+    if (button) {
+      button.disabled = true;
+      button.textContent = 'APERTURA VARGA CANTIERI…';
+    }
+
+    try {
+      if (typeof window.stopCloudRealtime === 'function') window.stopCloudRealtime();
+    } catch (_) {}
+
+    const loading = document.createElement('main');
+    loading.setAttribute('role', 'status');
+    loading.setAttribute('aria-live', 'polite');
+    loading.style.cssText = 'min-height:100vh;display:grid;place-items:center;background:#f4f6f5;color:#123b2c;font:800 18px Inter,Segoe UI,Arial,sans-serif;text-align:center;padding:24px';
+    loading.textContent = 'Apertura Varga Cantieri…';
+    document.body.replaceChildren(loading);
+
+    // replace evita di conservare il Gestionale nella cronologia e riduce il
+    // picco di memoria mentre Opera prepara la pagina operativa.
+    window.setTimeout(() => window.location.replace(VARGA_CANTIERI_URL), 60);
   }
 
   function initialize() {
