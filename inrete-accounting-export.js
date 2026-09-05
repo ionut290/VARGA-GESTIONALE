@@ -62,6 +62,13 @@ function dateTimeStyles(xml){
 function pivotSummary(rows){
   const map=new Map();rows.forEach(r=>{const k=txt(r.voce)||'SENZA CODICE',p=num(r.prezzoRibassato)||num(r.prezzoBase);const x=map.get(k)||{code:k,count:0,units:0,priceSum:0,total:0};x.count++;x.units+=num(r.quantita);x.priceSum+=p;x.total+=num(r.totale);map.set(k,x)});return [...map.values()].sort((a,b)=>b.total-a.total).map(x=>({...x,price:x.count?x.priceSum/x.count:0}))
 }
+function groupRowsBySite(rows){
+  const source=rows.map((row,index)=>({...row,__index:index})),firstOrder=new Map(),siteData=new Map();
+  const identityFields=['distretto','idSap','impianto','comune','indirizzo','gpsY','gpsX','cdc'];
+  const keyOf=row=>txt(row.idSap)?`sap:${norm(row.idSap)}`:`site:${norm([row.impianto,row.comune,row.indirizzo].join('|'))}`;
+  source.forEach(row=>{const key=keyOf(row);if(!firstOrder.has(key))firstOrder.set(key,firstOrder.size);const known=siteData.get(key)||{};identityFields.forEach(field=>{if(txt(row[field])!==''&&!txt(known[field]))known[field]=row[field]});siteData.set(key,known)});
+  return source.sort((a,b)=>firstOrder.get(keyOf(a))-firstOrder.get(keyOf(b))||a.__index-b.__index).map(row=>{const complete={...siteData.get(keyOf(row)),...row};delete complete.__index;return complete});
+}
 function pivotSheet(xml,rows){
   const d=parse(xml),sd=d.getElementsByTagNameNS('*','sheetData')[0],old=[...sd.children].filter(x=>x.localName==='row'),detail=old.find(x=>x.getAttribute('r')==='4'),grand=old.find(x=>x.getAttribute('r')==='9')||detail,groups=pivotSummary(rows);old.filter(x=>+x.getAttribute('r')>=4).forEach(x=>x.remove());
   groups.forEach((g,i)=>{const n=i+4,r=cloneRow(detail,n);put(cell(r,'A'),g.code);put(cell(r,'B'),g.count,'number');put(cell(r,'C'),g.units,'number');put(cell(r,'D'),g.price,'number');put(cell(r,'E'),g.total,'number');sd.appendChild(r)});
@@ -72,10 +79,10 @@ function refreshPivot(xml,lastRow,pivotEnd){const d=parse(xml),root=d.documentEl
 function pivotTable(xml,end){const d=parse(xml),loc=d.getElementsByTagNameNS('*','location')[0];if(loc)loc.setAttribute('ref',`A3:E${end}`);return serialize(d)}
 async function ensureZip(){if(window.JSZip)return;if(window.__vgJsZipPromise)return window.__vgJsZipPromise;window.__vgJsZipPromise=new Promise((ok,no)=>{const s=document.createElement('script');s.src='https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js';s.onload=ok;s.onerror=()=>no(new Error('Componente Excel non disponibile'));document.head.appendChild(s)});return window.__vgJsZipPromise}
 async function generate(job,rows,form){
-  if(!isInrete(job))return false;await ensureZip();const response=await fetch(`${TEMPLATE}?v=${encodeURIComponent(window.VG_BUILD||'1')}`);if(!response.ok)throw new Error('Modello contabilità INRETE non disponibile');const encoded=(await response.text()).replace(/\s/g,''),bytes=Uint8Array.from(atob(encoded),c=>c.charCodeAt(0)),zip=await JSZip.loadAsync(bytes);
+  if(!isInrete(job))return false;rows=groupRowsBySite(rows);await ensureZip();const response=await fetch(`${TEMPLATE}?v=${encodeURIComponent(window.VG_BUILD||'1')}`);if(!response.ok)throw new Error('Modello contabilità INRETE non disponibile');const encoded=(await response.text()).replace(/\s/g,''),bytes=Uint8Array.from(atob(encoded),c=>c.charCodeAt(0)),zip=await JSZip.loadAsync(bytes);
   const read=p=>zip.file(p).async('string');const [main,pivot,cache,pivotDef,styles]=await Promise.all([read('xl/worksheets/sheet1.xml'),read('xl/worksheets/sheet3.xml'),read('xl/pivotCache/pivotCacheDefinition1.xml'),read('xl/pivotTables/pivotTable1.xml'),read('xl/styles.xml')]),dt=dateTimeStyles(styles);
   zip.file('xl/styles.xml',dt.xml);zip.file('xl/worksheets/sheet1.xml',mainSheet(main,rows,job,form,dt.dateStyle,dt.timeStyle));const p=pivotSheet(pivot,rows);zip.file('xl/worksheets/sheet3.xml',p.xml);zip.file('xl/pivotCache/pivotCacheDefinition1.xml',refreshPivot(cache,rows.length+3,p.end));zip.file('xl/pivotTables/pivotTable1.xml',pivotTable(pivotDef,p.end));
   const blob=await zip.generateAsync({type:'blob',mimeType:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`Contabilita-INRETE-${txt(job.title).replace(/[^a-z0-9_-]+/gi,'-')||'commessa'}.xlsx`;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1500);return true
 }
-window.VargaInreteAccountingExport={installed:true,isInrete,generate};
+window.VargaInreteAccountingExport={installed:true,isInrete,groupRowsBySite,generate};
 })();
