@@ -285,7 +285,9 @@ function getOrCreateFolder_(parent,name){const it=parent.getFoldersByName(name);
 function driveJobFolder_(payload, createDefaults) {
   const job=payload.job||{};if(!String(job.id||'').trim())throw new Error('Commessa non valida');
   const root=getOrCreateFolder_(DriveApp.getRootFolder(),ROOT_FOLDER_NAME),jobs=getOrCreateFolder_(root,'Commesse');
-  const folder=getOrCreateFolder_(jobs,safe_((job.code?job.code+' - ':'')+(job.title||job.id)));
+  const propKey='VARGA_DRIVE_JOB_'+safeKey_(job.id),props=PropertiesService.getScriptProperties();let folder=null;
+  const savedId=props.getProperty(propKey);if(savedId){try{const saved=DriveApp.getFolderById(savedId);if(!saved.isTrashed()&&driveFolderInside_(saved,jobs))folder=saved}catch(_){}}
+  if(!folder){const lock=LockService.getScriptLock();lock.waitLock(10000);try{const currentId=props.getProperty(propKey);if(currentId){try{const current=DriveApp.getFolderById(currentId);if(!current.isTrashed()&&driveFolderInside_(current,jobs))folder=current}catch(_){}}if(!folder){folder=getOrCreateFolder_(jobs,safe_((job.code?job.code+' - ':'')+(job.title||job.id)));props.setProperty(propKey,folder.getId())}}finally{lock.releaseLock()}}
   if(createDefaults)['Richieste','Allegati email','Preventivi','Rapportini','Contabilita','MAP','Foto','Documenti'].forEach(n=>getOrCreateFolder_(folder,n));
   return folder;
 }
