@@ -128,7 +128,7 @@
       place:($('qPlace')?.value||DEFAULT_PLACE).trim(),clientId:c?.id||'',clientName:c?.name||'',client:c?{...c}:{},
       subject:$('qSubject')?.value||'',site:$('qSite')?.value||'',intro:$('qIntro')?.value||DEFAULT_INTRO,
       validity:+($('qValidity')?.value||30),payment:$('qPayment')?.value||'',rows:qrows.map(x=>({...x})),
-      priceListIds:[...selectedPriceLists],discount:+($('qDiscount')?.value||0),vatRate:0,subtotal:t.sub,vat:0,total:t.total,status:'Bozza',layout:'avola-v1'
+      priceListIds:[...selectedPriceLists],discount:+($('qDiscount')?.value||0),vatRate:0,subtotal:t.sub,vat:0,total:t.total,status:'Bozza',statusChangedAt:new Date().toISOString(),statusHistory:[{status:'Bozza',changedAt:new Date().toISOString()}],layout:'avola-v1'
     };
   };
 
@@ -357,7 +357,7 @@
     installStyles();enhanceForm();addCurrentExcelButton();addCurrentNormalPdfButton();
     if($('smartSearch'))$('smartSearch').onclick=runPriceSearch;
     if($('newQuote'))$('newQuote').onclick=clearQuote;
-    if($('saveQuote'))$('saveQuote').onclick=()=>{if(!qrows.length)return alert('Inserisci almeno una voce.');const q=collectQ();if(editingQuoteId){const index=(db.quotes||[]).findIndex(x=>x.id===editingQuoteId);if(index>=0)db.quotes[index]={...db.quotes[index],...q,id:editingQuoteId,jobId:db.quotes[index].jobId||''};alert('Preventivo aggiornato.')}else{db.quotes.push(q);alert('Preventivo salvato.')}save();clearQuote()};
+    if($('saveQuote'))$('saveQuote').onclick=()=>{if(!qrows.length)return alert('Inserisci almeno una voce.');const q=collectQ();if(editingQuoteId){const index=(db.quotes||[]).findIndex(x=>x.id===editingQuoteId);if(index>=0){const old=db.quotes[index];db.quotes[index]={...old,...q,id:editingQuoteId,jobId:old.jobId||'',status:old.status||'Bozza',statusChangedAt:old.statusChangedAt||q.statusChangedAt,statusHistory:Array.isArray(old.statusHistory)&&old.statusHistory.length?old.statusHistory:q.statusHistory,scheduledDate:old.scheduledDate||''}}alert('Preventivo aggiornato.')}else{db.quotes.push(q);alert('Preventivo salvato.')}save();clearQuote()};
     if($('printQuote')){$('printQuote').textContent='SCARICA PDF COMPILABILE';$('printQuote').onclick=printCurrent;}
     if($('qClient'))$('qClient').onchange=()=>{updateClientPreview();renderPriceListPicker(true)};
     if($('qDiscount'))$('qDiscount').oninput=calcQ;
