@@ -3,7 +3,6 @@
   if(typeof db==='undefined'||typeof $!=='function') return;
 
   const SIDEBAR_IMG='assets/avola-preventivo-sidebar.png';
-  const SIGNATURE_IMG='assets/avola-firma.png';
   const DEFAULT_PLACE='Castel Maggiore';
   const DEFAULT_INTRO='A seguito della Vostra richiesta, si formula la seguente offerta per l’esecuzione delle lavorazioni richieste.';
   let selectedPriceLists=new Set();
@@ -24,7 +23,7 @@
     const form=$('preventivo')?.querySelector('.panel.grid2');
     if(!form||$('qDate')) return;
     const number=$('qNumber');
-    if(number){number.removeAttribute('readonly');number.placeholder='Es. 55-AM';number.closest('label')?.firstChild&&(number.closest('label').firstChild.textContent='Numero offerta');}
+    if(number){number.removeAttribute('readonly');number.placeholder='Es. 4-AM';number.closest('label')?.firstChild&&(number.closest('label').firstChild.textContent='Numero offerta (modificabile)');}
 
     const place=document.createElement('label');place.innerHTML='Luogo intestazione<input id="qPlace" value="'+DEFAULT_PLACE+'">';
     const date=document.createElement('label');date.innerHTML='<span>Data offerta</span><input id="qDate" type="date">';
@@ -169,7 +168,6 @@
   function buildPrintMarkup(q){
     const d=q.date||dateIt(q.dateIso||todayIso());
     const total=Number(q.subtotal??q.total??0);
-    const signatureSrc=embeddedImage(window.AVOLA_SIGNATURE_B64,SIGNATURE_IMG);
     return `<div class="avola-print-doc">
       <img class="avola-letterhead" src="${SIDEBAR_IMG}?v=20260904-letterhead-v6" alt="Foglio intestato Avola">
       <div class="avola-content">
@@ -181,7 +179,7 @@
           ${(q.rows||[]).map(r=>`<tr><td>${E(r.code||'')}</td><td>${E(r.description||'')}</td><td>${priceCell(r)}</td><td>${qtyCell(r)}</td><td><strong>${money(Number(r.qty||0)*Number(r.price||0))}</strong></td></tr>`).join('')}
         </tbody></table>
         <div class="avola-reference">${E(referenceText(q))}</div>
-        <div class="avola-bottom"><div class="avola-total"><strong>TOTALE OFFERTA (IVA ESCLUSA)</strong><div>${money(total)}</div><em>(oneri della sicurezza inclusi)</em></div><div class="avola-sign-wrap"><div class="avola-sign-label">Timbro e Firma della Società Fornitrice</div><img class="avola-sign" src="${signatureSrc}" alt="Timbro e firma Avola"></div></div>
+        <div class="avola-bottom"><div class="avola-total"><strong>TOTALE OFFERTA (IVA ESCLUSA)</strong><div>${money(total)}</div><em>(oneri della sicurezza inclusi)</em></div></div>
       </div>
     </div>`;
   }
@@ -206,9 +204,8 @@
       .avola-table td{border:.25mm solid #a6ada9;padding:2.2mm 1.5mm;vertical-align:middle;line-height:1.15;overflow-wrap:anywhere}
       .avola-table th:nth-child(1),.avola-table td:nth-child(1){width:13%}.avola-table th:nth-child(2),.avola-table td:nth-child(2){width:48%}.avola-table th:nth-child(3),.avola-table td:nth-child(3){width:15%;text-align:center}.avola-table th:nth-child(4),.avola-table td:nth-child(4){width:11%;text-align:center}.avola-table th:nth-child(5),.avola-table td:nth-child(5){width:13%;text-align:center}
       .avola-reference{font-size:7.8pt;font-style:italic;margin-top:2mm;line-height:1.2;break-inside:avoid;page-break-inside:avoid}
-      .avola-bottom{display:grid;grid-template-columns:minmax(0,1fr) 65mm;gap:8mm;align-items:end;margin-top:17mm;break-inside:avoid;page-break-inside:avoid;position:relative}
+      .avola-bottom{display:block;margin-top:17mm;break-inside:avoid;page-break-inside:avoid;position:relative}
       .avola-total{font-size:12pt;line-height:1.2;min-width:0}.avola-total>div{font-weight:800;font-size:12.5pt;margin-top:1mm}.avola-total em{font-size:8.7pt;font-weight:400}
-      .avola-sign-wrap{text-align:center;min-width:0}.avola-sign-label{font-size:7.7pt;margin-bottom:1.5mm}.avola-sign{width:60mm;max-height:34mm;object-fit:contain;display:block;margin:0 0 0 auto}
       @media screen{body{margin:0 auto}}
     </style></head><body>${buildPrintMarkup(q)}<script>window.addEventListener('load',()=>setTimeout(()=>{window.focus();window.print()},150))<\/script></body></html>`;
   }
@@ -242,7 +239,6 @@
     const ws=wb.addWorksheet('Preventivo');
     ws.pageSetup={paperSize:9,orientation:'portrait',fitToPage:true,fitToWidth:1,fitToHeight:0,horizontalCentered:false,verticalCentered:false,margins:{left:0.1,right:0.1,top:0.1,bottom:0.1,header:0,footer:0}};
     ws.views=[{showGridLines:false}];ws.properties.defaultRowHeight=18;ws.columns=[{width:12},{width:34},{width:9},{width:10},{width:13},{width:14}];
-    const signature=await imageData(SIGNATURE_IMG,window.AVOLA_SIGNATURE_B64),signatureId=wb.addImage({base64:signature,extension:'png'});
     const d=q.date||dateIt(q.dateIso||todayIso()),client=q.client||{};
     ws.mergeCells('A2:C2');ws.getCell('A2').value=`${q.place||DEFAULT_PLACE}, il ${d}`;ws.getCell('A2').font={size:11};
     ws.mergeCells('D2:E2');ws.getCell('D2').value='Spett.le';ws.getCell('D2').font={bold:true,size:10};
@@ -259,7 +255,7 @@
     const discountRow=referenceRow+2,totalRow=referenceRow+3;ws.mergeCells(`D${discountRow}:E${discountRow}`);ws.getCell(`D${discountRow}`).value='Sconto %';ws.getCell(`F${discountRow}`).value=Number(q.discount||0);ws.getCell(`F${discountRow}`).numFmt='0.00';
     ws.mergeCells(`D${totalRow}:E${totalRow}`);ws.getCell(`D${totalRow}`).value='TOTALE OFFERTA (IVA ESCLUSA)';ws.getCell(`D${totalRow}`).font={bold:true,size:11};ws.getCell(`F${totalRow}`).value={formula:`SUM(F${firstData}:F${lastData})*(1-F${discountRow}/100)`,result:Number(q.subtotal??q.total??0)};ws.getCell(`F${totalRow}`).font={bold:true,size:12};
     ws.getColumn(4).numFmt='#,##0.###';ws.getColumn(5).numFmt='€ #,##0.000';ws.getColumn(6).numFmt='€ #,##0.00';
-    const signRow=totalRow+2;ws.mergeCells(`D${signRow}:F${signRow}`);ws.getCell(`D${signRow}`).value='Timbro e Firma della Società Fornitrice';ws.getCell(`D${signRow}`).alignment={horizontal:'center',vertical:'middle'};ws.getCell(`D${signRow}`).font={size:10};ws.getRow(signRow).height=22;ws.mergeCells(`D${signRow+1}:F${signRow+4}`);ws.getRow(signRow+1).height=24;ws.getRow(signRow+2).height=24;ws.getRow(signRow+3).height=24;ws.getRow(signRow+4).height=18;ws.addImage(signatureId,{tl:{col:3.25,row:signRow+1.1},br:{col:5.85,row:signRow+4.8},editAs:'oneCell'});ws.pageSetup.printArea=`A1:F${Math.max(44,signRow+5)}`;
+    ws.pageSetup.printArea=`A1:F${Math.max(44,totalRow+2)}`;
     const buffer=await wb.xlsx.writeBuffer(),blob=new Blob([buffer],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`Offerta-${safeFileName(q.number)}-${safeFileName(q.clientName||client.name)}.xlsx`;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);
   }
   async function downloadXlsx(q){try{await exportQuoteXlsx(q)}catch(err){console.error(err);alert('Non riesco a creare il file Excel. Controlla la connessione e riprova.')}}
@@ -299,9 +295,8 @@
         .avola-table td{border:0.25mm solid #a6ada9;padding:2.2mm 1.5mm;vertical-align:middle;line-height:1.15}
         .avola-table th:nth-child(1),.avola-table td:nth-child(1){width:13%}.avola-table th:nth-child(2),.avola-table td:nth-child(2){width:48%}.avola-table th:nth-child(3),.avola-table td:nth-child(3){width:15%;text-align:center}.avola-table th:nth-child(4),.avola-table td:nth-child(4){width:11%;text-align:center}.avola-table th:nth-child(5),.avola-table td:nth-child(5){width:13%;text-align:center}
         .avola-reference{font-size:7.8pt;font-style:italic;margin-top:2mm;line-height:1.2}
-        .avola-bottom{display:grid;grid-template-columns:1fr 65mm;gap:8mm;align-items:end;margin-top:17mm;break-inside:avoid}
+        .avola-bottom{display:block;margin-top:17mm;break-inside:avoid}
         .avola-total{font-size:12pt;line-height:1.2}.avola-total>div{font-weight:800;font-size:12.5pt;margin-top:1mm}.avola-total em{font-size:8.7pt;font-weight:400}
-        .avola-sign-wrap{text-align:center}.avola-sign-label{font-size:7.7pt;margin-bottom:1.5mm}.avola-sign{width:60mm;height:auto;display:block;margin-left:auto}
       }`;
     document.head.appendChild(st);
   }
