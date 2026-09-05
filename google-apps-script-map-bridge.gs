@@ -61,6 +61,7 @@ function doPost(e) {
     if (action === 'driveCreateFolder') return json_(driveCreateFolder_(payload));
     if (action === 'driveUpload') return json_(driveUpload_(payload));
     if (action === 'saveDepurazioneConsuntivo') return json_(saveDepurazioneConsuntivo_(payload));
+    if (action === 'deleteDepurazioneConsuntivo') return json_(deleteDepurazioneConsuntivo_(payload));
     if (action === 'driveGetFile') return json_(driveGetFile_(payload));
     if (action === 'driveRename') return json_(driveRename_(payload));
     if (action === 'driveTrash') return json_(driveTrash_(payload));
@@ -361,6 +362,17 @@ function saveDepurazioneConsuntivo_(payload){
   const existing=folder.getFilesByName(fileName);while(existing.hasNext())existing.next().setTrashed(true);
   const file=folder.createFile(Utilities.newBlob(bytes,'application/pdf',fileName));
   return{ok:true,folderId:folder.getId(),folderName:folder.getName(),folderUrl:folder.getUrl(),fileId:file.getId(),fileName:file.getName(),fileUrl:file.getUrl()};
+}
+function deleteDepurazioneConsuntivo_(payload){
+  const root=DriveApp.getFolderById(DEPURAZIONE_CONSUNTIVI_ROOT_ID),folderId=String(payload.folderId||'').trim();
+  if(!folderId)throw new Error('Cartella del consuntivo non valida');
+  const folder=DriveApp.getFolderById(folderId),parents=folder.getParents();let allowed=false;
+  while(parents.hasNext()&&!allowed)allowed=parents.next().getId()===root.getId();
+  if(!allowed)throw new Error('Il consuntivo non appartiene alla cartella DEPURAZIONE');
+  const fileId=String(payload.fileId||'').trim();
+  if(fileId){try{const file=DriveApp.getFileById(fileId),fileParents=file.getParents();let fileAllowed=false;while(fileParents.hasNext()&&!fileAllowed)fileAllowed=fileParents.next().getId()===folder.getId();if(fileAllowed)file.setTrashed(true)}catch(_) {}}
+  folder.setTrashed(true);
+  return{ok:true,deleted:true};
 }
 function driveGetFile_(payload){const root=driveJobFolder_(payload,false),file=driveSafeFile_(payload,root),blob=file.getBlob(),bytes=blob.getBytes();if(bytes.length>8*1024*1024)throw new Error('File oltre il limite di 8 MB');return{ok:true,id:file.getId(),name:file.getName(),mimeType:file.getMimeType(),base64:Utilities.base64Encode(bytes)}}
 function driveRename_(payload){const root=driveJobFolder_(payload,false),name=safe_(payload.name);if(!name)throw new Error('Inserisci il nuovo nome');if(payload.kind==='folder'){const folder=driveSafeFolder_({folderId:payload.itemId},root);if(folder.getId()===root.getId())throw new Error('La cartella principale non può essere rinominata');folder.setName(name)}else driveSafeFile_(payload,root).setName(name);return{ok:true}}
