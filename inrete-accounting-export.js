@@ -13,7 +13,7 @@ const serialize=d=>new XMLSerializer().serializeToString(d);
 const direct=(node,tag)=>[...node.children].find(x=>x.localName===tag)||null;
 const cell=(row,col)=>[...row.children].find(x=>x.localName==='c'&&x.getAttribute('r')===col+row.getAttribute('r'))||null;
 const setRef=(node,col,row)=>node.setAttribute('r',col+row);
-const excelDate=v=>{const s=txt(v);if(!s)return null;const m=s.match(/^(\d{4})-(\d{2})-(\d{2})/);const d=m?new Date(Date.UTC(+m[1],+m[2]-1,+m[3])):new Date(s);return isNaN(d)?null:d.getTime()/86400000+25569};
+const excelDate=v=>{const s=txt(v);if(!s)return null;const iso=s.match(/^(\d{4})-(\d{2})-(\d{2})/),it=s.match(/^(\d{1,2})[/.\-](\d{1,2})[/.\-](\d{4})/),d=iso?new Date(Date.UTC(+iso[1],+iso[2]-1,+iso[3])):it?new Date(Date.UTC(+it[3],+it[2]-1,+it[1])):new Date(s);return isNaN(d)?null:d.getTime()/86400000+25569};
 const excelTime=v=>{const m=txt(v).match(/(\d{1,2}):(\d{2})/);return m?(+m[1]*60 + +m[2])/1440:null};
 
 function clearValue(c){[...c.children].forEach(x=>{if(['v','f','is'].includes(x.localName))x.remove()});c.removeAttribute('t')}
@@ -32,13 +32,14 @@ function cloneRow(template,rowNumber){
 function ensureCell(row,col,styleSource){
   let c=cell(row,col);if(c)return c;c=styleSource?.cloneNode(true)||row.ownerDocument.createElementNS(row.namespaceURI,'c');setRef(c,col,row.getAttribute('r'));clearValue(c);row.appendChild(c);return c;
 }
-function mainSheet(xml,rows,job,form){
+function mainSheet(xml,rows,job,form,dateStyle,timeStyle){
   const d=parse(xml),sheetData=d.getElementsByTagNameNS('*','sheetData')[0],all=[...sheetData.children].filter(x=>x.localName==='row'),template=all.find(x=>x.getAttribute('r')==='4'),totalTemplate=all.find(x=>x.getAttribute('r')==='48')||template;
   all.filter(x=>+x.getAttribute('r')>=4).forEach(x=>x.remove());
   const cdcDefault=rows.find(r=>txt(r.cdc))?.cdc||'';
   rows.forEach((data,i)=>{
     const n=i+4,r=cloneRow(template,n),values={A:data.note,B:i+1,C:data.distretto,D:data.idSap,E:data.impianto,F:data.comune,G:data.indirizzo,H:data.voce,I:data.quantita,J:data.frequenza,K:data.lavorazione,L:data.gpsY,M:data.gpsX,N:data.um,O:data.prezzoBase,P:data.prezzoRibassato,Q:data.totale,R:data.cdc||cdcDefault,S:i+1,T:excelDate(data.data),U:excelTime(data.ora)};
     for(const [col,value] of Object.entries(values))put(ensureCell(r,col,cell(template,col)),value,['B','I','J','L','M','O','P','Q','R','S','T','U'].includes(col)?'number':'text');
+    cell(r,'T').setAttribute('s',String(dateStyle));cell(r,'U').setAttribute('s',String(timeStyle));
     put(cell(r,'N'),data.um,'text',`VLOOKUP($H${n},'Elenco prezzi'!$C:$F,2,FALSE)`);
     put(cell(r,'O'),data.prezzoBase,'number',`VLOOKUP($H${n},'Elenco prezzi'!$C:$F,3,FALSE)`);
     put(cell(r,'P'),data.prezzoRibassato,'number',`VLOOKUP($H${n},'Elenco prezzi'!$C:$F,4,FALSE)`);
@@ -51,6 +52,12 @@ function mainSheet(xml,rows,job,form){
   const setHead=(row,col,value)=>{const r=firstRows.find(x=>x.getAttribute('r')===String(row));if(r&&value)put(ensureCell(r,col,cell(r,col)),value)};
   setHead(1,'A',`Contratto n. ${form.contractCode||job.code||''}`);setHead(2,'C',form.subject||job.title||'');
   return serialize(d);
+}
+function dateTimeStyles(xml){
+  const d=parse(xml),root=d.documentElement,ns=root.namespaceURI,numFmts=d.getElementsByTagNameNS('*','numFmts')[0],cellXfs=d.getElementsByTagNameNS('*','cellXfs')[0],base=[...cellXfs.children][67]||[...cellXfs.children][0],dateStyle=cellXfs.children.length,timeStyle=dateStyle+1;
+  const addFormat=(id,code)=>{const n=d.createElementNS(ns,'numFmt');n.setAttribute('numFmtId',id);n.setAttribute('formatCode',code);numFmts.appendChild(n)};addFormat('170','dd/mm/yyyy');addFormat('171','hh:mm');numFmts.setAttribute('count',String(numFmts.children.length));
+  const addStyle=id=>{const x=base.cloneNode(true);x.setAttribute('numFmtId',id);x.setAttribute('applyNumberFormat','1');cellXfs.appendChild(x)};addStyle('170');addStyle('171');cellXfs.setAttribute('count',String(cellXfs.children.length));
+  return{xml:serialize(d),dateStyle,timeStyle}
 }
 function pivotSummary(rows){
   const map=new Map();rows.forEach(r=>{const k=txt(r.voce)||'SENZA CODICE',p=num(r.prezzoRibassato)||num(r.prezzoBase);const x=map.get(k)||{code:k,count:0,units:0,priceSum:0,total:0};x.count++;x.units+=num(r.quantita);x.priceSum+=p;x.total+=num(r.totale);map.set(k,x)});return [...map.values()].sort((a,b)=>b.total-a.total).map(x=>({...x,price:x.count?x.priceSum/x.count:0}))
@@ -66,8 +73,8 @@ function pivotTable(xml,end){const d=parse(xml),loc=d.getElementsByTagNameNS('*'
 async function ensureZip(){if(window.JSZip)return;if(window.__vgJsZipPromise)return window.__vgJsZipPromise;window.__vgJsZipPromise=new Promise((ok,no)=>{const s=document.createElement('script');s.src='https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js';s.onload=ok;s.onerror=()=>no(new Error('Componente Excel non disponibile'));document.head.appendChild(s)});return window.__vgJsZipPromise}
 async function generate(job,rows,form){
   if(!isInrete(job))return false;await ensureZip();const response=await fetch(`${TEMPLATE}?v=${encodeURIComponent(window.VG_BUILD||'1')}`);if(!response.ok)throw new Error('Modello contabilità INRETE non disponibile');const encoded=(await response.text()).replace(/\s/g,''),bytes=Uint8Array.from(atob(encoded),c=>c.charCodeAt(0)),zip=await JSZip.loadAsync(bytes);
-  const read=p=>zip.file(p).async('string');const [main,pivot,cache,pivotDef]=await Promise.all([read('xl/worksheets/sheet1.xml'),read('xl/worksheets/sheet3.xml'),read('xl/pivotCache/pivotCacheDefinition1.xml'),read('xl/pivotTables/pivotTable1.xml')]);
-  zip.file('xl/worksheets/sheet1.xml',mainSheet(main,rows,job,form));const p=pivotSheet(pivot,rows);zip.file('xl/worksheets/sheet3.xml',p.xml);zip.file('xl/pivotCache/pivotCacheDefinition1.xml',refreshPivot(cache,rows.length+3,p.end));zip.file('xl/pivotTables/pivotTable1.xml',pivotTable(pivotDef,p.end));
+  const read=p=>zip.file(p).async('string');const [main,pivot,cache,pivotDef,styles]=await Promise.all([read('xl/worksheets/sheet1.xml'),read('xl/worksheets/sheet3.xml'),read('xl/pivotCache/pivotCacheDefinition1.xml'),read('xl/pivotTables/pivotTable1.xml'),read('xl/styles.xml')]),dt=dateTimeStyles(styles);
+  zip.file('xl/styles.xml',dt.xml);zip.file('xl/worksheets/sheet1.xml',mainSheet(main,rows,job,form,dt.dateStyle,dt.timeStyle));const p=pivotSheet(pivot,rows);zip.file('xl/worksheets/sheet3.xml',p.xml);zip.file('xl/pivotCache/pivotCacheDefinition1.xml',refreshPivot(cache,rows.length+3,p.end));zip.file('xl/pivotTables/pivotTable1.xml',pivotTable(pivotDef,p.end));
   const blob=await zip.generateAsync({type:'blob',mimeType:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`Contabilita-INRETE-${txt(job.title).replace(/[^a-z0-9_-]+/gi,'-')||'commessa'}.xlsx`;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1500);return true
 }
 window.VargaInreteAccountingExport={installed:true,isInrete,generate};
