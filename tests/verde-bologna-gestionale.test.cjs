@@ -38,3 +38,11 @@ test('Verde Bologna occupa armoniosamente tutto lo schermo desktop', () => {
   assert.match(source, /\.verde-bologna-shell\{width:100%;max-width:none/);
   assert.match(source, /height:clamp\(460px,60vh,760px\)/);
 });
+
+test('la scheda albero include Whazzup, manutenzione completa e crea cantiere', () => {
+  assert.match(source, /INVIA TRAMITE WHAZZUP/);
+  assert.match(source, /data-vb-tree-maintenance/);
+  assert.match(source, /CREA CANTIERE POTATURA \/ ABBATTIMENTO/);
+  assert.match(source, /treeMaintenance/);
+  assert.match(source, /VargaCloud\.createTreeWorkOrder/);
+});
