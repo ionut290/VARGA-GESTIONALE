@@ -2,7 +2,8 @@
 VARGA GESTIONALE - PONTE MAP GMAIL/DRIVE
 Da copiare in un progetto Google Apps Script e distribuire come Web App.
 Impostare nelle Proprietà script: VARGA_MAP_TOKEN = una chiave privata scelta dall'amministratore.
-Creare anche un trigger temporale sulla funzione scanScheduled, ad esempio ogni ora.
+Per abilitare il controllo automatico, eseguire una sola volta dall'editor Apps Script
+la funzione authorizeAndInstallRequestSchedule e confermare le autorizzazioni Google.
 
 ARCHITETTURA A BASSO CONSUMO FIRESTORE:
 - il trigger controlla solo Gmail + Drive + ScriptProperties;
@@ -121,6 +122,20 @@ function scanRequestsScheduled() {
   } finally {
     lock.releaseLock();
   }
+}
+
+/**
+ * Funzione da eseguire manualmente una sola volta nell'editor Apps Script.
+ * Fa comparire la richiesta di autorizzazione Google e installa i due trigger.
+ */
+function authorizeAndInstallRequestSchedule() {
+  GmailApp.getAliases();
+  DriveApp.getRootFolder().getId();
+  CalendarApp.getDefaultCalendar().getId();
+  PropertiesService.getScriptProperties().getProperties();
+  const result = installRequestSchedule_();
+  console.log('Controllo automatico Varga Gestionale attivato: ' + JSON.stringify(result));
+  return result;
 }
 
 function installRequestSchedule_() {
