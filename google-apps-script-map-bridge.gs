@@ -224,9 +224,11 @@ function archiveRequestAttachments_(attachments, receiptId, subject, job, emailD
 
 function scan_(payload) {
   const rounds = (payload.rounds || []).filter(r => r && r.accountingSentAt && String(r.mapStatus || '').toUpperCase() !== 'RICEVUTO');
+  const depurazione = (payload.depurazioneConsuntivi || []).filter(r => r && r.id && String(r.mapStatus || 'IN_ATTESA').toUpperCase() !== 'RICEVUTO').map(r => Object.assign({}, r, {depurazioneConsuntivoId:r.id, accountingSentAt:r.mapRequestedAt||r.completedAt, commessaNome:r.commessaNome||'DEPURAZIONE'}));
+  const targets = rounds.concat(depurazione);
   const jobs = payload.jobs || [];
   let matched = 0, ambiguous = 0, checked = 0;
-  rounds.forEach(round => {
+  targets.forEach(round => {
     const job = findJob_(round, jobs);
     if (!job) return;
     const senders = (job.mapSenders || []).map(normalizeEmail_).filter(Boolean);
@@ -259,7 +261,7 @@ function scan_(payload) {
     const receipt = archiveMap_(best, round, job);
     if (receipt && saveReceipt_(receipt)) matched += 1;
   });
-  return {ok:true, matched, ambiguous, checked, scannedRounds:rounds.length, pendingReceipts:loadReceipts_().filter(r=>!r.acknowledged).length, at:new Date().toISOString()};
+  return {ok:true, matched, ambiguous, checked, scannedRounds:rounds.length, scannedConsuntivi:depurazione.length, pendingReceipts:loadReceipts_().filter(r=>!r.acknowledged).length, at:new Date().toISOString()};
 }
 
 function archiveMap_(candidate, round, job) {
@@ -271,7 +273,7 @@ function archiveMap_(candidate, round, job) {
   const root = getOrCreateFolder_(DriveApp.getRootFolder(), ROOT_FOLDER_NAME);
   const accounting = getOrCreateFolder_(root, ACCOUNTING_FOLDER_NAME);
   const commessa = getOrCreateFolder_(accounting, safe_(round.commessaNome || job.title || 'Commessa'));
-  const giro = getOrCreateFolder_(commessa, 'Giro-' + String(round.numeroGiro || '').padStart(2,'0'));
+  const giro = round.depurazioneConsuntivoId && round.driveFolderId ? DriveApp.getFolderById(round.driveFolderId) : getOrCreateFolder_(commessa, 'Giro-' + String(round.numeroGiro || '').padStart(2,'0'));
   const mapFolder = getOrCreateFolder_(giro, 'MAP');
   const savedFiles = [];
   candidate.atts.forEach(att => {
@@ -285,6 +287,7 @@ function archiveMap_(candidate, round, job) {
   const meta = {
     id: receiptId,
     roundPath: round.path || '',
+    depurazioneConsuntivoId: round.depurazioneConsuntivoId || '',
     commessa: round.commessaNome || job.title || '',
     giro: round.numeroGiro || '',
     from: candidate.from,
@@ -308,9 +311,13 @@ function scoreMessage_(msg, round, job, atts) {
   const name = normalizeText_(round.commessaNome || job.title || '');
   const code = normalizeText_(round.codiceCommessa || job.code || '');
   const giro = String(round.numeroGiro || '').trim();
+  const plant = normalizeText_(round.plantName || '');
+  const odl = normalizeText_(round.odl || '');
   if (name && text.includes(name)) score += 3;
   if (code && text.includes(code)) score += 3;
   if (giro && (text.includes('giro '+giro) || text.includes('giro-'+giro) || text.includes('giro_'+giro))) score += 2;
+  if (plant && text.includes(plant)) score += 4;
+  if (odl && text.includes(odl)) score += 4;
   if (/\bmap\b/i.test(text)) score += 2;
   return score;
 }
@@ -325,7 +332,8 @@ function findJob_(round, jobs) {
   const path = String(round.path || '');
   const m = path.match(/^commesse\/([^/]+)\//);
   const source = m ? 'commesse/' + m[1] : '';
-  return jobs.find(j => source && j.vcSourceId === source)
+  return jobs.find(j => round.jobId && j.id === round.jobId)
+    || jobs.find(j => source && j.vcSourceId === source)
     || jobs.find(j => normalizeText_(j.title) === normalizeText_(round.commessaNome))
     || jobs.find(j => j.code && String(j.code) === String(round.codiceCommessa || ''))
     || null;
