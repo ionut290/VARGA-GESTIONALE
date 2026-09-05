@@ -1,0 +1,49 @@
+name: Crea Varga Gestionale Desktop
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "src-tauri/**"
+      - "desktop-shell/**"
+      - ".github/workflows/windows-desktop.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - name: Scarica il progetto
+        uses: actions/checkout@v4
+
+      - name: Installa Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Rust
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: "src-tauri -> target"
+
+      - name: Installa Tauri CLI
+        run: cargo install tauri-cli --version "^2.0.0" --locked
+
+      - name: Genera le icone Windows
+        run: cargo tauri icon src-tauri/icons/icon.svg
+
+      - name: Crea installatori e pubblica la versione
+        uses: tauri-apps/tauri-action@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          projectPath: .
+          tauriScript: cargo tauri
+          tagName: desktop-v__VERSION__
+          releaseName: "Varga Gestionale Desktop v__VERSION__"
+          releaseBody: "Prima versione installabile per Windows. Le funzioni del gestionale si aggiornano automaticamente dalla versione ufficiale online."
+          releaseDraft: false
+          prerelease: false
+          uploadUpdaterJson: false
+          args: --bundles msi,nsis

@@ -74,4 +74,14 @@ Questa versione sincronizza lo stato principale in un singolo documento Firestor
 
 ## Avvio
 Online: usare GitHub Pages.
-In locale: aprire `index.html` con Chrome o Edge. Per l'app Windows installabile, il progetto potrà essere impacchettato successivamente con Tauri.
+In locale: aprire `index.html` con Chrome o Edge.
+
+## Varga Gestionale Desktop per Windows
+Il repository contiene anche il progetto Tauri della versione installabile per Windows.
+
+- L'app desktop apre la versione ufficiale pubblicata su GitHub Pages.
+- Le modifiche alle funzioni del gestionale diventano disponibili automaticamente, senza reinstallazione.
+- I dati condivisi continuano a essere sincronizzati tramite Firebase.
+- GitHub Actions genera due installatori: `.exe` (NSIS) e `.msi`.
+
+Il workflow `Crea Varga Gestionale Desktop` parte quando viene modificata la cartella `src-tauri` oppure può essere avviato manualmente da **Actions**. Gli installatori vengono pubblicati nella sezione **Releases** del repository.
