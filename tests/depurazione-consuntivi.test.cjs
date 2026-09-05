@@ -57,7 +57,10 @@ test('consuntivi DEPURAZIONE e PDF Drive sono condivisi nel gestionale autentica
   assert.match(incremental,/keys\.forEach\(k=>hashes\[k\]=hashValue\(db\[k\]\)\)/);
   assert.match(code,/data-dep-pdf/);
   assert.match(code,/VargaMailBridgeCall\('getDepurazioneConsuntivo'/);
+  assert.match(code,/AGGIORNA DA DRIVE/);
+  assert.match(code,/VargaMailBridgeCall\('listDepurazioneConsuntivi'/);
   assert.match(bridge,/function getDepurazioneConsuntivo_/);
+  assert.match(bridge,/function listDepurazioneConsuntivi_/);
   assert.match(bridge,/driveFolderInside_\(parents\.next\(\),root\)/);
   assert.doesNotMatch(bridge,/ANYONE_WITH_LINK/);
 });

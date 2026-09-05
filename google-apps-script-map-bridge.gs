@@ -60,6 +60,7 @@ function doPost(e) {
     if (action === 'driveList') return json_(driveList_(payload, false));
     if (action === 'driveCreateFolder') return json_(driveCreateFolder_(payload));
     if (action === 'driveUpload') return json_(driveUpload_(payload));
+    if (action === 'listDepurazioneConsuntivi') return json_(listDepurazioneConsuntivi_());
     if (action === 'saveDepurazioneConsuntivo') return json_(saveDepurazioneConsuntivo_(payload));
     if (action === 'getDepurazioneConsuntivo') return json_(getDepurazioneConsuntivo_(payload));
     if (action === 'deleteDepurazioneConsuntivo') return json_(deleteDepurazioneConsuntivo_(payload));
@@ -355,6 +356,19 @@ function driveSafeFile_(payload,root){const file=DriveApp.getFileById(String(pay
 function driveList_(payload,ensure){const root=driveJobFolder_(payload,ensure),folder=driveSafeFolder_(payload,root),folders=[],files=[],fit=folder.getFolders();while(fit.hasNext()){const f=fit.next();if(!f.isTrashed())folders.push({id:f.getId(),name:f.getName(),kind:'folder'})}const it=folder.getFiles();while(it.hasNext()){const f=it.next();if(!f.isTrashed())files.push({id:f.getId(),name:f.getName(),kind:'file',mimeType:f.getMimeType(),size:f.getSize(),updatedAt:f.getLastUpdated().toISOString()})}folders.sort((a,b)=>a.name.localeCompare(b.name));files.sort((a,b)=>b.updatedAt.localeCompare(a.updatedAt));return{ok:true,rootId:root.getId(),folderId:folder.getId(),folderName:folder.getName(),folders,files}}
 function driveCreateFolder_(payload){const root=driveJobFolder_(payload,true),parent=driveSafeFolder_(payload,root),name=safe_(payload.name);if(!name)throw new Error('Inserisci il nome della cartella');const folder=getOrCreateFolder_(parent,name);return{ok:true,id:folder.getId(),name:folder.getName()}}
 function driveUpload_(payload){const root=driveJobFolder_(payload,true),parent=driveSafeFolder_(payload,root),name=safe_(payload.name),raw=String(payload.base64||'');if(!name||!raw)throw new Error('File non valido');const bytes=Utilities.base64Decode(raw);if(bytes.length>8*1024*1024)throw new Error('Il file supera il limite di 8 MB');const file=parent.createFile(Utilities.newBlob(bytes,String(payload.mimeType||'application/octet-stream'),name));return{ok:true,id:file.getId(),name:file.getName(),mimeType:file.getMimeType(),size:file.getSize()}}
+function listDepurazioneConsuntivi_(){
+  const root=DriveApp.getFolderById(DEPURAZIONE_CONSUNTIVI_ROOT_ID),items=[],folders=root.getFolders();
+  while(folders.hasNext()&&items.length<1000){
+    const folder=folders.next();if(folder.isTrashed())continue;
+    const folderName=folder.getName(),match=folderName.match(/^(\d{4})(\d{2})(\d{2})\s*-\s*(.+)$/),files=folder.getFiles();
+    while(files.hasNext()&&items.length<1000){
+      const file=files.next();if(file.isTrashed()||file.getMimeType()!=='application/pdf')continue;
+      items.push({folderId:folder.getId(),folderName,folderUrl:folder.getUrl(),fileId:file.getId(),fileName:file.getName(),fileUrl:file.getUrl(),plantName:match?match[4]:folderName,date:match?(match[1]+'-'+match[2]+'-'+match[3]):file.getDateCreated().toISOString().slice(0,10),createdAt:file.getDateCreated().toISOString(),updatedAt:file.getLastUpdated().toISOString()});
+    }
+  }
+  items.sort((a,b)=>String(b.date).localeCompare(String(a.date))||String(b.updatedAt).localeCompare(String(a.updatedAt)));
+  return{ok:true,items};
+}
 function saveDepurazioneConsuntivo_(payload){
   const raw=String(payload.base64||''),plant=safe_(payload.plantName||'Impianto'),dateKey=String(payload.dateKey||'').replace(/[^0-9]/g,'');
   if(!raw||!/^[0-9]{8}$/.test(dateKey))throw new Error('PDF, data o impianto non validi');
