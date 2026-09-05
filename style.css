@@ -12,4 +12,6 @@
 @media(max-width:780px){.login-screen{grid-template-columns:1fr}.login-brand-panel{display:none}.login-form-panel{padding:20px}.login-card{padding:28px}.login-mobile-brand{display:block}}
 /* Il collegamento all'app operativa è disponibile soltanto nei browser desktop. */
 .desktop-varga-link[hidden]{display:none!important}
+
+/* Occupa tutta la larghezza disponibile anche su monitor desktop molto larghi. */
 .main{max-width:none;min-width:0}
