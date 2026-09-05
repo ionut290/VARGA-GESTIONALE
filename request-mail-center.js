@@ -183,6 +183,13 @@ function activityKind(r){
   if(r.reportStartedAt)kinds.push('Rapportino');
   return kinds;
 }
+function compactActivityPreview(value){
+  let text=String(value||'').replace(/\s+/g,' ').trim();
+  const stops=['Cordiali saluti','Distinti saluti','Questo messaggio','DISCLAIMER','Rispetta l’ambiente'];
+  const positions=stops.map(x=>text.toLowerCase().indexOf(x.toLowerCase())).filter(x=>x>80);
+  if(positions.length)text=text.slice(0,Math.min(...positions)).trim();
+  return text.length>260?text.slice(0,257).trimEnd()+'…':text;
+}
 function installActivityCenter(){
   if(document.getElementById('emailActivities'))return;
   const sidebar=document.querySelector('.sidebar'),requestNav=[...document.querySelectorAll('.nav')].find(x=>x.dataset.view==='richieste');
@@ -202,7 +209,7 @@ function renderActivityCenter(){
   document.getElementById('emailActDone').textContent=created.filter(r=>r.status==='Completata').length;
   const q=normalize(document.getElementById('emailActivitySearch').value),kind=document.getElementById('emailActivityKind').value,status=document.getElementById('emailActivityStatus').value;
   const rows=created.filter(r=>(!kind||activityKind(r).includes(kind))&&(!status||r.status===status)&&(!q||normalize([r.subject,r.notes,r.bodyPreview,jobName(r.jobId),plantLabel(selectedPlant(r)),activityKind(r).join(' ')].join(' ')).includes(q))).sort((a,b)=>String(b.updatedAt||b.emailDate).localeCompare(String(a.updatedAt||a.emailDate)));
-  const card=r=>{const kinds=activityKind(r),plant=selectedPlant(r),team=(db.vcSquadre||[]).find(t=>teamId(t)===String(r.assignedTeamId||r.teamId||''));return `<div class="item email-activity-card"><div class="item-main"><div class="item-title">${html(r.subject||'Attività da email')} ${kinds.map(k=>`<span class="badge">${html(k)}</span>`).join(' ')}</div><div class="item-sub">${plant?html(plantLabel(plant))+' • ':''}${r.scheduledDate?html(r.scheduledDate)+' • ':''}${team?html(teamLabel(team))+' • ':''}<span class="badge ${r.needsReview?'priority-high':''}">${html(r.status||'Nuova')}</span></div><div class="item-sub email-activity-note">${html(r.notes||r.activity?.description||r.bodyPreview||'')}</div></div><div class="item-actions"><button class="mini primary" data-email-activity-open="${html(r.id)}">APRI</button>${r.quoteNumber?`<button class="mini" data-email-activity-go="preventivi">PREVENTIVO</button>`:''}${r.scheduledDate?`<button class="mini" data-email-activity-go="scadenze">SCADENZA</button>`:''}${r.reportStartedAt?`<button class="mini" data-email-activity-go="rapportini">RAPPORTINO</button>`:''}</div></div>`};
+  const card=r=>{const kinds=activityKind(r),plant=selectedPlant(r),team=(db.vcSquadre||[]).find(t=>teamId(t)===String(r.assignedTeamId||r.teamId||'')),preview=compactActivityPreview(r.notes||r.activity?.description||r.bodyPreview||'');return `<div class="item email-activity-card"><div class="item-main"><div class="item-title">${html(r.subject||'Attività da email')} ${kinds.map(k=>`<span class="badge">${html(k)}</span>`).join(' ')}</div><div class="item-sub">${plant?html(plantLabel(plant))+' • ':''}${r.scheduledDate?html(r.scheduledDate)+' • ':''}${team?html(teamLabel(team))+' • ':''}<span class="badge ${r.needsReview?'priority-high':''}">${html(r.status||'Nuova')}</span></div><div class="item-sub email-activity-note">${html(preview)}</div></div><div class="item-actions"><button class="mini primary" data-email-activity-open="${html(r.id)}">APRI</button>${r.quoteNumber?`<button class="mini" data-email-activity-go="preventivi">PREVENTIVO</button>`:''}${r.scheduledDate?`<button class="mini" data-email-activity-go="scadenze">SCADENZA</button>`:''}${r.reportStartedAt?`<button class="mini" data-email-activity-go="rapportini">RAPPORTINO</button>`:''}</div></div>`};
   const groups=new Map();rows.forEach(r=>{const name=jobName(r.jobId)||'Senza commessa';if(!groups.has(name))groups.set(name,[]);groups.get(name).push(r)});
   document.getElementById('emailActivitiesList').innerHTML=rows.length?[...groups.entries()].map(([name,items])=>`<div class="email-activity-group"><div class="email-activity-group-title">${html(name)} · ${items.length} attività</div><div class="email-activity-group-list">${items.map(card).join('')}</div></div>`).join(''):'<div class="empty">Nessuna attività creata dalle email.</div>';
   document.querySelectorAll('[data-email-activity-open]').forEach(b=>b.onclick=()=>openManager(b.dataset.emailActivityOpen));document.querySelectorAll('[data-email-activity-go]').forEach(b=>b.onclick=()=>nav(b.dataset.emailActivityGo));

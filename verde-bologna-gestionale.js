@@ -805,10 +805,10 @@
   }
 
   function openPage() {
-    const page = buildPage(); page.classList.remove("hidden"); page.setAttribute("aria-hidden", "false"); showCategoryHub({ scroll: false });
+    const page = buildPage(); const app=document.querySelector('.app-shell'); if(app){app.setAttribute('aria-hidden','true');app.inert=true} document.body.classList.add('verde-bologna-page-open'); page.classList.remove("hidden"); page.setAttribute("aria-hidden", "false"); showCategoryHub({ scroll: false });
   }
 
-  function closePage() { state.activationSerial += 1; destroyCategoryMap(); state.categoryOpen = false; const page = $(PAGE_ID); page?.classList.add("hidden"); page?.classList.remove("is-category-open"); page?.setAttribute("aria-hidden", "true"); }
+  function closePage() { state.activationSerial += 1; destroyCategoryMap(); state.categoryOpen = false; const page = $(PAGE_ID); page?.classList.add("hidden"); page?.classList.remove("is-category-open"); page?.setAttribute("aria-hidden", "true"); const app=document.querySelector('.app-shell');if(app){app.removeAttribute('inert');app.setAttribute('aria-hidden','false')}document.body.classList.remove('verde-bologna-page-open'); }
 
   function setFullscreen(active) {
     state.fullscreen = Boolean(active); $("verde-bologna-map-card")?.classList.toggle("is-fullscreen", state.fullscreen); document.body.classList.toggle("verde-bologna-fullscreen-open", state.fullscreen);
