@@ -95,7 +95,7 @@
       }
       persistLocal();
       writeLocalObject(VERSION_KEY,localVersions);
-      const hashes=readLocalObject(HASH_KEY);SECTION_KEYS.forEach(k=>hashes[k]=hashValue(db[k]));writeLocalObject(HASH_KEY,hashes);
+      const hashes=readLocalObject(HASH_KEY);keys.forEach(k=>hashes[k]=hashValue(db[k]));if(needEntries)hashes.entries=hashValue(db.entries);writeLocalObject(HASH_KEY,hashes);
       localStorage.setItem(LAST_PULL_KEY,new Date().toISOString());
       cloudStatus('Sincronizzato');
       setCloudInfo(downloaded?`Sincronizzazione incrementale: ${downloaded} sezion${downloaded===1?'e aggiornata':'i aggiornate'} scaricat${downloaded===1?'a':'e'}.`:'Dati locali già aggiornati.');
@@ -139,9 +139,9 @@
   window.pushCloudNow=async function(silent=false){
     if(pullingIncremental||applyingRemote||!cloudStore||!cloudUser)return;
     if(!(document.getElementById('workspaceId')?.value||cloudCfg.workspaceId||'').trim())return;
-    const previousHashes=readLocalObject(HASH_KEY),current=sectionSnapshot(),changed=[];
-    SECTION_KEYS.forEach(k=>{const h=hashValue(current[k]);if(previousHashes[k]!==h)changed.push({key:k,hash:h})});
-    const entriesHash=hashValue(db.entries),entriesChanged=previousHashes.entries!==entriesHash;
+    const previousHashes=readLocalObject(HASH_KEY),knownVersions=readLocalObject(VERSION_KEY),current=sectionSnapshot(),changed=[];
+    SECTION_KEYS.forEach(k=>{const h=hashValue(current[k]);if(current[k]!==undefined&&(previousHashes[k]!==h||knownVersions[k]==null))changed.push({key:k,hash:h})});
+    const entriesHash=hashValue(db.entries),entriesChanged=previousHashes.entries!==entriesHash||knownVersions.entries==null;
     if(!changed.length&&!entriesChanged){if(!silent)setCloudInfo('Nessuna modifica da inviare: 0 scritture dati.');cloudStatus('Sincronizzato');return;}
     try{
       const versions=readLocalObject(VERSION_KEY),manifestSnap=await manifestRef().get(),remoteVersions=manifestSnap.exists?(manifestSnap.data().versions||{}):{};

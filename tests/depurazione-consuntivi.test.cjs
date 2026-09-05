@@ -49,9 +49,12 @@ test('i consuntivi salvati possono essere modificati ed eliminati anche da Drive
 
 test('consuntivi DEPURAZIONE e PDF Drive sono condivisi nel gestionale autenticato',()=>{
   const cloud=fs.readFileSync(path.join(root,'app-cloud.js'),'utf8');
+  const incremental=fs.readFileSync(path.join(root,'cloud-incremental-sync.js'),'utf8');
   const code=fs.readFileSync(path.join(root,'depurazione-consuntivi.js'),'utf8');
   const bridge=fs.readFileSync(path.join(root,'google-apps-script-map-bridge.gs'),'utf8');
   assert.match(cloud,/depurazioneConsuntivi:db\.depurazioneConsuntivi/);
+  assert.match(incremental,/knownVersions\[k\]==null/);
+  assert.match(incremental,/keys\.forEach\(k=>hashes\[k\]=hashValue\(db\[k\]\)\)/);
   assert.match(code,/data-dep-pdf/);
   assert.match(code,/VargaMailBridgeCall\('getDepurazioneConsuntivo'/);
   assert.match(bridge,/function getDepurazioneConsuntivo_/);
