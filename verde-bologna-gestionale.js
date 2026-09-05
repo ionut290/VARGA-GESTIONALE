@@ -22,6 +22,8 @@
   const CATEGORY_CLOSED_EVENT = "hera:verde-bologna-category-closed";
   const DELEGATED_MAP_CLEANUP_DELAY_MS = 700;
   const PARKS_DATASET_ID = "carta-tecnica-comunale-toponimi-parchi-e-giardini";
+  const TREES_DATASET_ID = "alberi-manutenzioni";
+  const GREEN_ASSISTANT_URL = "https://creative-syrniki-dddbae.netlify.app/api/green-assistant";
 
   const DATASETS = Object.freeze([
     { id: "un_gest", icon: "🌳", title: "Aree verdi in manutenzione", short: "Aiuole, parchi, giardini, verde scolastico, sportivo e stradale.", priority: true, titleFields: ["nome_ug", "nome", "ubicazione"], searchHint: "nome, via, quartiere o tipo di area" },
@@ -115,6 +117,7 @@
       .verde-bologna-results{display:grid;gap:10px}.verde-bologna-result{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;padding:13px;border:1px solid #d6e3d9;border-radius:14px;background:#fbfdfb}.verde-bologna-result h3{margin:0;color:#174d30;font-size:1rem}.verde-bologna-result p{margin:4px 0 0;color:#617667;font-size:.84rem;line-height:1.4}.verde-bologna-result-actions{display:flex;gap:6px;align-items:center;flex-wrap:wrap;justify-content:flex-end}.verde-bologna-result-actions .btn,.verde-bologna-result-actions a{min-height:38px;padding:7px 10px;font-size:.76rem;text-decoration:none}
       .verde-bologna-details{grid-column:1/-1;display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:7px}.verde-bologna-details div{padding:8px;border-radius:9px;background:#eff6f1}.verde-bologna-details span{display:block;color:#6c7f70;font-size:.7rem}.verde-bologna-details strong{display:block;margin-top:3px;color:#294d35;font-size:.8rem;overflow-wrap:anywhere}.verde-bologna-load-more{display:block;width:100%;margin-top:12px;min-height:46px}.verde-bologna-empty{padding:18px;text-align:center;color:#65796a}
       .verde-bologna-sheet{display:none;position:fixed;inset:0;z-index:13070;overflow:auto;padding:max(10px,env(safe-area-inset-top)) 10px max(18px,env(safe-area-inset-bottom));background:#f1f6fb}.verde-bologna-sheet.is-open{display:block}.verde-bologna-sheet-head{position:sticky;top:-10px;z-index:2;display:flex;align-items:center;gap:10px;margin:-10px -10px 10px;padding:max(10px,env(safe-area-inset-top)) 10px 10px;background:rgba(255,255,255,.97);border-bottom:1px solid #d9e3ef}.verde-bologna-sheet-head h2{min-width:0;flex:1;margin:0;color:#10264a;font-size:1.05rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.verde-bologna-sheet-source{margin:0 0 10px;padding:9px 11px;border-radius:10px;background:#e8f6ed;color:#1d5b37;font-size:.78rem}.verde-bologna-sheet-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-bottom:10px}.verde-bologna-sheet-actions .btn{display:flex;align-items:center;justify-content:center;min-height:46px;text-decoration:none;text-align:center}.verde-bologna-sheet-fields{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:7px}.verde-bologna-sheet-field{padding:10px;border:1px solid #dce6ef;border-radius:11px;background:#fff}.verde-bologna-sheet-field[hidden]{display:none}.verde-bologna-sheet-field span{display:block;margin-bottom:3px;color:#617990;font-size:.68rem;font-weight:900;text-transform:uppercase;letter-spacing:.03em}.verde-bologna-sheet-field strong{display:block;color:#203e59;font-size:.82rem;line-height:1.35;white-space:pre-wrap;overflow-wrap:anywhere}.verde-bologna-details-toggle{grid-column:1/-1;width:100%;min-height:44px;margin-top:3px;border-color:#bed0e2!important;background:#edf4fb!important;color:#214f7d!important;font-weight:900}body.verde-bologna-sheet-open{overflow:hidden}
+      .verde-bologna-tree-tools{display:grid;gap:12px;margin-top:14px}.verde-bologna-maintenance,.verde-bologna-work-form{padding:16px;border:1px solid #cbded1;border-radius:16px;background:#fff}.verde-bologna-maintenance h2,.verde-bologna-maintenance h3{color:#174d30}.verde-bologna-maintenance h2{margin:0 0 8px}.verde-bologna-maintenance-section{margin-top:14px;padding:13px;border-radius:12px;background:#f1f7f3}.verde-bologna-maintenance-section h3{margin:0 0 8px}.verde-bologna-maintenance-section ul{margin:0;padding-left:20px}.verde-bologna-maintenance-table{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:9px}.verde-bologna-maintenance-table article{display:grid;gap:5px;padding:11px;border:1px solid #d8e5dc;border-radius:10px;background:#fff}.verde-bologna-warning{padding:10px;border-radius:10px;background:#fff4d8;color:#75510a}.verde-bologna-work-form{display:grid;gap:10px}.verde-bologna-work-form label{display:grid;gap:5px;font-weight:800}.verde-bologna-work-form select,.verde-bologna-work-form textarea{width:100%;padding:10px;border:1px solid #b6c9bc;border-radius:9px;font:inherit}.verde-bologna-feedback{margin:0;color:#315b3e}
       @media(max-width:760px){.verde-bologna-shell{padding-left:12px;padding-right:12px}.verde-bologna-header{grid-template-columns:auto minmax(0,1fr);margin-left:-12px;margin-right:-12px;padding-left:12px;padding-right:12px}.verde-bologna-badge{grid-column:1/-1;justify-self:start}.verde-bologna-hero{grid-template-columns:1fr}.verde-bologna-search{grid-template-columns:1fr 1fr}.verde-bologna-search input{grid-column:1/-1}.verde-bologna-browser-head{display:grid}.verde-bologna-source-link{width:100%}.verde-bologna-result{grid-template-columns:1fr}.verde-bologna-result-actions{justify-content:flex-start}.verde-bologna-map{height:52vh;min-height:360px}}
       @media(max-width:520px){.verde-bologna-shell{padding:0 10px 20px}.verde-bologna-header{margin:0 -10px 12px;padding-left:10px;padding-right:10px}.verde-bologna-header .btn{padding:7px 9px}.verde-bologna-datasets{grid-template-columns:1fr}.verde-bologna-search{grid-template-columns:1fr}.verde-bologna-search input{grid-column:auto}.verde-bologna-map{height:44vh;min-height:300px}}
     `;
@@ -450,6 +453,66 @@
     });
   }
 
+  function treeMessage(entries, navigationUrl) {
+    return ["🌳 *SCHEDA ALBERO*", "", ...entries.slice(0, 6).map((entry) => `• *${entry.label}:* ${entry.value}`), "", "📍 *NAVIGA VERSO L’ALBERO*", navigationUrl].join("\n");
+  }
+
+  function shareTree(entries, navigationUrl) {
+    const url = `whatsapp://send?text=${encodeURIComponent(treeMessage(entries, navigationUrl))}`;
+    window.location.assign(url);
+    window.setTimeout(() => { if (document.visibilityState === "visible") window.alert("WhatsApp non è installato o non può essere aperto su questo dispositivo."); }, 1800);
+  }
+
+  function maintenancePayload(tree) {
+    return {
+      scientificName: tree.nome_scientifico || tree.classe || "", commonName: tree.nome_comune || tree.classe || "",
+      heightClass: tree.cl_h || tree.altezza || "", diameter: tree.diametro || tree.circonferenza || tree.classe_circonferenza_diametro || "",
+      plantingYear: tree.data_impianto || tree.data_impnt || tree.anni_impnt || "",
+      location: [tree.via, tree.indirizzo, tree.quartiere, tree.localizzazione].filter(Boolean).join(" · "),
+      irrigation: tree.irrigazione || tree.irriga || "", censusNotes: tree.note || tree.stato || ""
+    };
+  }
+
+  function maintenanceList(title, items) {
+    return Array.isArray(items) && items.length ? `<section class="verde-bologna-maintenance-section"><h3>${esc(title)}</h3><ul>${items.map((item) => `<li>${esc(item)}</li>`).join("")}</ul></section>` : "";
+  }
+
+  function renderMaintenance(host, tree, data) {
+    const maintenance = Array.isArray(data?.maintenance) ? data.maintenance : [];
+    const diseases = Array.isArray(data?.commonDiseases) ? data.commonDiseases : [];
+    host.innerHTML = `<section class="verde-bologna-maintenance"><h2>🪚 Manutenzione di ${esc(data?.species || tree.classe || "questo albero")}</h2><p class="verde-bologna-warning">⚠️ ${esc(data?.notice || data?.warning || "Informazioni orientative da verificare sul posto.")}</p>${data?.summary ? `<p>${esc(data.summary)}</p>` : ""}${maintenance.length ? `<section class="verde-bologna-maintenance-section"><h3>Calendario degli interventi</h3><div class="verde-bologna-maintenance-table">${maintenance.map((item) => `<article><strong>${esc(item.intervention)}</strong><span><b>Periodo:</b> ${esc(item.period || "Da valutare")}</span><span><b>Frequenza:</b> ${esc(item.frequency || "Secondo necessità")}</span><p>${esc(item.notes || "")}</p></article>`).join("")}</div></section>` : ""}${maintenanceList("Irrigazione", data?.watering)}${maintenanceList("Potatura", data?.pruning)}${maintenanceList("Controlli periodici", data?.inspections)}${diseases.length ? `<section class="verde-bologna-maintenance-section"><h3>Malattie e problemi frequenti</h3>${diseases.map((item) => `<article><strong>${esc(item.name)}</strong><p><b>Segnali:</b> ${esc(item.symptoms)}</p><p><b>Azione prudente:</b> ${esc(item.action)}</p></article>`).join("")}</section>` : ""}${maintenanceList("Sicurezza", data?.safety)}<p class="verde-bologna-warning">${esc(data?.warning || "Per rischi strutturali o interventi importanti richiedere un arboricoltore qualificato.")}</p></section>`;
+  }
+
+  async function openMaintenance(tree, host, button) {
+    host.innerHTML = `<section class="verde-bologna-maintenance"><p>Preparo manutenzione, controlli, malattie e sicurezza…</p></section>`;
+    button.disabled = true;
+    try {
+      const token = await window.VargaCloud?.authToken?.();
+      if (!token) throw new Error("Accedi al Gestionale per consultare la manutenzione.");
+      const response = await fetch(GREEN_ASSISTANT_URL, { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }, body: JSON.stringify({ action: "treeMaintenance", ...maintenancePayload(tree) }) });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok || !payload.ok) throw new Error(payload.error || "Servizio di manutenzione non disponibile.");
+      renderMaintenance(host, tree, payload.result || payload);
+    } catch (error) { host.innerHTML = `<section class="verde-bologna-maintenance"><p class="verde-bologna-warning">${esc(error.message)}</p></section>`; }
+    finally { button.disabled = false; }
+  }
+
+  function slug(value) { return String(value || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 70); }
+
+  function openTreeWorkOrder(tree, entries, center, host) {
+    host.innerHTML = `<form class="verde-bologna-work-form"><h2>✂️ Nuovo cantiere albero</h2><p>I dati principali del Catasto alberi saranno copiati automaticamente nella commessa Potature Abbattimenti.</p><label>Intervento richiesto *<select name="intervention" required><option value="">Seleziona</option><option>POTATURA</option><option>ABBATTIMENTO</option><option>POTATURA E ABBATTIMENTO</option></select></label><label>Lavorazione richiesta *<textarea name="work" rows="3" required placeholder="Es. Rimonda del secco e contenimento chioma"></textarea></label><label>Nota operatore<textarea name="note" rows="3"></textarea></label><p class="verde-bologna-feedback"></p><button class="btn btn-primary" type="submit">SALVA E CREA IL CANTIERE</button></form>`;
+    host.querySelector("form")?.addEventListener("submit", async (event) => {
+      event.preventDefault(); const form = event.currentTarget, feedback = form.querySelector(".verde-bologna-feedback"), button = form.querySelector("button"); button.disabled = true; feedback.textContent = "Salvataggio in corso…";
+      try {
+        if (!window.VargaCloud?.createTreeWorkOrder) throw new Error("Connessione cloud non disponibile.");
+        const values = new FormData(form), identifier = String(tree.num_pt || tree.cod_alb || "albero"), species = String(tree.classe || tree.nome_scientifico || tree.nome_comune || "Specie non disponibile");
+        const message = treeMessage(entries, center ? `https://www.google.com/maps/dir/?api=1&destination=${center.lat},${center.lon}` : "");
+        await window.VargaCloud.createTreeWorkOrder({ id: `albero-bologna-${slug(identifier)}`, idSap: `ALB-BOLOGNA-${slug(identifier).toUpperCase()}`, denominazione: `ALBERO #${identifier} — ${species}`, nome: `ALBERO #${identifier} — ${species}`, comune: "Bologna", area: tree.quartiere || "", gpsY: center?.lat, gpsX: center?.lon, coordinate: center ? `${center.lat}, ${center.lon}` : "", tipologia: "ALBERO", tipologiaImpianto: "POTATURE / ABBATTIMENTI", tipologiaIntervento: values.get("intervention"), lavorazioniRichieste: values.get("work"), noteOperatore: values.get("note"), note: message, numeroPunto: tree.num_pt || "", codiceAlbero: tree.cod_alb || "", specieAlbero: species }); feedback.textContent = "✅ Cantiere creato nella commessa Potature Abbattimenti.";
+      } catch (error) { feedback.textContent = error.message || "Impossibile creare il cantiere."; }
+      finally { button.disabled = false; }
+    });
+  }
+
   function openDetailSheet(index) {
     const record = state.records[index], sheet = $("verde-bologna-detail-sheet");
     if (!record || !sheet) return;
@@ -462,11 +525,12 @@
       <div class="verde-bologna-sheet-actions">
         ${navigationUrl ? `<a class="btn btn-primary" href="${esc(navigationUrl)}" target="_blank" rel="noopener">NAVIGA VERSO L’ELEMENTO</a><button class="btn" type="button" data-vb-street-view>🌐 VISTA 360° E PERCORSO</button>` : ""}
         ${dataset.id === PARKS_DATASET_ID ? `<button class="btn" type="button" data-vb-create-cobo>🌿 CREA CANTIERE SFALCIO COBO</button>` : ""}
+        ${dataset.id === TREES_DATASET_ID ? `<button class="btn" type="button" data-vb-tree-share>INVIA TRAMITE WHAZZUP</button><button class="btn" type="button" data-vb-tree-maintenance>🪚 MANUTENZIONE</button><button class="btn btn-primary" type="button" data-vb-tree-work>✂️ CREA CANTIERE POTATURA / ABBATTIMENTO</button>` : ""}
       </div>
       <section class="verde-bologna-sheet-fields">
         ${entries.map((entry, entryIndex) => `<article class="verde-bologna-sheet-field"${entryIndex >= 6 ? " hidden" : ""}><span>${esc(entry.label)}</span><strong>${esc(entry.value)}</strong></article>`).join("")}
         ${entries.length > 6 ? `<button class="btn verde-bologna-details-toggle" type="button" aria-expanded="false" data-vb-toggle-details>MOSTRA TUTTI I DETTAGLI (${entries.length})</button>` : ""}
-      </section>`;
+      </section><section class="verde-bologna-tree-tools" data-vb-tree-tools></section>`;
     sheet.classList.add("is-open");
     sheet.setAttribute("aria-hidden", "false");
     document.body.classList.add("verde-bologna-sheet-open");
@@ -474,6 +538,9 @@
     sheet.querySelector("[data-vb-close-sheet]")?.addEventListener("click", closeDetailSheet);
     sheet.querySelector("[data-vb-street-view]")?.addEventListener("click", (event) => openStreetView(record, index, event.currentTarget));
     sheet.querySelector("[data-vb-create-cobo]")?.addEventListener("click", (event) => openCoboWorkOrder(record, index, event.currentTarget));
+    sheet.querySelector("[data-vb-tree-share]")?.addEventListener("click", () => shareTree(entries, navigationUrl));
+    sheet.querySelector("[data-vb-tree-maintenance]")?.addEventListener("click", (event) => openMaintenance(record, sheet.querySelector("[data-vb-tree-tools]"), event.currentTarget));
+    sheet.querySelector("[data-vb-tree-work]")?.addEventListener("click", () => openTreeWorkOrder(record, entries, center, sheet.querySelector("[data-vb-tree-tools]")));
     sheet.querySelector("[data-vb-toggle-details]")?.addEventListener("click", (event) => {
       const button = event.currentTarget, expanded = button.getAttribute("aria-expanded") !== "true";
       sheet.querySelectorAll(".verde-bologna-sheet-field").forEach((field, fieldIndex) => { field.hidden = !expanded && fieldIndex >= 6; });
