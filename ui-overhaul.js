@@ -17,13 +17,13 @@ function addStyles(){
     .vg-round-not-started{display:flex;align-items:center;min-height:74px;padding:16px 18px;border:1px solid #d8c184;border-radius:14px;background:#fff8e8;color:#6f520b}
     .vg-round-not-started div{display:grid;gap:5px}.vg-round-not-started span{font-size:13px;color:#795f1e}
     #jobsFormPanel[hidden]{display:none!important}.vg-job-card{min-height:168px}.vg-job-card .vg-job-meta:empty{display:none}
-    .vg-quick-start{background:linear-gradient(135deg,#f7fcf9,#eef8f3);border-color:#bedccc}.vg-quick-head{display:flex;justify-content:space-between;gap:16px;align-items:flex-start}.vg-quick-head h2{margin-bottom:4px}.vg-quick-head p{margin:0}.vg-quick-grid{display:grid;grid-template-columns:repeat(4,minmax(150px,1fr));gap:10px;margin-top:14px}.vg-quick-step{display:grid;grid-template-columns:auto 1fr;gap:9px;align-items:start;border:1px solid #d4e5dc;border-radius:12px;background:#fff;padding:12px;text-align:left;color:#173f30}.vg-quick-step:hover{border-color:#66a987;background:#fbfffd}.vg-quick-step>span{display:grid;place-items:center;width:26px;height:26px;border-radius:50%;background:#176b48;color:#fff;font-size:12px}.vg-quick-step small{display:block;margin-top:3px;color:#68766e;font-weight:500;line-height:1.35}.vg-quick-step.is-done>span{background:#dff3e7;color:#08723d}.vg-quick-step.is-done>span:before{content:'✓';font-size:14px}.vg-quick-step.is-done>span{font-size:0}
+    .vg-quick-start{background:linear-gradient(135deg,#f7fcf9,#eef8f3);border-color:#bedccc}.vg-quick-head{display:flex;justify-content:space-between;gap:16px;align-items:flex-start}.vg-quick-head h2{margin-bottom:4px}.vg-quick-head p{margin:0}.vg-quick-grid{display:grid;grid-template-columns:repeat(4,minmax(150px,1fr));gap:10px;margin-top:14px}.vg-quick-step{display:grid;grid-template-columns:auto 1fr;gap:9px;align-items:start;border:1px solid #d4e5dc;border-radius:12px;background:#fff;padding:12px;text-align:left;color:#173f30}.vg-quick-step:hover{border-color:#66a987;background:#fbfffd}.vg-quick-step>span{display:grid;place-items:center;width:26px;height:26px;border-radius:50%;background:#176b48;color:#fff;font-size:12px}.vg-quick-step small{display:block;margin-top:3px;color:#68766e;font-weight:500;line-height:1.35}.vg-quick-step.is-done>span{background:#dff3e7;color:#08723d}.vg-quick-step.is-done>span:before{content:'✓';font-size:14px}.vg-quick-step.is-done>span{font-size:0}.vg-welcome{border:1px solid #9fcbb4;background:#fff;padding:18px}.vg-welcome-grid{display:grid;grid-template-columns:1fr auto;gap:18px;align-items:center}.vg-welcome h2{margin-bottom:5px}.vg-welcome p{margin:0;line-height:1.5}.vg-welcome-actions{display:flex;gap:8px;flex-wrap:wrap}.vg-help-button{padding:7px 10px;font-size:11px}
     body.verde-bologna-page-open{overflow:hidden}
     @media(min-width:1500px){.main{padding-left:36px;padding-right:36px}.vg-job-grid{grid-template-columns:repeat(4,minmax(250px,1fr))}}
     @media(max-width:1050px){.vg-quick-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
     @media(max-width:850px){:root{--vg-sidebar:180px}.topline{align-items:flex-start;flex-wrap:wrap}.topline>.primary,.topline>.ghost{max-width:100%}.item{align-items:flex-start}.item-actions{max-width:42%}}
     @media(max-width:640px){
-      .app-shell{display:block}.sidebar{position:relative;inset:auto;width:100%;height:auto;max-height:none;padding:14px 12px}.brand{padding:2px 6px 12px;font-size:20px}.sidebar-nav{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:4px}.nav{margin:0;padding:10px;font-size:13px}.vg-nav-label{grid-column:1/-1;padding:14px 8px 4px}.sidebar-account{margin-top:10px}.main{width:100%;margin-left:0;padding:16px}.cards,.cards.five,.grid2,.formgrid,.vg-quick-grid{grid-template-columns:1fr}.card{padding:14px}.card strong{font-size:24px}.topline,.vg-quick-head{display:grid}.topline>button{width:100%}.item{display:grid}.item-actions{max-width:none;justify-content:flex-start}.vg-job-grid{grid-template-columns:1fr}.vg-tabs{top:0;margin:0 -16px;padding:8px 16px;background:#f4f6f5}.email-activity-group-title{top:0}.verde-bologna-page{z-index:21000}
+      .app-shell{display:block}.sidebar{position:relative;inset:auto;width:100%;height:auto;max-height:none;padding:14px 12px}.brand{padding:2px 6px 12px;font-size:20px}.sidebar-nav{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:4px}.nav{margin:0;padding:10px;font-size:13px}.vg-nav-label{grid-column:1/-1;padding:14px 8px 4px}.sidebar-account{margin-top:10px}.main{width:100%;margin-left:0;padding:16px}.cards,.cards.five,.grid2,.formgrid,.vg-quick-grid,.vg-welcome-grid{grid-template-columns:1fr}.card{padding:14px}.card strong{font-size:24px}.topline,.vg-quick-head{display:grid}.topline>button{width:100%}.item{display:grid}.item-actions{max-width:none;justify-content:flex-start}.vg-job-grid{grid-template-columns:1fr}.vg-tabs{top:0;margin:0 -16px;padding:8px 16px;background:#f4f6f5}.email-activity-group-title{top:0}.verde-bologna-page{z-index:21000}
     }
   `;
   document.head.appendChild(style);
@@ -78,8 +78,19 @@ function installDashboardHelp(){
     ['commesse','3','Commessa','Collega cliente, codice e valore.',jobs.length>0,'toggleJobsForm'],
     ['scadenze','4','Attività','Aggiungi la prima cosa da fare.',typeof db!=='undefined'&&(db.deadlines||[]).length>0,'openTaskComposer']
   ];
-  panel.innerHTML=`<div class="vg-quick-head"><div><h2>${firstUse?'Inizia da qui':'Azioni rapide'}</h2><p class="muted">${firstUse?'Segui questi passaggi: il gestionale si organizzerà automaticamente.':'Crea o aggiorna i dati più usati senza cercare nel menu.'}</p></div></div><div class="vg-quick-grid">${steps.map(([view,n,title,help,done,focus])=>`<button type="button" class="vg-quick-step ${done?'is-done':''}" data-vg-quick="${view}" data-vg-focus="${focus}"><span>${n}</span><strong>${title}<small>${help}</small></strong></button>`).join('')}</div>`;
+  panel.innerHTML=`<div class="vg-quick-head"><div><h2>${firstUse?'Inizia da qui':'Azioni rapide'}</h2><p class="muted">${firstUse?'Segui questi passaggi: il gestionale si organizzerà automaticamente.':'Crea o aggiorna i dati più usati senza cercare nel menu.'}</p></div><button id="vgShowGuide" class="ghost vg-help-button" type="button">? COME SI USA</button></div><div class="vg-quick-grid">${steps.map(([view,n,title,help,done,focus])=>`<button type="button" class="vg-quick-step ${done?'is-done':''}" data-vg-quick="${view}" data-vg-focus="${focus}"><span>${n}</span><strong>${title}<small>${help}</small></strong></button>`).join('')}</div>`;
+  $('vgShowGuide').onclick=()=>{try{localStorage.removeItem('vg_onboarding_seen_v1')}catch(_){}installWelcome(true)};
   panel.querySelectorAll('[data-vg-quick]').forEach(button=>button.onclick=()=>{const view=button.dataset.vgQuick,navButton=document.querySelector(`.nav[data-view="${view}"]`);navButton?.click();window.setTimeout(()=>{const target=$(button.dataset.vgFocus);if(view==='commesse'&&target&&$('jobsFormPanel')?.hidden)target.click();else if(view==='scadenze'&&target&&$('taskComposer')?.hidden)target.click();else target?.focus?.()},80)});
+}
+
+function installWelcome(force=false){
+  const dashboard=$('dashboard'),top=dashboard?.querySelector('.topline'),cards=dashboard?.querySelector('.cards');if(!dashboard||!top||!cards)return;
+  let seen=false;try{seen=localStorage.getItem('vg_onboarding_seen_v1')==='1'}catch(_){}
+  let panel=$('vgWelcome');if(seen&&!force){panel?.remove();return}
+  if(!panel){panel=document.createElement('section');panel.id='vgWelcome';panel.className='panel vg-welcome';top.insertAdjacentElement('afterend',panel)}
+  panel.innerHTML='<div class="vg-welcome-grid"><div><h2>Benvenuto in Varga Gestionale</h2><p><strong>1.</strong> Controlla scadenze e attività dalla Home. <strong>2.</strong> Apri una commessa per trovare tutto il lavoro collegato. <strong>3.</strong> Usa le altre sezioni solo quando ti servono.</p></div><div class="vg-welcome-actions"><button class="primary" type="button" data-vg-welcome-jobs>APRI COMMESSE</button><button class="ghost" type="button" data-vg-welcome-close>HO CAPITO</button></div></div>';
+  panel.querySelector('[data-vg-welcome-jobs]').onclick=()=>document.querySelector('.nav[data-view="commesse"]')?.click();
+  panel.querySelector('[data-vg-welcome-close]').onclick=()=>{try{localStorage.setItem('vg_onboarding_seen_v1','1')}catch(_){}panel.remove()};
 }
 
 function improveDashboard(){
@@ -108,7 +119,7 @@ function improveTables(){
   });
 }
 
-function run(){addStyles();improveLabels();organizeMenu();improveDashboard();installDashboardHelp();accessibleFields();improveTables()}
+function run(){addStyles();improveLabels();organizeMenu();improveDashboard();installDashboardHelp();installWelcome();accessibleFields();improveTables()}
 
 run();
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>window.setTimeout(run,0),{once:true});
