@@ -33,7 +33,7 @@
     "category": "Business",
     "shortDescription": "Gestionale aziendale per commesse, preventivi e cantieri",
     "longDescription": "Varga Gestionale Desktop consente di gestire commesse, preventivi, ore, documenti e collegamenti con Varga Cantieri.",
-    "icons": [
+    "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
       "icons/128x128@2x.png",
@@ -48,4 +48,3 @@
     }
   }
 }
-
