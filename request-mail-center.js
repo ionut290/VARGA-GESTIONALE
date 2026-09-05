@@ -114,6 +114,8 @@ function requestSite(r){const p=selectedPlant(r);return plantLabel(p)||(db.jobs.
 function ensureModal(){
   if(document.getElementById('requestWorkModal'))return;
   document.body.insertAdjacentHTML('beforeend',`<div id="requestWorkModal" class="request-modal" hidden><div class="request-modal-card"><div class="topline"><div><h2 id="requestWorkTitle">Gestisci richiesta</h2><p id="requestWorkMeta" class="muted"></p></div><button class="mini" id="requestWorkClose">CHIUDI</button></div><div class="request-work-grid"><label>Commessa<select id="requestWorkJob"></select></label><label>Impianto<select id="requestWorkPlant"></select></label><label>Data intervento<input id="requestWorkDate" type="date"></label><label>Squadra<select id="requestWorkTeam"></select></label><label>Stato<select id="requestWorkStatus">${statuses.map(x=>`<option>${x}</option>`).join('')}</select></label><label>Scadenza<input id="requestWorkDue" type="date"></label></div><label>Descrizione operativa<textarea id="requestWorkNotes" rows="5"></textarea></label><div class="request-work-actions"><button class="primary" data-request-action="intervention">CREA INTERVENTO</button><button class="ghost" data-request-action="quote">CREA PREVENTIVO</button><button class="ghost" data-request-action="report">CREA SEGNALAZIONE</button><button class="ghost" data-request-action="schedule">PROGRAMMA LAVORO</button><button class="ghost" data-request-action="navigate">NAVIGA</button><button class="ghost" data-request-action="draft">GENERA RISPOSTA</button><button class="ghost" data-request-action="workreport">CREA RAPPORTINO</button><button class="primary" data-request-action="complete">CHIUDI RICHIESTA</button></div><div id="requestDraftBox" class="request-draft" hidden><label>Bozza di risposta<textarea id="requestDraftText" rows="7"></textarea></label><div class="actions left"><button class="ghost" id="requestDraftCopy">COPIA BOZZA</button></div></div><p class="muted request-safety">Tutte le azioni restano in Varga Gestionale. Nessuna email viene inviata automaticamente e nessun dato viene scritto su Varga Cantieri.</p></div></div>`);
+  const actions=document.querySelector('#requestWorkModal .request-work-actions');
+  if(actions&&!actions.querySelector('[data-request-action="task"]'))actions.insertAdjacentHTML('afterbegin','<button class="primary" data-request-action="task">CREA ATTIVITÀ</button>');
   document.getElementById('requestWorkClose').onclick=()=>document.getElementById('requestWorkModal').hidden=true;
   document.getElementById('requestWorkModal').onclick=e=>{if(e.target.id==='requestWorkModal')e.currentTarget.hidden=true};
   document.querySelectorAll('[data-request-action]').forEach(b=>b.onclick=()=>runAction(b.dataset.requestAction));
@@ -141,14 +143,15 @@ function navigate(r,v){const p=(db.vcImpianti||[]).find(x=>plantId(x)===v.plantI
 function draftText(r,v){const day=v.date?new Date(v.date+'T12:00:00').toLocaleDateString('it-IT'):'';return `Buongiorno ${r.fromName||''},\n\nabbiamo ricevuto la richiesta “${r.subject||''}” e l’abbiamo presa in carico.${day?' L’intervento è stato programmato per il '+day+'.':''}\n\nCordiali saluti`}
 function runAction(action){
   const r=db.requests.find(x=>x.id===activeRequestId);if(!r)return;const v=modalValues(r);Object.assign(r,v);
-  if(action==='intervention'){r.activity={createdAt:new Date().toISOString(),description:v.notes||r.bodyPreview,jobId:v.jobId,plantId:v.plantId,status:'Da programmare'};r.status='Presa in carico';save();alert('Intervento creato nel Gestionale.')}
+  if(action==='task'){if(!v.dueDate&&!v.date)return alert('Scegli prima una scadenza o una data.');const dueDate=v.dueDate||v.date;r.activity={createdAt:r.activity?.createdAt||new Date().toISOString(),kind:'Attività',description:v.notes||r.bodyPreview||r.subject,jobId:v.jobId,plantId:v.plantId,status:'Da fare'};r.dueDate=dueDate;r.status='Programmata';addDeadlineFromRequest(r,{...v,date:dueDate,dueDate});save();alert('Attività creata e aggiunta alle scadenze.')}
+  else if(action==='intervention'){r.activity={createdAt:new Date().toISOString(),kind:'Intervento',description:v.notes||r.bodyPreview,jobId:v.jobId,plantId:v.plantId,status:'Da programmare'};r.status='Presa in carico';save();alert('Intervento creato nel Gestionale.')}
   else if(action==='quote')makeQuote(r,v);
   else if(action==='report'){r.type='Segnalazione';r.activity={createdAt:new Date().toISOString(),description:v.notes||r.bodyPreview,jobId:v.jobId,plantId:v.plantId,status:'Aperta'};r.status='Presa in carico';save();alert('Segnalazione creata nel Gestionale.')}
   else if(action==='schedule'){if(!v.date)return alert('Scegli la data dell’intervento.');r.scheduledDate=v.date;r.assignedTeamId=v.teamId;r.status='Programmata';addDeadlineFromRequest(r,v);save();alert('Lavoro programmato e aggiunto alle scadenze.')}
   else if(action==='navigate')navigate(r,v);
   else if(action==='draft'){document.getElementById('requestDraftText').value=draftText(r,v);document.getElementById('requestDraftBox').hidden=false}
   else if(action==='workreport')makeWorkReport(r,v);
-  else if(action==='complete'){r.status='Completata';r.completedAt=new Date().toISOString();const d=db.deadlines.find(x=>x.sourceRequestId===r.id);if(d)d.done=true;save();document.getElementById('requestWorkModal').hidden=true;alert('Richiesta completata e archiviata nello storico.')}
+  else if(action==='complete'){r.status='Completata';r.completedAt=new Date().toISOString();r.hiddenFromInbox=true;if(r.sourceReceiptId){const dismissed=getDismissed();dismissed.add(r.sourceReceiptId);setDismissed(dismissed)}const d=db.deadlines.find(x=>x.sourceRequestId===r.id);if(d)d.done=true;save();document.getElementById('requestWorkModal').hidden=true;render();renderActivityCenter();alert('Richiesta completata: rimossa dall’elenco email e conservata nello storico.')}
 }
 function render(){
   if(!document.getElementById('requestsList'))return;
@@ -159,7 +162,7 @@ function render(){
   document.getElementById('reqUnassigned').textContent=db.requests.filter(x=>!x.jobId&&!['Completata','Archiviata'].includes(x.status)).length;
   document.getElementById('reqWorking').textContent=db.requests.filter(x=>x.status==='In lavorazione').length;
   document.getElementById('reqDone').textContent=db.requests.filter(x=>x.status==='Completata').length;
-  const rows=db.requests.filter(x=>(!sf||x.status===sf)&&(!tf||x.type===tf)&&(!q||normalize([x.from,x.subject,x.bodyPreview,x.type,jobName(x.jobId),x.notes].join(' ')).includes(q))).sort((a,b)=>String(b.emailDate||b.receivedAt).localeCompare(String(a.emailDate||a.receivedAt)));
+  const rows=db.requests.filter(x=>(sf?x.status===sf:!x.hiddenFromInbox&&!['Completata','Archiviata'].includes(x.status))&&(!tf||x.type===tf)&&(!q||normalize([x.from,x.subject,x.bodyPreview,x.type,jobName(x.jobId),x.notes].join(' ')).includes(q))).sort((a,b)=>String(b.emailDate||b.receivedAt).localeCompare(String(a.emailDate||a.receivedAt)));
   document.getElementById('requestsList').innerHTML=rows.length?rows.map(x=>{
     const pc=x.priority==='Urgente'?'priority-high':x.priority==='Alta'?'priority-medium':'priority-normal';
     const gmail=x.gmailThreadId?`<a class="mini linkbtn" target="_blank" rel="noopener" href="https://mail.google.com/mail/u/0/#all/${encodeURIComponent(x.gmailThreadId)}">APRI EMAIL</a>`:'';
@@ -169,15 +172,16 @@ function render(){
   bindRows();
 }
 function bindRows(){
-  document.querySelectorAll('[data-request-status]').forEach(el=>el.onchange=()=>{const r=db.requests.find(x=>x.id===el.dataset.requestStatus);if(r){r.status=el.value;r.updatedAt=new Date().toISOString();save()}});
+  document.querySelectorAll('[data-request-status]').forEach(el=>el.onchange=()=>{const r=db.requests.find(x=>x.id===el.dataset.requestStatus);if(r){r.status=el.value;r.updatedAt=new Date().toISOString();if(['Completata','Archiviata'].includes(el.value)){r.hiddenFromInbox=true;r.completedAt=r.completedAt||new Date().toISOString();if(r.sourceReceiptId){const dismissed=getDismissed();dismissed.add(r.sourceReceiptId);setDismissed(dismissed)}}save();render();renderActivityCenter()}});
   document.querySelectorAll('[data-request-job]').forEach(el=>el.onchange=()=>{const r=db.requests.find(x=>x.id===el.dataset.requestJob);if(r){r.jobId=el.value;r.updatedAt=new Date().toISOString();save()}});
   document.querySelectorAll('[data-request-manage]').forEach(el=>el.onclick=()=>openManager(el.dataset.requestManage));
   document.querySelectorAll('[data-request-delete]').forEach(el=>el.onclick=()=>{if(!confirm('Eliminare questa richiesta dal gestionale?'))return;const request=db.requests.find(x=>x.id===el.dataset.requestDelete);if(request?.sourceReceiptId){const dismissed=getDismissed();dismissed.add(request.sourceReceiptId);setDismissed(dismissed)}db.requests=db.requests.filter(x=>x.id!==el.dataset.requestDelete);save()});
 }
 function activityKind(r){
   const kinds=[];
+  if(r.activity?.kind==='Attività')kinds.push('Attività');
   if(r.activity?.status==='Aperta'||r.type==='Segnalazione'&&r.activity)kinds.push('Segnalazione');
-  else if(r.activity)kinds.push('Intervento');
+  else if(r.activity&&r.activity?.kind!=='Attività')kinds.push('Intervento');
   if(r.quoteNumber)kinds.push('Preventivo');
   if(r.scheduledDate)kinds.push('Programmato');
   if(r.reportStartedAt)kinds.push('Rapportino');
@@ -196,6 +200,7 @@ function installActivityCenter(){
   const navButton=document.createElement('button');navButton.className='nav';navButton.dataset.view='emailActivities';navButton.textContent='Attività da email';requestNav?.insertAdjacentElement('afterend',navButton);navButton.onclick=()=>nav('emailActivities');
   const section=document.createElement('section');section.id='emailActivities';section.className='view';section.innerHTML=`<div class="topline"><div><h1>Attività da email</h1><p class="subtitle">Interventi, segnalazioni, preventivi, programmazioni e rapportini creati dalle email.</p></div><button class="ghost" id="emailActivitiesInbox">VAI ALLE EMAIL</button></div><div class="cards five"><div class="card"><span>Attività aperte</span><strong id="emailActOpen">0</strong></div><div class="card"><span>Interventi</span><strong id="emailActJobs">0</strong></div><div class="card"><span>Segnalazioni</span><strong id="emailActReports">0</strong></div><div class="card"><span>Programmate</span><strong id="emailActScheduled">0</strong></div><div class="card"><span>Completate</span><strong id="emailActDone">0</strong></div></div><div class="panel"><div class="email-activity-filters"><input id="emailActivitySearch" placeholder="Cerca attività, commessa, impianto..."><select id="emailActivityKind"><option value="">Tutti i tipi</option><option>Intervento</option><option>Segnalazione</option><option>Preventivo</option><option>Programmato</option><option>Rapportino</option></select><select id="emailActivityStatus"><option value="">Tutti gli stati</option>${statuses.map(x=>`<option>${x}</option>`).join('')}</select></div></div><div class="panel"><div id="emailActivitiesList" class="list"></div></div>`;
   document.querySelector('.main')?.appendChild(section);
+  document.getElementById('emailActivityKind')?.insertAdjacentHTML('beforeend','<option>Attività</option>');
   document.getElementById('emailActivitiesInbox').onclick=()=>nav('richieste');
   document.getElementById('emailActivitySearch').oninput=renderActivityCenter;document.getElementById('emailActivityKind').onchange=renderActivityCenter;document.getElementById('emailActivityStatus').onchange=renderActivityCenter;
 }
