@@ -29,3 +29,5 @@
 
 /* Lavagna EGGS-NEXT originale incorporata */
 .eggs-next-view.active-view{display:flex;flex-direction:column;min-height:calc(100vh - 60px)}.eggs-next-head{flex-wrap:wrap}.eggs-next-actions{display:flex;gap:8px;align-items:center}.eggs-next-open{text-decoration:none;padding:10px 14px;border-radius:9px;font-weight:800}.eggs-next-notice{margin:2px 0 10px;padding:9px 12px;border:1px solid #cfe1d7;border-radius:10px;background:#f2f8f5;color:#476055;font-size:12px}.eggs-next-frame-wrap{flex:1;min-height:720px;border:1px solid #d7e2dc;border-radius:15px;overflow:hidden;background:#fff;box-shadow:0 4px 15px rgba(20,50,35,.06)}.eggs-next-frame-wrap iframe{display:block;width:100%;height:calc(100vh - 185px);min-height:720px;border:0;background:#fff}@media(max-width:850px){.eggs-next-view.active-view{min-height:calc(100vh - 36px)}.eggs-next-frame-wrap,.eggs-next-frame-wrap iframe{min-height:650px}.eggs-next-frame-wrap iframe{height:calc(100vh - 210px)}}
+/* Dashboard: mostra soltanto le scadenze, a tutta larghezza. */
+.grid2.dashboard-only-deadlines{grid-template-columns:1fr}.dashboard-deadline-actions{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
