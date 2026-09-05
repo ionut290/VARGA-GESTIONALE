@@ -36,3 +36,13 @@ test('le date del consuntivo si possono digitare in formato italiano',()=>{
   assert.match(code,/date:isoDate\(v\('depDate'\)\)/);
   assert.match(code,/requestDate:isoDate\(v\('depRequestDate'\)\)/);
 });
+
+test('i consuntivi salvati possono essere modificati ed eliminati anche da Drive',()=>{
+  const code=fs.readFileSync(path.join(root,'depurazione-consuntivi.js'),'utf8');
+  const bridge=fs.readFileSync(path.join(root,'google-apps-script-map-bridge.gs'),'utf8');
+  assert.match(code,/data-dep-edit/);
+  assert.match(code,/data-dep-delete/);
+  assert.match(code,/deleteDepurazioneConsuntivo/);
+  assert.match(bridge,/function deleteDepurazioneConsuntivo_/);
+  assert.match(bridge,/folder\.setTrashed\(true\)/);
+});
