@@ -48,3 +48,8 @@ test('il riordino del menu non sposta le viste dentro la barra laterale',()=>{
   assert.match(source,/navBox\.querySelector\(`\.nav\[data-view=/);
   assert.ok(source.indexOf('navBox.querySelector(`.nav[data-view=')<source.indexOf('||$(key)'));
 });
+
+test('le voci dinamiche vengono inserite nel contenitore corretto del menu',()=>{
+  assert.match(read('rapportini-lavoro.js'),/anchor\?\.parentElement\|\|sidebar\.querySelector\('\.sidebar-nav'\)/);
+  assert.match(read('job-workspace.js'),/cloud\.parentElement\?\.insertBefore/);
+});

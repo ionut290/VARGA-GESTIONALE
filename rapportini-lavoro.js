@@ -28,7 +28,7 @@
   navBtn.className='nav'; navBtn.dataset.view='rapportini'; navBtn.textContent='Rapportini di lavoro';
   const sidebar=document.querySelector('.sidebar');
   const anchor=[...document.querySelectorAll('.nav')].find(x=>x.dataset.view==='consuntivi');
-  if(sidebar) sidebar.insertBefore(navBtn,anchor||null);
+  if(sidebar){const navBox=anchor?.parentElement||sidebar.querySelector('.sidebar-nav')||sidebar;navBox.insertBefore(navBtn,anchor||null)}
 
   const section=document.createElement('section');
   section.id='rapportini'; section.className='view';
