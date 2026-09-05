@@ -3,8 +3,8 @@
 'use strict';
 const cfgKey='vg_mapMailBridge';
 const receiptKey='vg_mapMailAppliedReceipts';
-const getCfg=()=>{try{return JSON.parse(localStorage.getItem(cfgKey)||'{}')||{}}catch{return{}}};
-const setCfg=v=>localStorage.setItem(cfgKey,JSON.stringify(v||{}));
+const getCfg=()=>{let local={};try{local=JSON.parse(localStorage.getItem(cfgKey)||'{}')||{}}catch(_){}const shared=(typeof db!=='undefined'&&db.company?.driveBridge)||{};return{url:local.url||shared.url||'',token:local.token||shared.token||''}};
+const setCfg=v=>{localStorage.setItem(cfgKey,JSON.stringify(v||{}));if(typeof db!=='undefined'){db.company=db.company||{};db.company.driveBridge={url:v?.url||'',token:v?.token||''};if(typeof save==='function')save()}};
 const getApplied=()=>{try{return new Set(JSON.parse(localStorage.getItem(receiptKey)||'[]')||[])}catch{return new Set()}};
 const setApplied=set=>localStorage.setItem(receiptKey,JSON.stringify([...set].slice(-500)));
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot',"'":'&#39;'}[c]));
