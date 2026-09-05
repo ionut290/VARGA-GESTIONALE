@@ -51,7 +51,7 @@
   function updateClientPreview(){
     const box=$('qClientPreview');if(!box)return;
     const c=(db.clients||[]).find(x=>x.id===$('qClient')?.value);
-    box.innerHTML=c?`<div class="av-preview-label">Dati che compariranno sotto “Spett.le”</div><strong>${E(c.name||'')}</strong><div>${E(c.address||'')}</div><div>${E(c.city||'')}</div>`:'<div class="muted">Seleziona un cliente: nel PDF verranno usati automaticamente i dati salvati in anagrafica.</div>';
+    box.innerHTML=c?`<div class="av-preview-label">Dati che compariranno sotto “Spett.le”</div><strong>${E(c.name||'')}</strong><div>${E([c.address,[c.cap,c.city,c.province].filter(Boolean).join(' ')].filter(Boolean).join(' · '))}</div>${c.vat?`<div>P.IVA / C.F.: ${E(c.vat)}</div>`:''}${c.email?`<div>${E(c.email)}</div>`:''}`:'<div class="muted">Seleziona un cliente: nel PDF verranno usati automaticamente i dati salvati in anagrafica.</div>';
   }
 
   function renderPriceListPicker(resetForClient=false){
@@ -159,7 +159,7 @@
     return 'Riferimento economico: voci e prezzi unitari del prezzario riportati nella documentazione tecnica ricevuta.';
   }
   function clientBlock(c){
-    const lines=[c?.name,c?.address,c?.city].filter(Boolean);
+    const locality=[c?.cap,c?.city,c?.province].filter(Boolean).join(' '),lines=[c?.name,c?.address,locality,c?.vat?`P.IVA / C.F.: ${c.vat}`:'',c?.email,c?.pec?`PEC: ${c.pec}`:''].filter(Boolean);
     return `<strong>Spett.le</strong><br>${lines.map(E).join('<br>')}`;
   }
   function embeddedImage(base64,fallback){
@@ -246,7 +246,7 @@
     const d=q.date||dateIt(q.dateIso||todayIso()),client=q.client||{};
     ws.mergeCells('A2:C2');ws.getCell('A2').value=`${q.place||DEFAULT_PLACE}, il ${d}`;ws.getCell('A2').font={size:11};
     ws.mergeCells('D2:E2');ws.getCell('D2').value='Spett.le';ws.getCell('D2').font={bold:true,size:10};
-    [['D3',client.name||q.clientName||''],['D4',client.address||''],['D5',client.city||'']].forEach(([cell,value])=>{ws.mergeCells(`${cell}:E${cell.slice(1)}`);ws.getCell(cell).value=value});
+    [['D3',client.name||q.clientName||''],['D4',client.address||''],['D5',[client.cap,client.city,client.province].filter(Boolean).join(' ')],['D6',client.vat?`P.IVA / C.F.: ${client.vat}`:'']].forEach(([cell,value])=>{ws.mergeCells(`${cell}:E${cell.slice(1)}`);ws.getCell(cell).value=value});
     ws.mergeCells('A7:F7');ws.getCell('A7').value=`OFFERTA ${q.number||''} del ${d}`;ws.getCell('A7').font={bold:true,size:13};
     ws.mergeCells('A9:F9');ws.getCell('A9').value=`OGGETTO: ${q.subject||''}`;ws.getCell('A9').font={bold:true,size:12};ws.getCell('A9').alignment={wrapText:true,vertical:'top'};ws.getRow(9).height=excelRowHeight(`OGGETTO: ${q.subject||''}`,75,22,15);
     ws.mergeCells('A11:F12');ws.getCell('A11').value=q.intro||DEFAULT_INTRO;ws.getCell('A11').font={size:11};ws.getCell('A11').alignment={wrapText:true,vertical:'top'};ws.getRow(11).height=excelRowHeight(q.intro||DEFAULT_INTRO,78,24,14);ws.getRow(12).height=8;
