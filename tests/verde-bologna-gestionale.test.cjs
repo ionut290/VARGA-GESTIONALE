@@ -45,6 +45,8 @@ test('la mappa generale carica insieme tutte le categorie in base allo zoom', ()
   assert.match(source, /state\.overviewMode \? loadOverviewRecords\(\) : loadViewportRecords\(\)/);
   assert.match(source, /Mappa completa del verde/);
   assert.match(source, /verde-bologna-overview-legend/);
+  assert.match(source, /zoom >= 16/);
+  assert.match(source, /verde-bologna-overview-marker/);
 });
 
 test('la scheda albero include Whazzup, manutenzione completa e crea cantiere', () => {
