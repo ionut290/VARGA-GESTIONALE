@@ -23,9 +23,16 @@ test('ponte Drive usa percorso e nomi richiesti',()=>{
   assert.match(code,/saveDepurazioneConsuntivo/);
 });
 
-test('PDF contiene solo righe con quantità positiva e timbro/firma',()=>{
+test('PDF contiene solo righe con quantità positiva e timbro/firma originali',()=>{
   const code=fs.readFileSync(path.join(root,'depurazione-consuntivi.js'),'utf8');
   assert.match(code,/lines\.filter\(l=>N\(l\.quantity\)>0\)/);
-  assert.match(code,/AVOLA_SIGNATURE_B64/);
+  assert.match(code,/DEPURAZIONE_FIRMA_ORIGINALE_JPG/);
   assert.match(code,/COMPLETA, CREA PDF E ARCHIVIA SU DRIVE/);
+});
+
+test('le date del consuntivo si possono digitare in formato italiano',()=>{
+  const code=fs.readFileSync(path.join(root,'depurazione-consuntivi.js'),'utf8');
+  assert.match(code,/placeholder='GG\/MM\/AAAA'/);
+  assert.match(code,/date:isoDate\(v\('depDate'\)\)/);
+  assert.match(code,/requestDate:isoDate\(v\('depRequestDate'\)\)/);
 });
