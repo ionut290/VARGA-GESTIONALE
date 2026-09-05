@@ -54,6 +54,13 @@ function doPost(e) {
       acknowledgeRequestReceipts_(payload.requestIds || []);
       return json_({ok:true});
     }
+    if (action === 'driveEnsureJob') return json_(driveList_(payload, true));
+    if (action === 'driveList') return json_(driveList_(payload, false));
+    if (action === 'driveCreateFolder') return json_(driveCreateFolder_(payload));
+    if (action === 'driveUpload') return json_(driveUpload_(payload));
+    if (action === 'driveGetFile') return json_(driveGetFile_(payload));
+    if (action === 'driveRename') return json_(driveRename_(payload));
+    if (action === 'driveTrash') return json_(driveTrash_(payload));
     return json_({ok:false, error:'Azione non supportata'});
   } catch (err) {
     return json_({ok:false, error:String(err && err.message || err)});
@@ -275,6 +282,22 @@ function normalizeText_(v){return String(v||'').toLowerCase().normalize('NFD').r
 function safe_(v){return String(v||'Commessa').replace(/[\\/:*?"<>|]+/g,'-').replace(/\s+/g,' ').trim() || 'Commessa'}
 function safeKey_(v){const digest=Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256,String(v||''));return digest.map(b=>('0'+((b+256)%256).toString(16)).slice(-2)).join('').slice(0,40)}
 function getOrCreateFolder_(parent,name){const it=parent.getFoldersByName(name);return it.hasNext()?it.next():parent.createFolder(name)}
+function driveJobFolder_(payload, createDefaults) {
+  const job=payload.job||{};if(!String(job.id||'').trim())throw new Error('Commessa non valida');
+  const root=getOrCreateFolder_(DriveApp.getRootFolder(),ROOT_FOLDER_NAME),jobs=getOrCreateFolder_(root,'Commesse');
+  const folder=getOrCreateFolder_(jobs,safe_((job.code?job.code+' - ':'')+(job.title||job.id)));
+  if(createDefaults)['Richieste','Allegati email','Preventivi','Rapportini','Contabilita','MAP','Foto','Documenti'].forEach(n=>getOrCreateFolder_(folder,n));
+  return folder;
+}
+function driveFolderInside_(folder,root){if(folder.getId()===root.getId())return true;let current=folder;for(let i=0;i<30;i++){const parents=current.getParents();if(!parents.hasNext())return false;current=parents.next();if(current.getId()===root.getId())return true}return false}
+function driveSafeFolder_(payload,root){const id=String(payload.folderId||'').trim();if(!id)return root;const folder=DriveApp.getFolderById(id);if(!driveFolderInside_(folder,root))throw new Error('Cartella fuori dalla commessa');return folder}
+function driveSafeFile_(payload,root){const file=DriveApp.getFileById(String(payload.fileId||payload.itemId||'')),parents=file.getParents();let allowed=false;while(parents.hasNext()&&!allowed)allowed=driveFolderInside_(parents.next(),root);if(!allowed)throw new Error('File fuori dalla commessa');return file}
+function driveList_(payload,ensure){const root=driveJobFolder_(payload,ensure),folder=driveSafeFolder_(payload,root),folders=[],files=[],fit=folder.getFolders();while(fit.hasNext()){const f=fit.next();if(!f.isTrashed())folders.push({id:f.getId(),name:f.getName(),kind:'folder'})}const it=folder.getFiles();while(it.hasNext()){const f=it.next();if(!f.isTrashed())files.push({id:f.getId(),name:f.getName(),kind:'file',mimeType:f.getMimeType(),size:f.getSize(),updatedAt:f.getLastUpdated().toISOString()})}folders.sort((a,b)=>a.name.localeCompare(b.name));files.sort((a,b)=>b.updatedAt.localeCompare(a.updatedAt));return{ok:true,rootId:root.getId(),folderId:folder.getId(),folderName:folder.getName(),folders,files}}
+function driveCreateFolder_(payload){const root=driveJobFolder_(payload,true),parent=driveSafeFolder_(payload,root),name=safe_(payload.name);if(!name)throw new Error('Inserisci il nome della cartella');const folder=getOrCreateFolder_(parent,name);return{ok:true,id:folder.getId(),name:folder.getName()}}
+function driveUpload_(payload){const root=driveJobFolder_(payload,true),parent=driveSafeFolder_(payload,root),name=safe_(payload.name),raw=String(payload.base64||'');if(!name||!raw)throw new Error('File non valido');const bytes=Utilities.base64Decode(raw);if(bytes.length>8*1024*1024)throw new Error('Il file supera il limite di 8 MB');const file=parent.createFile(Utilities.newBlob(bytes,String(payload.mimeType||'application/octet-stream'),name));return{ok:true,id:file.getId(),name:file.getName(),mimeType:file.getMimeType(),size:file.getSize()}}
+function driveGetFile_(payload){const root=driveJobFolder_(payload,false),file=driveSafeFile_(payload,root),blob=file.getBlob(),bytes=blob.getBytes();if(bytes.length>8*1024*1024)throw new Error('File oltre il limite di 8 MB');return{ok:true,id:file.getId(),name:file.getName(),mimeType:file.getMimeType(),base64:Utilities.base64Encode(bytes)}}
+function driveRename_(payload){const root=driveJobFolder_(payload,false),name=safe_(payload.name);if(!name)throw new Error('Inserisci il nuovo nome');if(payload.kind==='folder'){const folder=driveSafeFolder_({folderId:payload.itemId},root);if(folder.getId()===root.getId())throw new Error('La cartella principale non può essere rinominata');folder.setName(name)}else driveSafeFile_(payload,root).setName(name);return{ok:true}}
+function driveTrash_(payload){const root=driveJobFolder_(payload,false);if(payload.kind==='folder'){const folder=driveSafeFolder_({folderId:payload.itemId},root);if(folder.getId()===root.getId())throw new Error('La cartella principale non può essere eliminata');folder.setTrashed(true)}else driveSafeFile_(payload,root).setTrashed(true);return{ok:true}}
 function json_(o){return ContentService.createTextOutput(JSON.stringify(o)).setMimeType(ContentService.MimeType.JSON)}
 function checkToken_(token){const expected=PropertiesService.getScriptProperties().getProperty('VARGA_MAP_TOKEN')||'';if(!expected||String(token||'')!==expected)throw new Error('Token ponte non valido')}
 function saveState_(payload){const previous=loadState_()||{};const state={mapEmail:payload.mapEmail||previous.mapEmail||'',requestEmail:payload.requestEmail||previous.requestEmail||'',requestScanDays:Number(payload.requestScanDays)||previous.requestScanDays||30,requestSenderRules:Array.isArray(payload.requestSenderRules)?payload.requestSenderRules:(previous.requestSenderRules||[]),jobs:payload.jobs||previous.jobs||[],rounds:payload.rounds||previous.rounds||[],updatedAt:new Date().toISOString()};PropertiesService.getScriptProperties().setProperty(STATE_PROP,JSON.stringify(state))}
