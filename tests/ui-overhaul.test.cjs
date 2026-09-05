@@ -53,3 +53,16 @@ test('le voci dinamiche vengono inserite nel contenitore corretto del menu',()=>
   assert.match(read('rapportini-lavoro.js'),/anchor\?\.parentElement\|\|sidebar\.querySelector\('\.sidebar-nav'\)/);
   assert.match(read('job-workspace.js'),/cloud\.parentElement\?\.insertBefore/);
 });
+
+test('la dashboard guida il primo utilizzo con quattro passaggi',()=>{
+  const source=read('ui-overhaul.js');
+  assert.match(source,/function installDashboardHelp/);
+  for(const label of ['Cliente','Prezzario','Commessa','Attività'])assert.match(source,new RegExp(`'${label}'`));
+});
+
+test('i gruppi del menu sono richiudibili e ricordano la scelta',()=>{
+  const source=read('ui-overhaul.js');
+  assert.match(source,/vg_menu_groups/);
+  assert.match(source,/aria-expanded/);
+  assert.match(source,/vg-menu-item-collapsed/);
+});
