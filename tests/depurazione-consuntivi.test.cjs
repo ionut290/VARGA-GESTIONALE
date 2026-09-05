@@ -47,6 +47,18 @@ test('i consuntivi salvati possono essere modificati ed eliminati anche da Drive
   assert.match(bridge,/folder\.setTrashed\(true\)/);
 });
 
+test('consuntivi DEPURAZIONE e PDF Drive sono condivisi nel gestionale autenticato',()=>{
+  const cloud=fs.readFileSync(path.join(root,'app-cloud.js'),'utf8');
+  const code=fs.readFileSync(path.join(root,'depurazione-consuntivi.js'),'utf8');
+  const bridge=fs.readFileSync(path.join(root,'google-apps-script-map-bridge.gs'),'utf8');
+  assert.match(cloud,/depurazioneConsuntivi:db\.depurazioneConsuntivi/);
+  assert.match(code,/data-dep-pdf/);
+  assert.match(code,/VargaMailBridgeCall\('getDepurazioneConsuntivo'/);
+  assert.match(bridge,/function getDepurazioneConsuntivo_/);
+  assert.match(bridge,/driveFolderInside_\(parents\.next\(\),root\)/);
+  assert.doesNotMatch(bridge,/ANYONE_WITH_LINK/);
+});
+
 test('database impianti DEPURAZIONE compila solo nome e comune lasciandoli modificabili',()=>{
   const context={window:{}};vm.createContext(context);
   vm.runInContext(fs.readFileSync(path.join(root,'assets/depurazione-bologna-plants.js'),'utf8'),context);

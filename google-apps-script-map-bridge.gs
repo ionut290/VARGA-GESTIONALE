@@ -61,6 +61,7 @@ function doPost(e) {
     if (action === 'driveCreateFolder') return json_(driveCreateFolder_(payload));
     if (action === 'driveUpload') return json_(driveUpload_(payload));
     if (action === 'saveDepurazioneConsuntivo') return json_(saveDepurazioneConsuntivo_(payload));
+    if (action === 'getDepurazioneConsuntivo') return json_(getDepurazioneConsuntivo_(payload));
     if (action === 'deleteDepurazioneConsuntivo') return json_(deleteDepurazioneConsuntivo_(payload));
     if (action === 'driveGetFile') return json_(driveGetFile_(payload));
     if (action === 'driveRename') return json_(driveRename_(payload));
@@ -362,6 +363,16 @@ function saveDepurazioneConsuntivo_(payload){
   const existing=folder.getFilesByName(fileName);while(existing.hasNext())existing.next().setTrashed(true);
   const file=folder.createFile(Utilities.newBlob(bytes,'application/pdf',fileName));
   return{ok:true,folderId:folder.getId(),folderName:folder.getName(),folderUrl:folder.getUrl(),fileId:file.getId(),fileName:file.getName(),fileUrl:file.getUrl()};
+}
+function getDepurazioneConsuntivo_(payload){
+  const root=DriveApp.getFolderById(DEPURAZIONE_CONSUNTIVI_ROOT_ID),fileId=String(payload.fileId||'').trim();
+  if(!fileId)throw new Error('PDF del consuntivo non valido');
+  const file=DriveApp.getFileById(fileId),parents=file.getParents();let allowed=false;
+  while(parents.hasNext()&&!allowed)allowed=driveFolderInside_(parents.next(),root);
+  if(!allowed)throw new Error('Il PDF non appartiene alla cartella DEPURAZIONE');
+  const blob=file.getBlob(),bytes=blob.getBytes();
+  if(bytes.length>8*1024*1024)throw new Error('Il PDF supera il limite di 8 MB');
+  return{ok:true,id:file.getId(),name:file.getName(),mimeType:file.getMimeType(),base64:Utilities.base64Encode(bytes)};
 }
 function deleteDepurazioneConsuntivo_(payload){
   const root=DriveApp.getFolderById(DEPURAZIONE_CONSUNTIVI_ROOT_ID),folderId=String(payload.folderId||'').trim();
