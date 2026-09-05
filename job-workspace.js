@@ -51,7 +51,7 @@ function addStyles(){if(document.getElementById('vgJobWorkspaceStyles'))return;c
 
 function simplifySidebar(){
   const keep=new Set(['dashboard','commesse','clienti','prezzari','cloud','azienda','backup']);
-  document.querySelectorAll('.sidebar .nav').forEach(b=>{const v=b.dataset.view;if(!keep.has(v))b.classList.add('vg-hidden-nav');if(v==='dashboard')b.textContent='Home';if(v==='commesse')b.textContent='Commesse'});
+  document.querySelectorAll('.sidebar .nav').forEach(b=>{if(b.id==='openVargaCantieriDesktop')return;const v=b.dataset.view;if(!keep.has(v))b.classList.add('vg-hidden-nav');if(v==='dashboard')b.textContent='Home';if(v==='commesse')b.textContent='Commesse'});
   const sidebar=document.querySelector('.sidebar');if(!sidebar||document.getElementById('vgArchiveLabel'))return;
   const cloud=[...sidebar.querySelectorAll('.nav')].find(x=>x.dataset.view==='cloud');if(cloud){const label=document.createElement('div');label.id='vgArchiveLabel';label.className='vg-nav-label';label.textContent='Impostazioni';sidebar.insertBefore(label,cloud)}
 }
