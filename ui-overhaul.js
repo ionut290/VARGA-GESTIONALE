@@ -50,7 +50,7 @@ function organizeMenu(){
     ['Strumenti',['openVargaCantieriDesktop','eggsNextBoard','open-verde-bologna-btn','squadreGestione','cantieriSync']],
     ['Impostazioni',['cloud','azienda','backup']]
   ];
-  const find=key=>$(key)||navBox.querySelector(`.nav[data-view="${key}"]`);
+  const find=key=>navBox.querySelector(`.nav[data-view="${key}"]`)||$(key);
   entries.forEach(([label,keys])=>{
     const nodes=keys.map(find).filter(Boolean).filter(x=>!x.classList.contains('vg-hidden-nav'));
     if(!nodes.length)return;
