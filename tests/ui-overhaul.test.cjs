@@ -54,6 +54,17 @@ test('le voci dinamiche vengono inserite nel contenitore corretto del menu',()=>
   assert.match(read('job-workspace.js'),/cloud\.parentElement\?\.insertBefore/);
 });
 
+test('il menu scarica direttamente l’installer Windows',()=>{
+  const source=read('ui-overhaul.js');
+  assert.match(source,/function installDesktopDownload/);
+  assert.match(source,/Varga\.Gestionale_0\.1\.1_x64-setup\.exe/);
+  assert.match(source,/window\.__TAURI_INTERNALS__/);
+  assert.match(source,/Autore sconosciuto/);
+  assert.match(source,/Ulteriori informazioni/);
+  assert.match(source,/Esegui comunque/);
+  assert.match(source,/link\.click\(\)/);
+});
+
 test('la dashboard guida il primo utilizzo con quattro passaggi',()=>{
   const source=read('ui-overhaul.js');
   assert.match(source,/function installDashboardHelp/);
