@@ -3,7 +3,6 @@
   if(typeof db==='undefined'||typeof $!=='function') return;
 
   const SIDEBAR_IMG='assets/avola-preventivo-sidebar.png';
-  const SIGNATURE_IMG='assets/avola-firma.png';
   const DEFAULT_PLACE='Castel Maggiore';
   const DEFAULT_INTRO='A seguito della Vostra richiesta, si formula la seguente offerta per l’esecuzione delle lavorazioni richieste.';
   let selectedPriceLists=new Set();
@@ -16,15 +15,15 @@
   const qtyFmt=n=>new Intl.NumberFormat('it-IT',{maximumFractionDigits:3}).format(Number(n||0));
 
   function nextAvolaNumber(){
-    const nums=(db.quotes||[]).map(q=>String(q.number||'').match(/(?:OFFERTA\s*)?(\d+)\s*-\s*AM/i)).filter(Boolean).map(m=>Number(m[1])).filter(Number.isFinite);
-    return `${(nums.length?Math.max(...nums):0)+1}-AM`;
+    const nums=(db.quotes||[]).map(q=>String(q.number||'').match(/(?:OFFERTA\s*)?(\d+)\s*-\s*VG/i)).filter(Boolean).map(m=>Number(m[1])).filter(Number.isFinite);
+    return `${(nums.length?Math.max(...nums):0)+1}-VG`;
   }
 
   function enhanceForm(){
     const form=$('preventivo')?.querySelector('.panel.grid2');
     if(!form||$('qDate')) return;
     const number=$('qNumber');
-    if(number){number.removeAttribute('readonly');number.placeholder='Es. 55-AM';number.closest('label')?.firstChild&&(number.closest('label').firstChild.textContent='Numero offerta');}
+    if(number){number.removeAttribute('readonly');number.placeholder='Es. 1-VG';number.closest('label')?.firstChild&&(number.closest('label').firstChild.textContent='Numero offerta (modificabile)');}
 
     const place=document.createElement('label');place.innerHTML='Luogo intestazione<input id="qPlace" value="'+DEFAULT_PLACE+'">';
     const date=document.createElement('label');date.innerHTML='<span>Data offerta</span><input id="qDate" type="date">';
@@ -169,7 +168,6 @@
   function buildPrintMarkup(q){
     const d=q.date||dateIt(q.dateIso||todayIso());
     const total=Number(q.subtotal??q.total??0);
-    const signatureSrc=embeddedImage(window.AVOLA_SIGNATURE_B64,SIGNATURE_IMG);
     return `<div class="avola-print-doc">
       <img class="avola-letterhead" src="${SIDEBAR_IMG}?v=20260904-letterhead-v6" alt="Foglio intestato Avola">
       <div class="avola-content">
@@ -181,7 +179,7 @@
           ${(q.rows||[]).map(r=>`<tr><td>${E(r.code||'')}</td><td>${E(r.description||'')}</td><td>${priceCell(r)}</td><td>${qtyCell(r)}</td><td><strong>${money(Number(r.qty||0)*Number(r.price||0))}</strong></td></tr>`).join('')}
         </tbody></table>
         <div class="avola-reference">${E(referenceText(q))}</div>
-        <div class="avola-bottom"><div class="avola-total"><strong>TOTALE OFFERTA (IVA ESCLUSA)</strong><div>${money(total)}</div><em>(oneri della sicurezza inclusi)</em></div><div class="avola-sign-wrap"><div class="avola-sign-label">Timbro e Firma della Società Fornitrice</div><img class="avola-sign" src="${signatureSrc}" alt="Timbro e firma Avola"></div></div>
+        <div class="avola-bottom"><div class="avola-total"><strong>TOTALE OFFERTA (IVA ESCLUSA)</strong><div>${money(total)}</div><em>(oneri della sicurezza inclusi)</em></div></div>
       </div>
     </div>`;
   }
@@ -206,9 +204,8 @@
       .avola-table td{border:.25mm solid #a6ada9;padding:2.2mm 1.5mm;vertical-align:middle;line-height:1.15;overflow-wrap:anywhere}
       .avola-table th:nth-child(1),.avola-table td:nth-child(1){width:13%}.avola-table th:nth-child(2),.avola-table td:nth-child(2){width:48%}.avola-table th:nth-child(3),.avola-table td:nth-child(3){width:15%;text-align:center}.avola-table th:nth-child(4),.avola-table td:nth-child(4){width:11%;text-align:center}.avola-table th:nth-child(5),.avola-table td:nth-child(5){width:13%;text-align:center}
       .avola-reference{font-size:7.8pt;font-style:italic;margin-top:2mm;line-height:1.2;break-inside:avoid;page-break-inside:avoid}
-      .avola-bottom{display:grid;grid-template-columns:minmax(0,1fr) 65mm;gap:8mm;align-items:end;margin-top:17mm;break-inside:avoid;page-break-inside:avoid;position:relative}
+      .avola-bottom{display:block;margin-top:17mm;break-inside:avoid;page-break-inside:avoid;position:relative}
       .avola-total{font-size:12pt;line-height:1.2;min-width:0}.avola-total>div{font-weight:800;font-size:12.5pt;margin-top:1mm}.avola-total em{font-size:8.7pt;font-weight:400}
-      .avola-sign-wrap{text-align:center;min-width:0}.avola-sign-label{font-size:7.7pt;margin-bottom:1.5mm}.avola-sign{width:60mm;max-height:34mm;object-fit:contain;display:block;margin:0 0 0 auto}
       @media screen{body{margin:0 auto}}
     </style></head><body>${buildPrintMarkup(q)}<script>window.addEventListener('load',()=>setTimeout(()=>{window.focus();window.print()},150))<\/script></body></html>`;
   }
@@ -217,7 +214,7 @@
     if(!w)return alert('Consenti i popup per aprire la stampa.');
     w.document.open();w.document.write(printDocumentHtml(q));w.document.close();
   }
-  printCurrent=function(){if(!qrows.length)return alert('Inserisci almeno una voce.');return printQuoteObject(collectQ())};
+  printCurrent=function(){if(!qrows.length)return alert('Inserisci almeno una voce.');return downloadEditablePdf(collectQ())};
 
   function loadExcelJs(){
     if(window.ExcelJS)return Promise.resolve();
@@ -232,6 +229,33 @@
     return new Promise((resolve,reject)=>{const img=new Image();img.onload=()=>{const canvas=document.createElement('canvas');canvas.width=img.naturalWidth;canvas.height=img.naturalHeight;canvas.getContext('2d').drawImage(img,0,0);resolve(canvas.toDataURL('image/png').split(',')[1])};img.onerror=reject;img.src='data:image/webp;base64,'+fallback});
   }
   function safeFileName(value){return String(value||'preventivo').replace(/[\\/:*?"<>|]+/g,'-').replace(/\s+/g,' ').trim()||'preventivo'}
+  function loadPdfLib(){
+    if(window.PDFLib)return Promise.resolve();
+    if(window.__vgPdfLibPromise)return window.__vgPdfLibPromise;
+    window.__vgPdfLibPromise=new Promise((resolve,reject)=>{const s=document.createElement('script');s.src='https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js';s.onload=resolve;s.onerror=()=>reject(new Error('Modulo PDF compilabile non disponibile'));document.head.appendChild(s)});
+    return window.__vgPdfLibPromise;
+  }
+  async function downloadEditablePdf(q){
+    try{
+      await loadPdfLib();
+      const {PDFDocument,StandardFonts,rgb}=window.PDFLib,pdf=await PDFDocument.create(),font=await pdf.embedFont(StandardFonts.Helvetica),bold=await pdf.embedFont(StandardFonts.HelveticaBold),form=pdf.getForm();
+      const sidebarBytes=await fetch(`${SIDEBAR_IMG}?v=20260904-letterhead-v6`,{cache:'force-cache'}).then(r=>{if(!r.ok)throw new Error('Carta intestata non disponibile');return r.arrayBuffer()}),sidebar=await pdf.embedPng(sidebarBytes);
+      const W=595.28,H=841.89,left=151,green=rgb(0,.42,.24),gray=rgb(.42,.45,.44),black=rgb(0,0,0);
+      const addPage=()=>{const page=pdf.addPage([W,H]);page.drawImage(sidebar,{x:0,y:0,width:137,height:H});return page};
+      let page=addPage(),pageNo=1,y=767;
+      const text=(value,x,yy,size=9,usedFont=font,color=black)=>page.drawText(String(value??''),{x,y:yy,size,font:usedFont,color});
+      const field=(name,value,x,yy,width,height=16,size=9)=>{const f=form.createTextField(`${name}_${pageNo}`);f.setText(String(value??''));if(height>20)f.enableMultiline();f.addToPage(page,{x,y:yy,width,height,borderWidth:0,textColor:black,backgroundColor:rgb(1,1,1),font});f.setFontSize(size);return f};
+      const tableHeader=()=>{const widths=[55,202,62,48,63],heads=['Codice','Descrizione','Prezzo unit.','Quantità','Importo'];let x=left;heads.forEach((h,i)=>{page.drawRectangle({x,y:y-21,width:widths[i],height:24,color:green});text(h,x+4,y-13,7,bold,rgb(1,1,1));x+=widths[i]});y-=24};
+      const newPage=()=>{page=addPage();pageNo++;y=790;text(`OFFERTA ${q.number||''} del ${q.date||dateIt(q.dateIso)}`,left,y,8,bold,gray);y-=23;tableHeader()};
+      field('luogo',q.place||DEFAULT_PLACE,left,y,110);text(', il',263,y+3,9);field('data_offerta',q.date||dateIt(q.dateIso),282,y,78);text('Spett.le',410,y+4,8,bold);
+      field('cliente',q.client?.name||q.clientName||'',410,y-15,160);field('indirizzo_cliente',q.client?.address||'',410,y-31,160);field('localita_cliente',[q.client?.cap,q.client?.city,q.client?.province].filter(Boolean).join(' '),410,y-47,160);
+      y-=73;text('OFFERTA',left,y+4,10,bold);field('numero_offerta',q.number||'',202,y,100,18,10);text('del',308,y+4,10,bold);field('data_offerta_titolo',q.date||dateIt(q.dateIso),330,y,82,18,10);y-=35;
+      text('OGGETTO:',left,y+4,10,bold);field('oggetto',q.subject||'',213,y-2,357,22,10);y-=35;field('introduzione',q.intro||DEFAULT_INTRO,left,y-18,419,36,9);y-=61;tableHeader();
+      (q.rows||[]).forEach((row,index)=>{const height=Math.max(25,Math.ceil(String(row.description||'').length/36)*10+9);if(y-height<105)newPage();let x=left;const widths=[55,202,62,48,63];widths.forEach(w=>{page.drawRectangle({x,y:y-height,width:w,height,borderColor:rgb(.68,.7,.69),borderWidth:.5});x+=w});field(`codice_riga_${index+1}`,row.code||'',left+3,y-height+5,49,height-8,7);field(`descrizione_riga_${index+1}`,row.description||'',left+58,y-height+4,196,height-7,7);field(`prezzo_riga_${index+1}`,Number(row.price||0).toFixed(3),left+260,y-height+5,56,height-8,7);field(`quantita_riga_${index+1}`,row.qty||'',left+323,y-height+5,42,height-8,7);field(`importo_riga_${index+1}`,(Number(row.qty||0)*Number(row.price||0)).toFixed(2),left+371,y-height+5,57,height-8,7);y-=height});
+      if(y<155)newPage();y-=18;text(referenceText(q),left,y,7,font,gray);y-=37;text('Sconto %',390,y+3,8);field('sconto_percentuale',q.discount||0,510,y,60);y-=24;text('TOTALE OFFERTA (IVA ESCLUSA)',350,y+3,9,bold);field('totale_offerta',Number(q.subtotal??q.total??0).toFixed(2),500,y,70,18,9);y-=32;text('Pagamento',left,y+3,8,bold);field('pagamento',q.payment||'',215,y,355,18,8);y-=25;text('Cantiere',left,y+3,8,bold);field('cantiere',q.site||'',215,y,355,18,8);
+      form.updateFieldAppearances(font);const bytes=await pdf.save(),blob=new Blob([bytes],{type:'application/pdf'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`Offerta-${safeFileName(q.number)}-${safeFileName(q.clientName||q.client?.name)}-compilabile.pdf`;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+    }catch(err){console.error(err);alert('Non riesco a creare il PDF compilabile. Ricarica la pagina e riprova.')}
+  }
   function excelRowHeight(text,charsPerLine=42,min=18,lineHeight=14){
     const lines=String(text||'').split(/\r?\n/).reduce((sum,line)=>sum+Math.max(1,Math.ceil(line.length/charsPerLine)),0);
     return Math.max(min,Math.min(120,lines*lineHeight+8));
@@ -242,7 +266,6 @@
     const ws=wb.addWorksheet('Preventivo');
     ws.pageSetup={paperSize:9,orientation:'portrait',fitToPage:true,fitToWidth:1,fitToHeight:0,horizontalCentered:false,verticalCentered:false,margins:{left:0.1,right:0.1,top:0.1,bottom:0.1,header:0,footer:0}};
     ws.views=[{showGridLines:false}];ws.properties.defaultRowHeight=18;ws.columns=[{width:12},{width:34},{width:9},{width:10},{width:13},{width:14}];
-    const signature=await imageData(SIGNATURE_IMG,window.AVOLA_SIGNATURE_B64),signatureId=wb.addImage({base64:signature,extension:'png'});
     const d=q.date||dateIt(q.dateIso||todayIso()),client=q.client||{};
     ws.mergeCells('A2:C2');ws.getCell('A2').value=`${q.place||DEFAULT_PLACE}, il ${d}`;ws.getCell('A2').font={size:11};
     ws.mergeCells('D2:E2');ws.getCell('D2').value='Spett.le';ws.getCell('D2').font={bold:true,size:10};
@@ -259,7 +282,7 @@
     const discountRow=referenceRow+2,totalRow=referenceRow+3;ws.mergeCells(`D${discountRow}:E${discountRow}`);ws.getCell(`D${discountRow}`).value='Sconto %';ws.getCell(`F${discountRow}`).value=Number(q.discount||0);ws.getCell(`F${discountRow}`).numFmt='0.00';
     ws.mergeCells(`D${totalRow}:E${totalRow}`);ws.getCell(`D${totalRow}`).value='TOTALE OFFERTA (IVA ESCLUSA)';ws.getCell(`D${totalRow}`).font={bold:true,size:11};ws.getCell(`F${totalRow}`).value={formula:`SUM(F${firstData}:F${lastData})*(1-F${discountRow}/100)`,result:Number(q.subtotal??q.total??0)};ws.getCell(`F${totalRow}`).font={bold:true,size:12};
     ws.getColumn(4).numFmt='#,##0.###';ws.getColumn(5).numFmt='€ #,##0.000';ws.getColumn(6).numFmt='€ #,##0.00';
-    const signRow=totalRow+2;ws.mergeCells(`D${signRow}:F${signRow}`);ws.getCell(`D${signRow}`).value='Timbro e Firma della Società Fornitrice';ws.getCell(`D${signRow}`).alignment={horizontal:'center',vertical:'middle'};ws.getCell(`D${signRow}`).font={size:10};ws.getRow(signRow).height=22;ws.mergeCells(`D${signRow+1}:F${signRow+4}`);ws.getRow(signRow+1).height=24;ws.getRow(signRow+2).height=24;ws.getRow(signRow+3).height=24;ws.getRow(signRow+4).height=18;ws.addImage(signatureId,{tl:{col:3.25,row:signRow+1.1},br:{col:5.85,row:signRow+4.8},editAs:'oneCell'});ws.pageSetup.printArea=`A1:F${Math.max(44,signRow+5)}`;
+    ws.pageSetup.printArea=`A1:F${Math.max(44,totalRow+2)}`;
     const buffer=await wb.xlsx.writeBuffer(),blob=new Blob([buffer],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`Offerta-${safeFileName(q.number)}-${safeFileName(q.clientName||client.name)}.xlsx`;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);
   }
   async function downloadXlsx(q){try{await exportQuoteXlsx(q)}catch(err){console.error(err);alert('Non riesco a creare il file Excel. Controlla la connessione e riprova.')}}
@@ -271,7 +294,7 @@
     const list=$('quotesList');if(!list)return;
     list.querySelectorAll('[data-del-quote]').forEach(del=>{
       const box=del.parentElement,id=del.dataset.delQuote;if(!box||box.querySelector(`[data-av-pdf="${CSS.escape(id)}"]`))return;
-      const b=document.createElement('button');b.className='mini';b.dataset.avPdf=id;b.textContent='PDF';b.onclick=()=>{const q=(db.quotes||[]).find(x=>x.id===id);if(q)printQuoteObject(q)};box.insertBefore(b,box.firstChild);
+      const b=document.createElement('button');b.className='mini';b.dataset.avPdf=id;b.textContent='PDF COMPILABILE';b.onclick=()=>{const q=(db.quotes||[]).find(x=>x.id===id);if(q)downloadEditablePdf(q)};box.insertBefore(b,box.firstChild);
       const x=document.createElement('button');x.className='mini';x.dataset.avXlsx=id;x.textContent='EXCEL';x.onclick=()=>{const q=(db.quotes||[]).find(v=>v.id===id);if(q)downloadXlsx(q)};box.insertBefore(x,b);
     });
   }
@@ -299,9 +322,8 @@
         .avola-table td{border:0.25mm solid #a6ada9;padding:2.2mm 1.5mm;vertical-align:middle;line-height:1.15}
         .avola-table th:nth-child(1),.avola-table td:nth-child(1){width:13%}.avola-table th:nth-child(2),.avola-table td:nth-child(2){width:48%}.avola-table th:nth-child(3),.avola-table td:nth-child(3){width:15%;text-align:center}.avola-table th:nth-child(4),.avola-table td:nth-child(4){width:11%;text-align:center}.avola-table th:nth-child(5),.avola-table td:nth-child(5){width:13%;text-align:center}
         .avola-reference{font-size:7.8pt;font-style:italic;margin-top:2mm;line-height:1.2}
-        .avola-bottom{display:grid;grid-template-columns:1fr 65mm;gap:8mm;align-items:end;margin-top:17mm;break-inside:avoid}
+        .avola-bottom{display:block;margin-top:17mm;break-inside:avoid}
         .avola-total{font-size:12pt;line-height:1.2}.avola-total>div{font-weight:800;font-size:12.5pt;margin-top:1mm}.avola-total em{font-size:8.7pt;font-weight:400}
-        .avola-sign-wrap{text-align:center}.avola-sign-label{font-size:7.7pt;margin-bottom:1.5mm}.avola-sign{width:60mm;height:auto;display:block;margin-left:auto}
       }`;
     document.head.appendChild(st);
   }
@@ -310,7 +332,7 @@
     installStyles();enhanceForm();addCurrentExcelButton();
     if($('smartSearch'))$('smartSearch').onclick=runPriceSearch;
     if($('newQuote'))$('newQuote').onclick=clearQuote;
-    if($('printQuote'))$('printQuote').onclick=printCurrent;
+    if($('printQuote')){$('printQuote').textContent='SCARICA PDF COMPILABILE';$('printQuote').onclick=printCurrent;}
     if($('qClient'))$('qClient').onchange=()=>{updateClientPreview();renderPriceListPicker(true)};
     if($('qDiscount'))$('qDiscount').oninput=calcQ;
     const oldRefresh=typeof refresh==='function'?refresh:null;
