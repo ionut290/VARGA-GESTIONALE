@@ -66,3 +66,11 @@ test('i gruppi del menu sono richiudibili e ricordano la scelta',()=>{
   assert.match(source,/aria-expanded/);
   assert.match(source,/vg-menu-item-collapsed/);
 });
+
+test('la guida del nuovo utente è personale e non dipende dai dati aziendali',()=>{
+  const source=read('ui-overhaul.js');
+  assert.match(source,/function installWelcome/);
+  assert.match(source,/vg_onboarding_seen_v1/);
+  assert.match(source,/Benvenuto in Varga Gestionale/);
+  assert.match(source,/COME SI USA/);
+});
