@@ -237,31 +237,23 @@
     window.__vgPdfLibPromise=new Promise((resolve,reject)=>{const s=document.createElement('script');s.src='https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js';s.onload=resolve;s.onerror=()=>reject(new Error('Modulo PDF compilabile non disponibile'));document.head.appendChild(s)});
     return window.__vgPdfLibPromise;
   }
-  function pdfLines(text,font,size,maxWidth){
-    const words=String(text||'').replace(/\s+/g,' ').trim().split(' ').filter(Boolean),lines=[];let line='';
-    words.forEach(word=>{const test=line?line+' '+word:word;if(font.widthOfTextAtSize(test,size)<=maxWidth)line=test;else{if(line)lines.push(line);line=word}});if(line)lines.push(line);return lines.length?lines:[''];
-  }
   async function downloadEditablePdf(q){
     try{
       await loadPdfLib();
       const {PDFDocument,StandardFonts,rgb}=window.PDFLib,pdf=await PDFDocument.create(),font=await pdf.embedFont(StandardFonts.Helvetica),bold=await pdf.embedFont(StandardFonts.HelveticaBold),form=pdf.getForm();
       const sidebarBytes=await fetch(`${SIDEBAR_IMG}?v=20260904-letterhead-v6`,{cache:'force-cache'}).then(r=>{if(!r.ok)throw new Error('Carta intestata non disponibile');return r.arrayBuffer()}),sidebar=await pdf.embedPng(sidebarBytes);
-      const W=595.28,H=841.89,left=151,right=570,green=rgb(0,.42,.24),gray=rgb(.42,.45,.44),black=rgb(0,0,0);
+      const W=595.28,H=841.89,left=151,green=rgb(0,.42,.24),gray=rgb(.42,.45,.44),black=rgb(0,0,0);
       const addPage=()=>{const page=pdf.addPage([W,H]);page.drawImage(sidebar,{x:0,y:0,width:137,height:H});return page};
       let page=addPage(),pageNo=1,y=767;
       const text=(value,x,yy,size=9,usedFont=font,color=black)=>page.drawText(String(value??''),{x,y:yy,size,font:usedFont,color});
       const field=(name,value,x,yy,width,height=16,size=9)=>{const f=form.createTextField(`${name}_${pageNo}`);f.setText(String(value??''));if(height>20)f.enableMultiline();f.addToPage(page,{x,y:yy,width,height,borderWidth:0,textColor:black,backgroundColor:rgb(1,1,1),font});f.setFontSize(size);return f};
-      const header=()=>{
-        field('luogo',q.place||DEFAULT_PLACE,left,y,110);text(', il',263,y+3,9);field('data_offerta',q.date||dateIt(q.dateIso),282,y,78);text('Spett.le',410,y+4,8,bold);
-        field('cliente',q.client?.name||q.clientName||'',410,y-15,160);field('indirizzo_cliente',q.client?.address||'',410,y-31,160);field('localita_cliente',[q.client?.cap,q.client?.city,q.client?.province].filter(Boolean).join(' '),410,y-47,160);
-        y-=73;text('OFFERTA',left,y+4,10,bold);field('numero_offerta',q.number||'',202,y,100,18,10);text('del',308,y+4,10,bold);field('data_offerta_titolo',q.date||dateIt(q.dateIso),330,y,82,18,10);y-=35;
-        text('OGGETTO:',left,y+4,10,bold);field('oggetto',q.subject||'',213,y-2,357,22,10);y-=35;
-        field('introduzione',q.intro||DEFAULT_INTRO,left,y-18,419,36,9);y-=61;
-      };
       const tableHeader=()=>{const widths=[55,202,62,48,63],heads=['Codice','Descrizione','Prezzo unit.','Quantità','Importo'];let x=left;heads.forEach((h,i)=>{page.drawRectangle({x,y:y-21,width:widths[i],height:24,color:green});text(h,x+4,y-13,7,bold,rgb(1,1,1));x+=widths[i]});y-=24};
       const newPage=()=>{page=addPage();pageNo++;y=790;text(`OFFERTA ${q.number||''} del ${q.date||dateIt(q.dateIso)}`,left,y,8,bold,gray);y-=23;tableHeader()};
-      header();tableHeader();
-      (q.rows||[]).forEach((row,index)=>{const desc=pdfLines(row.description,font,8,194),height=Math.max(25,desc.length*10+9);if(y-height<105)newPage();let x=left;const widths=[55,202,62,48,63];widths.forEach(w=>{page.drawRectangle({x,y:y-height,width:w,height,borderColor:rgb(.68,.7,.69),borderWidth:.5});x+=w});field(`codice_riga_${index+1}`,row.code||'',left+3,y-height+5,49,height-8,7);field(`descrizione_riga_${index+1}`,row.description||'',left+58,y-height+4,196,height-7,7);field(`prezzo_riga_${index+1}`,Number(row.price||0).toFixed(3),left+260,y-height+5,56,height-8,7);field(`quantita_riga_${index+1}`,row.qty||'',left+323,y-height+5,42,height-8,7);field(`importo_riga_${index+1}`,(Number(row.qty||0)*Number(row.price||0)).toFixed(2),left+371,y-height+5,57,height-8,7);y-=height});
+      field('luogo',q.place||DEFAULT_PLACE,left,y,110);text(', il',263,y+3,9);field('data_offerta',q.date||dateIt(q.dateIso),282,y,78);text('Spett.le',410,y+4,8,bold);
+      field('cliente',q.client?.name||q.clientName||'',410,y-15,160);field('indirizzo_cliente',q.client?.address||'',410,y-31,160);field('localita_cliente',[q.client?.cap,q.client?.city,q.client?.province].filter(Boolean).join(' '),410,y-47,160);
+      y-=73;text('OFFERTA',left,y+4,10,bold);field('numero_offerta',q.number||'',202,y,100,18,10);text('del',308,y+4,10,bold);field('data_offerta_titolo',q.date||dateIt(q.dateIso),330,y,82,18,10);y-=35;
+      text('OGGETTO:',left,y+4,10,bold);field('oggetto',q.subject||'',213,y-2,357,22,10);y-=35;field('introduzione',q.intro||DEFAULT_INTRO,left,y-18,419,36,9);y-=61;tableHeader();
+      (q.rows||[]).forEach((row,index)=>{const height=Math.max(25,Math.ceil(String(row.description||'').length/36)*10+9);if(y-height<105)newPage();let x=left;const widths=[55,202,62,48,63];widths.forEach(w=>{page.drawRectangle({x,y:y-height,width:w,height,borderColor:rgb(.68,.7,.69),borderWidth:.5});x+=w});field(`codice_riga_${index+1}`,row.code||'',left+3,y-height+5,49,height-8,7);field(`descrizione_riga_${index+1}`,row.description||'',left+58,y-height+4,196,height-7,7);field(`prezzo_riga_${index+1}`,Number(row.price||0).toFixed(3),left+260,y-height+5,56,height-8,7);field(`quantita_riga_${index+1}`,row.qty||'',left+323,y-height+5,42,height-8,7);field(`importo_riga_${index+1}`,(Number(row.qty||0)*Number(row.price||0)).toFixed(2),left+371,y-height+5,57,height-8,7);y-=height});
       if(y<155)newPage();y-=18;text(referenceText(q),left,y,7,font,gray);y-=37;text('Sconto %',390,y+3,8);field('sconto_percentuale',q.discount||0,510,y,60);y-=24;text('TOTALE OFFERTA (IVA ESCLUSA)',350,y+3,9,bold);field('totale_offerta',Number(q.subtotal??q.total??0).toFixed(2),500,y,70,18,9);y-=32;text('Pagamento',left,y+3,8,bold);field('pagamento',q.payment||'',215,y,355,18,8);y-=25;text('Cantiere',left,y+3,8,bold);field('cantiere',q.site||'',215,y,355,18,8);
       form.updateFieldAppearances(font);const bytes=await pdf.save(),blob=new Blob([bytes],{type:'application/pdf'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`Offerta-${safeFileName(q.number)}-${safeFileName(q.clientName||q.client?.name)}-compilabile.pdf`;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);
     }catch(err){console.error(err);alert('Non riesco a creare il PDF compilabile. Ricarica la pagina e riprova.')}
