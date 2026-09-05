@@ -47,6 +47,8 @@ test('la mappa generale carica insieme tutte le categorie in base allo zoom', ()
   assert.match(source, /verde-bologna-overview-legend/);
   assert.match(source, /zoom >= 16/);
   assert.match(source, /verde-bologna-overview-marker/);
+  assert.match(source, /icon: "🎠"/);
+  assert.match(source, /dataset\.id === "siepi" \? "🌿🌿"/);
 });
 
 test('la scheda albero include Whazzup, manutenzione completa e crea cantiere', () => {
