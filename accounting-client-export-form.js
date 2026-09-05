@@ -38,6 +38,9 @@ function sourceRows(job){
       prezzoBase:first(o,['prezzoBase','Unitario Base d’asta','prezzo base']),
       prezzoRibassato:first(o,['prezzoRibassato','RIBASSO / Prezzo unitario ribassato','prezzo ribassato']),
       totale:first(o,['totale','Totali','importo']),
+      gpsY:first(o,['lat','latitude','gpsY','Coordinate GPS(Y)','Coordinate Y']),
+      gpsX:first(o,['lng','lon','longitude','gpsX','Coordinate GPS(X)','Coordinate X']),
+      cdc:first(o,['cdc','CDC','centroDiCosto','Centro di costo']),
       data:first(o,['dataEsecuzione','Data esecuzione','data']),
       ora:first(o,['oraEsecuzione','Ora esecuzione','ora']),
       operatore:first(o,['operatoreNome','Operatore','operatore']),
@@ -92,7 +95,7 @@ function docHtml(job,rows,f){
   <table><thead><tr><th>N.</th><th>ID SAP</th><th>Impianto</th><th>Comune</th><th>Via e civico</th><th>Voce riferimento elenco prezzi</th><th>Tipologia lavorazione</th><th>U.M.</th><th>Quantità</th><th>Prezzo unitario</th><th>Totale</th><th>Data</th><th>Note</th></tr></thead><tbody>${rows.map(r=>`<tr><td>${esc(r.progressivo)}</td><td>${esc(r.idSap)}</td><td>${esc(r.impianto)}</td><td>${esc(r.comune)}</td><td>${esc(r.indirizzo)}</td><td><strong>${esc(r.voce)}</strong></td><td>${esc(r.lavorazione)}</td><td>${esc(r.um)}</td><td class="num">${esc(r.quantita)}</td><td class="num">${money(unitPrice(r))}</td><td class="num">${money(r.totale)}</td><td>${esc(r.data)}${r.ora?' '+esc(r.ora):''}</td><td>${esc(r.note)}</td></tr>`).join('')}</tbody></table>
   <div class="total"><span>TOTALE LAVORI ESEGUITI</span><span>${money(total)}</span></div>${f.notes?`<div class="notes"><strong>Note:</strong> ${esc(f.notes)}</div>`:''}<div class="foot">${esc(f.companyFooter||'')}${f.companyIban?'\nIBAN: '+esc(f.companyIban):''}</div></body></html>`;
 }
-function generate(mode,job,rows,data){const html=docHtml(job,rows,data);if(mode==='excel'){const blob=new Blob(['\ufeff'+html],{type:'application/vnd.ms-excel;charset=utf-8'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`Contabilita-Cliente-${slug(job.title)}.xls`;a.click();URL.revokeObjectURL(a.href);return}const w=window.open('','_blank');if(!w)return alert('Consenti i popup per generare il PDF.');w.document.open();w.document.write(html);w.document.close();setTimeout(()=>{w.focus();w.print()},350)}
+async function generate(mode,job,rows,data){if(mode==='excel'&&window.VargaInreteAccountingExport?.isInrete(job)){try{await window.VargaInreteAccountingExport.generate(job,rows,data)}catch(err){alert(err?.message||'Esportazione INRETE non riuscita.')}return}const html=docHtml(job,rows,data);if(mode==='excel'){const blob=new Blob(['\ufeff'+html],{type:'application/vnd.ms-excel;charset=utf-8'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`Contabilita-Cliente-${slug(job.title)}.xls`;a.click();URL.revokeObjectURL(a.href);return}const w=window.open('','_blank');if(!w)return alert('Consenti i popup per generare il PDF.');w.document.open();w.document.write(html);w.document.close();setTimeout(()=>{w.focus();w.print()},350)}
 
 function intercept(e){const b=e.target?.closest?.('#accountingExcel,#accountingPdf');if(!b)return;e.preventDefault();e.stopPropagation();e.stopImmediatePropagation();openForm(b.id==='accountingExcel'?'excel':'pdf')}
 document.addEventListener('click',intercept,true);
