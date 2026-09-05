@@ -42,3 +42,9 @@ test('il menu mantiene disponibili tutte le aree economiche',()=>{
 test('il contenuto usa tutta la larghezza disponibile',()=>{
   assert.match(read('ui-overhaul.js'),/\.main\{max-width:none/);
 });
+
+test('il riordino del menu non sposta le viste dentro la barra laterale',()=>{
+  const source=read('ui-overhaul.js');
+  assert.match(source,/navBox\.querySelector\(`\.nav\[data-view=/);
+  assert.ok(source.indexOf('navBox.querySelector(`.nav[data-view=')<source.indexOf('||$(key)'));
+});
