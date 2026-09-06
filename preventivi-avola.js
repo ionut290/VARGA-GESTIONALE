@@ -31,6 +31,8 @@
     const clientPreview=document.createElement('div');clientPreview.id='qClientPreview';clientPreview.className='av-client-preview';clientPreview.style.gridColumn='1 / -1';
     const intro=document.createElement('label');intro.className='av-full';intro.innerHTML='<span>Testo sotto l’oggetto</span><textarea id="qIntro" rows="2">'+DEFAULT_INTRO+'</textarea>';
     form.append(place,date,clientPreview,intro);
+    const seal=document.createElement('div');seal.id='qDocumentSeal';form.insertAdjacentElement('afterend',seal);
+    window.VargaUserDocumentAssets?.mountPicker(seal,{mode:'preset'});
 
     const ai=$('preventivo')?.querySelector('.panel.ai');
     if(ai){
@@ -128,7 +130,8 @@
       place:($('qPlace')?.value||DEFAULT_PLACE).trim(),clientId:c?.id||'',clientName:c?.name||'',client:c?{...c}:{},
       subject:$('qSubject')?.value||'',site:$('qSite')?.value||'',intro:$('qIntro')?.value||DEFAULT_INTRO,
       validity:+($('qValidity')?.value||30),payment:$('qPayment')?.value||'',rows:qrows.map(x=>({...x})),
-      priceListIds:[...selectedPriceLists],discount:+($('qDiscount')?.value||0),vatRate:0,subtotal:t.sub,vat:0,total:t.total,status:'Bozza',statusChangedAt:new Date().toISOString(),statusHistory:[{status:'Bozza',changedAt:new Date().toISOString()}],layout:'avola-v1'
+      priceListIds:[...selectedPriceLists],discount:+($('qDiscount')?.value||0),vatRate:0,subtotal:t.sub,vat:0,total:t.total,status:'Bozza',statusChangedAt:new Date().toISOString(),statusHistory:[{status:'Bozza',changedAt:new Date().toISOString()}],layout:'avola-v1',
+      documentSeal:window.VargaUserDocumentAssets?.readPicker($('qDocumentSeal'))||{mode:'preset'}
     };
   };
 
@@ -145,6 +148,7 @@
     if($('qVat'))$('qVat').value=0;
     if($('qValidity'))$('qValidity').value=30;
     if($('qPayment'))$('qPayment').value='';
+    window.VargaUserDocumentAssets?.mountPicker($('qDocumentSeal'),{mode:'preset'});
     qrows=[];
     if($('suggestions'))$('suggestions').innerHTML='';
     renderPriceListPicker(true);updateClientPreview();renderQ();
@@ -255,6 +259,7 @@
       text('OGGETTO:',left,y+4,10,bold);field('oggetto',q.subject||'',213,y-18,357,38,9);y-=51;field('introduzione',q.intro||DEFAULT_INTRO,left,y-18,419,36,9);y-=61;tableHeader();
       (q.rows||[]).forEach((row,index)=>{const height=Math.max(25,Math.ceil(String(row.description||'').length/28)*10+9);if(y-height<105)newPage();let x=left;tableWidths.forEach(w=>{page.drawRectangle({x,y:y-height,width:w,height,borderColor:rgb(.68,.7,.69),borderWidth:.5});x+=w});const starts=tableWidths.reduce((a,w,i)=>(a.push((a[i]||left)+w),a),[left]);field(`codice_riga_${index+1}`,row.code||'',starts[0]+3,y-height+5,tableWidths[0]-6,height-8,7);field(`descrizione_riga_${index+1}`,row.description||'',starts[1]+3,y-height+4,tableWidths[1]-6,height-7,7);field(`unita_riga_${index+1}`,unitText(row.unit),starts[2]+3,y-height+5,tableWidths[2]-6,height-8,7);field(`prezzo_riga_${index+1}`,money(row.price),starts[3]+3,y-height+5,tableWidths[3]-6,height-8,7);field(`quantita_riga_${index+1}`,row.qty||'',starts[4]+3,y-height+5,tableWidths[4]-6,height-8,7);field(`importo_riga_${index+1}`,money(Number(row.qty||0)*Number(row.price||0)),starts[5]+3,y-height+5,tableWidths[5]-6,height-8,7);y-=height});
       if(y<125)newPage();y-=18;text(referenceText(q),left,y,7,font,gray);y-=37;text('TOTALE OFFERTA (IVA ESCLUSA)',350,y+3,9,bold);field('totale_offerta',money(q.subtotal??q.total??0),500,y,70,18,9);
+      await window.VargaUserDocumentAssets?.drawOnPdf(pdf,page,q.documentSeal,{preset:window.VARGA_DEPURAZIONE_STAMP_JPG||'',x:153,y:17,width:220,height:50});
       if(!flatten){
         const printButton=form.createButton('stampa_pdf_normale');printButton.addToPage('STAMPA / CREA PDF NORMALE',page,{x:390,y:20,width:180,height:24,font,borderWidth:0,backgroundColor:green,textColor:rgb(1,1,1)});
         const widget=printButton.acroField.getWidgets()[0],action=pdf.context.register(pdf.context.obj({S:'JavaScript',JS:PDFHexString.fromText("this.print({bUI:true,bSilent:false,bShrinkToFit:true});")}));widget.dict.set(PDFName.of('A'),action);widget.dict.set(PDFName.of('F'),PDFNumber.of(0));
@@ -306,6 +311,7 @@
     if($('qPayment'))$('qPayment').value=q.payment||'';
     if($('qDiscount'))$('qDiscount').value=q.discount||0;
     qrows=(q.rows||[]).map(x=>({...x}));selectedPriceLists=new Set(q.priceListIds||[]);
+    window.VargaUserDocumentAssets?.mountPicker($('qDocumentSeal'),q.documentSeal||{mode:'preset'});
     updateClientPreview();renderPriceListPicker(false);renderQ();nav('preventivo');window.scrollTo({top:0,behavior:'smooth'});
   }
   function addCurrentExcelButton(){

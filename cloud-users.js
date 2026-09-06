@@ -112,6 +112,7 @@
     window.cloudUserRole='';
     window.cloudUserProfile=null;
     window.cloudUserAccessReason='';
+    window.VargaUserDocumentAssets?.onUserSignedOut?.();
     render();
   };
 

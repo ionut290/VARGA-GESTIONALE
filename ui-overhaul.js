@@ -51,7 +51,7 @@ function organizeMenu(){
     ['Gestione',['clienti','preventivi','prezzari','documenti','rapportini']],
     ['Economia',['consuntivi','fatture','spese']],
     ['Strumenti',['openVargaCantieriDesktop','eggsNextBoard','open-verde-bologna-btn','squadreGestione','cantieriSync','installVargaDesktop']],
-    ['Impostazioni',['cloud','azienda','backup']]
+    ['Impostazioni',['firmaTimbro','cloud','azienda','backup']]
   ];
   const find=key=>navBox.querySelector(`.nav[data-view="${key}"]`)||$(key);
   let saved={};try{saved=JSON.parse(localStorage.getItem('vg_menu_groups')||'{}')||{}}catch(_){saved={}}
@@ -107,7 +107,7 @@ function improveDashboard(){
 }
 
 function improveLabels(){
-  const names={dashboard:'Home',emailActivities:'Attività da email',commesse:'Commesse',scadenze:'Scadenze e attività',clienti:'Clienti',preventivi:'Preventivi',prezzari:'Prezzari',documenti:'Documenti',rapportini:'Rapportini',consuntivi:'Consuntivi e contabilità',fatture:'Fatture e incassi',spese:'Spese',cantieriSync:'Sincronizza Varga Cantieri',cloud:'Cloud e utenti',azienda:'Dati azienda',backup:'Backup'};
+  const names={dashboard:'Home',emailActivities:'Attività da email',commesse:'Commesse',scadenze:'Scadenze e attività',clienti:'Clienti',preventivi:'Preventivi',prezzari:'Prezzari',documenti:'Documenti',rapportini:'Rapportini',consuntivi:'Consuntivi e contabilità',fatture:'Fatture e incassi',spese:'Spese',cantieriSync:'Sincronizza Varga Cantieri',firmaTimbro:'Firma e timbro',cloud:'Cloud e utenti',azienda:'Dati azienda',backup:'Backup'};
   Object.entries(names).forEach(([view,label])=>{const button=document.querySelector(`.nav[data-view="${view}"]`);if(button)button.textContent=label});
 }
 
