@@ -14,6 +14,10 @@ on:
 permissions:
   contents: read
 
+env:
+  APPS_SCRIPT_ID: '1guh1Wfm6Qhto_hl7NxeA4z9IZnHr6Bt8XrW_LIkjkUlUM_3UhgBh7M9c'
+  APPS_SCRIPT_DEPLOYMENT_ID: 'AKfycbxS4K2Ox3alB1TV1rD9GjlKmm_D7p499AXRLvmmUVZpxmvXqHMuRvE5aqsAjKzksi3h'
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
@@ -22,20 +26,13 @@ jobs:
         id: config
         shell: bash
         env:
-          APPS_SCRIPT_ID: ${{ secrets.APPS_SCRIPT_ID }}
           CLASPRC_JSON: ${{ secrets.CLASPRC_JSON }}
-          APPS_SCRIPT_DEPLOYMENT_ID: ${{ secrets.APPS_SCRIPT_DEPLOYMENT_ID }}
         run: |
-          if [ -n "$APPS_SCRIPT_ID" ] && [ -n "$CLASPRC_JSON" ]; then
+          if [ -n "$CLASPRC_JSON" ]; then
             echo "ready=true" >> "$GITHUB_OUTPUT"
           else
             echo "ready=false" >> "$GITHUB_OUTPUT"
-            echo "Deploy Apps Script non eseguito: configurare APPS_SCRIPT_ID e CLASPRC_JSON nei repository secrets."
-          fi
-          if [ -n "$APPS_SCRIPT_DEPLOYMENT_ID" ]; then
-            echo "has_deployment=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "has_deployment=false" >> "$GITHUB_OUTPUT"
+            echo "Deploy Apps Script non eseguito: configurare il solo secret CLASPRC_JSON."
           fi
 
       - name: Checkout
@@ -56,7 +53,6 @@ jobs:
         if: steps.config.outputs.ready == 'true'
         shell: bash
         env:
-          APPS_SCRIPT_ID: ${{ secrets.APPS_SCRIPT_ID }}
           CLASPRC_JSON: ${{ secrets.CLASPRC_JSON }}
         run: |
           printf '{"scriptId":"%s","rootDir":"."}\n' "$APPS_SCRIPT_ID" > .clasp.json
@@ -83,14 +79,7 @@ jobs:
           echo "version=$VER" >> "$GITHUB_OUTPUT"
 
       - name: Update existing Web App deployment
-        if: steps.config.outputs.ready == 'true' && steps.config.outputs.has_deployment == 'true'
-        env:
-          DEPLOYMENT_ID: ${{ secrets.APPS_SCRIPT_DEPLOYMENT_ID }}
-          VERSION: ${{ steps.version.outputs.version }}
-        run: clasp create-deployment --deploymentId "$DEPLOYMENT_ID" --versionNumber "$VERSION" --description "Varga Gestionale ${GITHUB_SHA}"
-
-      - name: Create deployment when no deployment ID is configured
-        if: steps.config.outputs.ready == 'true' && steps.config.outputs.has_deployment == 'false'
+        if: steps.config.outputs.ready == 'true'
         env:
           VERSION: ${{ steps.version.outputs.version }}
-        run: clasp create-deployment --versionNumber "$VERSION" --description "Varga Gestionale ${GITHUB_SHA}"
+        run: clasp create-deployment --deploymentId "$APPS_SCRIPT_DEPLOYMENT_ID" --versionNumber "$VERSION" --description "Varga Gestionale ${GITHUB_SHA}"
