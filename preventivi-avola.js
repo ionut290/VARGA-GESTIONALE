@@ -357,7 +357,7 @@
     installStyles();enhanceForm();addCurrentExcelButton();addCurrentNormalPdfButton();
     if($('smartSearch'))$('smartSearch').onclick=runPriceSearch;
     if($('newQuote'))$('newQuote').onclick=clearQuote;
-    if($('saveQuote'))$('saveQuote').onclick=()=>{if(!qrows.length)return alert('Inserisci almeno una voce.');const q=collectQ();if(editingQuoteId){const index=(db.quotes||[]).findIndex(x=>x.id===editingQuoteId);if(index>=0){const old=db.quotes[index];db.quotes[index]={...old,...q,id:editingQuoteId,jobId:old.jobId||'',status:old.status||'Bozza',statusChangedAt:old.statusChangedAt||q.statusChangedAt,statusHistory:Array.isArray(old.statusHistory)&&old.statusHistory.length?old.statusHistory:q.statusHistory,scheduledDate:old.scheduledDate||''}}alert('Preventivo aggiornato.')}else{db.quotes.push(q);alert('Preventivo salvato.')}save();clearQuote()};
+    if($('saveQuote'))$('saveQuote').onclick=async()=>{if(!qrows.length)return alert('Inserisci almeno una voce.');const q=collectQ();let saved=q;if(editingQuoteId){const index=(db.quotes||[]).findIndex(x=>x.id===editingQuoteId);if(index>=0){const old=db.quotes[index];saved=db.quotes[index]={...old,...q,id:editingQuoteId,jobId:old.jobId||'',status:old.status||'Bozza',statusChangedAt:old.statusChangedAt||q.statusChangedAt,statusHistory:Array.isArray(old.statusHistory)&&old.statusHistory.length?old.statusHistory:q.statusHistory,scheduledDate:old.scheduledDate||''}}}else{db.quotes.push(saved)}save();const job=(db.jobs||[]).find(x=>x.id===saved.jobId)||{id:'preventivi-generali',title:'Preventivi generali'};try{await window.VargaDriveLifecycle?.saveDraft(saved,job,'Preventivo');save();alert('Preventivo salvato anche nella cartella BOZZE di Drive.')}catch(e){alert('Preventivo salvato nel Gestionale, ma Drive non ha risposto: '+(e.message||e))}clearQuote()};
     if($('printQuote')){$('printQuote').textContent='SCARICA PDF COMPILABILE';$('printQuote').onclick=printCurrent;}
     if($('qClient'))$('qClient').onchange=()=>{updateClientPreview();renderPriceListPicker(true)};
     if($('qDiscount'))$('qDiscount').oninput=calcQ;
@@ -367,7 +367,7 @@
       refresh.__avolaPreventivi=true;
     }
     addSavedQuotePdfButtons();calcQ();
-    window.VargaQuoteActions={open:openSavedQuote,pdf:id=>{const q=(db.quotes||[]).find(x=>x.id===id);if(q)downloadEditablePdf(q)},normal:id=>{const q=(db.quotes||[]).find(x=>x.id===id);if(q)downloadEditablePdf(q,{flatten:true})},excel:id=>{const q=(db.quotes||[]).find(x=>x.id===id);if(q)downloadXlsx(q)}};
+    window.VargaQuoteActions={open:openSavedQuote,pdf:id=>{const q=(db.quotes||[]).find(x=>x.id===id);if(q)downloadEditablePdf(q)},normal:id=>{const q=(db.quotes||[]).find(x=>x.id===id);if(q)downloadEditablePdf(q,{flatten:true})},excel:id=>{const q=(db.quotes||[]).find(x=>x.id===id);if(q)downloadXlsx(q)},finalize:async id=>{const q=(db.quotes||[]).find(x=>x.id===id);if(!q)return;const job=(db.jobs||[]).find(x=>x.id===q.jobId)||{id:'preventivi-generali',title:'Preventivi generali'};await window.VargaDriveLifecycle?.finalizeJson(q,job,'Preventivo','Preventivi');save()}};
   }
 
   install();

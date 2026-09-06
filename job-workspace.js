@@ -136,7 +136,7 @@ function jobAction(action){const j=currentJob();if(!j)return;
   if(action==='expense')return openModule('spese',()=>{const x=document.getElementById('xJob');if(x)x.value=j.id});
   if(action==='report')return openModule('rapportini',()=>{const x=document.getElementById('rpJob');if(x){x.value=j.id;x.dispatchEvent(new Event('change'))}});
 }
-function setQuoteStatus(id,status,scheduledDate=''){
+async function setQuoteStatus(id,status,scheduledDate=''){
   const q=arr(db.quotes).find(x=>x.id===id);if(!q||!quoteStatuses.includes(status))return;
   if(status==='Intervento programmato'&&!scheduledDate)return alert('Seleziona la data dell’intervento.');
   const now=new Date().toISOString(),entry={status,changedAt:now};
@@ -148,7 +148,7 @@ function setQuoteStatus(id,status,scheduledDate=''){
     const values={title:`Intervento programmato — ${q.number||'Preventivo'}`,date:scheduledDate,type:'Commessa',notes:q.subject||'',jobId:q.jobId||activeJobId,quoteId:q.id,done:false,updatedAt:now};
     if(deadline)Object.assign(deadline,values);else db.deadlines.push({id:uid(),...values,createdAt:now});
   }
-  if(status==='Completato'){const deadline=arr(db.deadlines).find(x=>x.quoteId===q.id);if(deadline)deadline.done=true}
+  if(status==='Completato'){const deadline=arr(db.deadlines).find(x=>x.quoteId===q.id);if(deadline)deadline.done=true;try{await window.VargaQuoteActions?.finalize(id)}catch(e){alert('Preventivo completato nel Gestionale, ma Drive non ha risposto: '+(e.message||e))}}
   save();
 }
 function bindWorkspace(){
