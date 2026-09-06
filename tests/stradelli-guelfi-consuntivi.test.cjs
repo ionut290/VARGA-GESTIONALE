@@ -16,3 +16,8 @@ test('form e PDF includono titolo, date, formato e timbro depurazione',()=>{
 test('modulo si attiva soltanto per STR G o Stradelli Guelfi',()=>{
   assert.match(code,/str g/);assert.match(code,/stradelli guelf/);
 });
+test('mostra CREA CONSUNTIVO nella barra superiore della commessa',()=>{
+  assert.match(code,/\.vg-work-actions/);
+  assert.match(code,/\+ CREA CONSUNTIVO/);
+  assert.match(code,/data-sg-quick/);
+});
