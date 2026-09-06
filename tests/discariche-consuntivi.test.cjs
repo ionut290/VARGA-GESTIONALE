@@ -33,6 +33,15 @@ test('il documento contiene quantità e date per ogni voce',()=>{
   assert.match(code,/N\(l\.quantity\)\*N\(l\.price\)/);
 });
 
+test('il PDF viene scaricato prima del tentativo di archiviazione Drive',()=>{
+  const code=fs.readFileSync(path.join(root,'discariche-consuntivi.js'),'utf8');
+  const download=code.indexOf('a.click()');
+  const upload=code.indexOf("bridgeRetry('driveUpload'");
+  assert.ok(download>0&&upload>download);
+  assert.match(code,/Completato - Drive in attesa/);
+  assert.match(code,/for\(let attempt=0;attempt<2;attempt\+\+\)/);
+});
+
 test('catalogo e modulo sono caricati nell’ordine corretto',()=>{
   const code=fs.readFileSync(path.join(root,'app.js'),'utf8');
   assert.ok(code.indexOf('assets/discariche-catalog.js')<code.indexOf('discariche-consuntivi.js'));
