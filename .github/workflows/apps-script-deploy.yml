@@ -17,20 +17,43 @@ permissions:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    if: ${{ secrets.APPS_SCRIPT_ID != '' && secrets.CLASPRC_JSON != '' }}
     steps:
+      - name: Check deploy configuration
+        id: config
+        shell: bash
+        env:
+          APPS_SCRIPT_ID: ${{ secrets.APPS_SCRIPT_ID }}
+          CLASPRC_JSON: ${{ secrets.CLASPRC_JSON }}
+          APPS_SCRIPT_DEPLOYMENT_ID: ${{ secrets.APPS_SCRIPT_DEPLOYMENT_ID }}
+        run: |
+          if [ -n "$APPS_SCRIPT_ID" ] && [ -n "$CLASPRC_JSON" ]; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            echo "Deploy Apps Script non eseguito: configurare APPS_SCRIPT_ID e CLASPRC_JSON nei repository secrets."
+          fi
+          if [ -n "$APPS_SCRIPT_DEPLOYMENT_ID" ]; then
+            echo "has_deployment=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_deployment=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Checkout
+        if: steps.config.outputs.ready == 'true'
         uses: actions/checkout@v4
 
       - name: Setup Node
+        if: steps.config.outputs.ready == 'true'
         uses: actions/setup-node@v4
         with:
           node-version: '22'
 
       - name: Install clasp
+        if: steps.config.outputs.ready == 'true'
         run: npm install -g @google/clasp@3
 
       - name: Configure Apps Script project
+        if: steps.config.outputs.ready == 'true'
         shell: bash
         env:
           APPS_SCRIPT_ID: ${{ secrets.APPS_SCRIPT_ID }}
@@ -41,30 +64,33 @@ jobs:
           chmod 600 "$HOME/.clasprc.json"
 
       - name: Verify files
-        run: clasp status
+        if: steps.config.outputs.ready == 'true'
+        run: clasp show-file-status
 
       - name: Push Apps Script sources
+        if: steps.config.outputs.ready == 'true'
         run: clasp push --force
 
       - name: Create immutable Apps Script version
+        if: steps.config.outputs.ready == 'true'
         id: version
         shell: bash
         run: |
-          OUT=$(clasp version "Varga Gestionale ${GITHUB_SHA}")
+          OUT=$(clasp create-version "Varga Gestionale ${GITHUB_SHA}")
           echo "$OUT"
           VER=$(echo "$OUT" | grep -oE '[0-9]+' | tail -1)
           test -n "$VER"
           echo "version=$VER" >> "$GITHUB_OUTPUT"
 
       - name: Update existing Web App deployment
-        if: ${{ secrets.APPS_SCRIPT_DEPLOYMENT_ID != '' }}
+        if: steps.config.outputs.ready == 'true' && steps.config.outputs.has_deployment == 'true'
         env:
           DEPLOYMENT_ID: ${{ secrets.APPS_SCRIPT_DEPLOYMENT_ID }}
           VERSION: ${{ steps.version.outputs.version }}
-        run: clasp update-deployment "$DEPLOYMENT_ID" --versionNumber "$VERSION" --description "Varga Gestionale ${GITHUB_SHA}"
+        run: clasp create-deployment --deploymentId "$DEPLOYMENT_ID" --versionNumber "$VERSION" --description "Varga Gestionale ${GITHUB_SHA}"
 
       - name: Create deployment when no deployment ID is configured
-        if: ${{ secrets.APPS_SCRIPT_DEPLOYMENT_ID == '' }}
+        if: steps.config.outputs.ready == 'true' && steps.config.outputs.has_deployment == 'false'
         env:
           VERSION: ${{ steps.version.outputs.version }}
         run: clasp create-deployment --versionNumber "$VERSION" --description "Varga Gestionale ${GITHUB_SHA}"
