@@ -70,8 +70,12 @@ test('il selettore è collegato a preventivi, consuntivi e contabilità cliente'
 test('il modulo viene caricato prima dei generatori di documenti e ha una sezione profilo',()=>{
   const loader=fs.readFileSync(path.join(root,'app.js'),'utf8');
   const html=fs.readFileSync(path.join(root,'index.html'),'utf8');
+  const overhaul=fs.readFileSync(path.join(root,'ui-overhaul.js'),'utf8');
   assert.ok(loader.indexOf('user-document-assets.js')<loader.indexOf('preventivi-avola.js'));
   assert.ok(loader.indexOf('user-document-assets.js')<loader.indexOf('depurazione-consuntivi.js'));
   assert.match(html,/data-view="firmaTimbro"/);
   assert.match(html,/id="userDocumentAssetsPanel"/);
+  assert.match(overhaul,/function ensureSignatureAssetsView/);
+  assert.match(overhaul,/button\.dataset\.view='firmaTimbro'/);
+  assert.match(overhaul,/VargaUserDocumentAssets\?\.refresh/);
 });

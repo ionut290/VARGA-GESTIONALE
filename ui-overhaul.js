@@ -42,6 +42,24 @@ function accessibleFields(root=document){
   });
 }
 
+function ensureSignatureAssetsView(){
+  const navBox=document.querySelector('.sidebar-nav'),main=document.querySelector('main.main');
+  if(!navBox||!main)return;
+  let button=navBox.querySelector('.nav[data-view="firmaTimbro"]');
+  if(!button){
+    button=document.createElement('button');button.type='button';button.className='nav';button.dataset.view='firmaTimbro';button.textContent='Firma e timbro';
+    const cloud=navBox.querySelector('.nav[data-view="cloud"]');if(cloud)cloud.before(button);else navBox.appendChild(button);
+  }
+  let view=$('firmaTimbro');
+  if(!view){
+    view=document.createElement('section');view.id='firmaTimbro';view.className='view';
+    view.innerHTML='<div class="topline"><div><h1>Firma e timbro personali</h1><p class="subtitle">Crea le immagini da una fotografia e usale nei tuoi preventivi e consuntivi.</p></div></div><div class="panel" id="userDocumentAssetsPanel"></div>';
+    const company=$('azienda');if(company)company.before(view);else main.appendChild(view);
+  }
+  button.onclick=()=>{if(typeof nav==='function')nav('firmaTimbro')};
+  window.VargaUserDocumentAssets?.refresh?.();
+}
+
 function organizeMenu(){
   const navBox=document.querySelector('.sidebar-nav');if(!navBox)return;
   navBox.querySelectorAll('.vg-menu-item-collapsed').forEach(x=>x.classList.remove('vg-menu-item-collapsed'));
@@ -134,7 +152,7 @@ function improveTables(){
   });
 }
 
-function run(){addStyles();improveLabels();installDesktopDownload();organizeMenu();improveDashboard();installDashboardHelp();installWelcome();accessibleFields();improveTables()}
+function run(){addStyles();ensureSignatureAssetsView();improveLabels();installDesktopDownload();organizeMenu();improveDashboard();installDashboardHelp();installWelcome();accessibleFields();improveTables()}
 
 run();
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>window.setTimeout(run,0),{once:true});

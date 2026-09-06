@@ -379,6 +379,7 @@
     drawOnPdf,
     resolveForHtml,
     processPhoto,
+    refresh:renderProfilePanel,
     getAssets:()=>({...assets}),
     normalizeSelection
   });
