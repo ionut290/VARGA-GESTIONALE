@@ -1,0 +1,70 @@
+name: Deploy Google Apps Script bridge
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'google-apps-script-map-bridge.gs'
+      - 'google-apps-script-depurazione-dual-drive.gs'
+      - 'appsscript.json'
+      - '.claspignore'
+      - '.github/workflows/apps-script-deploy.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    if: ${{ secrets.APPS_SCRIPT_ID != '' && secrets.CLASPRC_JSON != '' }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install clasp
+        run: npm install -g @google/clasp@3
+
+      - name: Configure Apps Script project
+        shell: bash
+        env:
+          APPS_SCRIPT_ID: ${{ secrets.APPS_SCRIPT_ID }}
+          CLASPRC_JSON: ${{ secrets.CLASPRC_JSON }}
+        run: |
+          printf '{"scriptId":"%s","rootDir":"."}\n' "$APPS_SCRIPT_ID" > .clasp.json
+          printf '%s' "$CLASPRC_JSON" > "$HOME/.clasprc.json"
+          chmod 600 "$HOME/.clasprc.json"
+
+      - name: Verify files
+        run: clasp status
+
+      - name: Push Apps Script sources
+        run: clasp push --force
+
+      - name: Create immutable Apps Script version
+        id: version
+        shell: bash
+        run: |
+          OUT=$(clasp version "Varga Gestionale ${GITHUB_SHA}")
+          echo "$OUT"
+          VER=$(echo "$OUT" | grep -oE '[0-9]+' | tail -1)
+          test -n "$VER"
+          echo "version=$VER" >> "$GITHUB_OUTPUT"
+
+      - name: Update existing Web App deployment
+        if: ${{ secrets.APPS_SCRIPT_DEPLOYMENT_ID != '' }}
+        env:
+          DEPLOYMENT_ID: ${{ secrets.APPS_SCRIPT_DEPLOYMENT_ID }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: clasp update-deployment "$DEPLOYMENT_ID" --versionNumber "$VERSION" --description "Varga Gestionale ${GITHUB_SHA}"
+
+      - name: Create deployment when no deployment ID is configured
+        if: ${{ secrets.APPS_SCRIPT_DEPLOYMENT_ID == '' }}
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: clasp create-deployment --versionNumber "$VERSION" --description "Varga Gestionale ${GITHUB_SHA}"
