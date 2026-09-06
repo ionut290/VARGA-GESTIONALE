@@ -16,7 +16,7 @@ permissions:
 
 env:
   APPS_SCRIPT_ID: '1guh1Wfm6Qhto_hl7NxeA4z9IZnHr6Bt8XrW_LIkjkUlUM_3UhgBh7M9c'
-  APPS_SCRIPT_DEPLOYMENT_ID: 'AKfycbyvlLzIBlISKh3I0jRDFCwIL-Bsmmxk7sHAfomwGfZ48KlbRXaHXWpTC3qvu7VanXou'
+  APPS_SCRIPT_DEPLOYMENT_ID: 'AKfycbyeendkbDj_CldTfhSJhWQvQSnr8KNd2IoDWx1VG6210Uhaox99M4rbUwo8nFms046A'
 
 jobs:
   deploy:
