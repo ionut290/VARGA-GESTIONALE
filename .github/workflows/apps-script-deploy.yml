@@ -78,8 +78,6 @@ jobs:
           test -n "$VER"
           echo "version=$VER" >> "$GITHUB_OUTPUT"
 
-      - name: Update existing Web App deployment
+      - name: Preserve manual Web App deployment
         if: steps.config.outputs.ready == 'true'
-        env:
-          VERSION: ${{ steps.version.outputs.version }}
-        run: clasp create-deployment --deploymentId "$APPS_SCRIPT_DEPLOYMENT_ID" --versionNumber "$VERSION" --description "Varga Gestionale ${GITHUB_SHA}"
+        run: echo "Sorgenti Apps Script aggiornate. Il deployment Web App manuale resta invariato."
