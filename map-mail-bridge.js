@@ -3,8 +3,11 @@
 'use strict';
 const cfgKey='vg_mapMailBridge';
 const receiptKey='vg_mapMailAppliedReceipts';
-const getCfg=()=>{let local={};try{local=JSON.parse(localStorage.getItem(cfgKey)||'{}')||{}}catch(_){}const shared=(typeof db!=='undefined'&&db.company?.driveBridge)||{};return{url:local.url||shared.url||'',token:local.token||shared.token||''}};
-const setCfg=v=>{localStorage.setItem(cfgKey,JSON.stringify(v||{}));if(typeof db!=='undefined'){db.company=db.company||{};db.company.driveBridge={url:v?.url||'',token:v?.token||''};if(typeof save==='function')save()}};
+const DEFAULT_BRIDGE_URL='https://script.google.com/macros/s/AKfycbyvlLzIBlISKh3I0jRDFCwIL-Bsmmxk7sHAfomwGfZ48KlbRXaHXWpTC3qvu7VanXou/exec';
+const RETIRED_BRIDGE_IDS=['AKfycbxS4K2Ox3alB1TV1rD9GjlKmm_D7p499AXRLvmmUVZpxmvXqHMuRvE5aqsAjKzksi3h','AKfycbxiUgHi9zxddpAvNYRLx8W23JIw88VoChVP63uauhPUn-KeScSwTqK6qIaDSaUUzkap'];
+const bridgeUrl=v=>{const url=String(v||'').trim();return !url||RETIRED_BRIDGE_IDS.some(id=>url.includes(id))?DEFAULT_BRIDGE_URL:url};
+const getCfg=()=>{let local={};try{local=JSON.parse(localStorage.getItem(cfgKey)||'{}')||{}}catch(_){}const shared=(typeof db!=='undefined'&&db.company?.driveBridge)||{},url=bridgeUrl(local.url||shared.url);if(local.url!==url){local.url=url;try{localStorage.setItem(cfgKey,JSON.stringify(local))}catch(_){}}return{url,token:local.token||shared.token||''}};
+const setCfg=v=>{const next={...(v||{}),url:bridgeUrl(v?.url)};localStorage.setItem(cfgKey,JSON.stringify(next));if(typeof db!=='undefined'){db.company=db.company||{};db.company.driveBridge={url:next.url,token:next.token||''};if(typeof save==='function')save()}};
 const getApplied=()=>{try{return new Set(JSON.parse(localStorage.getItem(receiptKey)||'[]')||[])}catch{return new Set()}};
 const setApplied=set=>localStorage.setItem(receiptKey,JSON.stringify([...set].slice(-500)));
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot',"'":'&#39;'}[c]));
