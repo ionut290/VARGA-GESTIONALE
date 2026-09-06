@@ -11,7 +11,10 @@ test('quantità non AC ripartite un terzo e due terzi',()=>{
   assert.match(code,/A1:'B1'/);assert.match(code,/A10:'B10'/);
 });
 test('form e PDF includono titolo, date, formato e timbro depurazione',()=>{
-  for(const v of ['Titolo consuntivo interventi','Data inizio','Data fine','Quantità lavori straordinari','Importo straordinari','VARGA_DEPURAZIONE_STAMP_JPG'])assert.match(code,new RegExp(v));
+  for(const v of ['Descrizione libera del consuntivo','Sfalcio numero 2 agosto','Data inizio','Data fine','Quantità lavori straordinari','Importo straordinari','VARGA_DEPURAZIONE_STAMP_JPG'])assert.match(code,new RegExp(v));
+  assert.match(code,/CONSUNTIVO INTERVENTI/);
+  assert.match(code,/PERIODO:/);
+  assert.match(code,/center\('CONSUNTIVO INTERVENTI',585/);
 });
 test('modulo si attiva soltanto per STR G o Stradelli Guelfi',()=>{
   assert.match(code,/str g/);assert.match(code,/stradelli guelf/);
