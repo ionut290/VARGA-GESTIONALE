@@ -5,7 +5,7 @@ const path=require('node:path');
 const vm=require('node:vm');
 
 function load(){
-  const context={console,Intl,Date,Math,db:{jobs:[{id:'job-1',title:'Hera Cadriano',code:'CAD',hourlyRevenueRate:35}],economicEntries:[],expenses:[],vcOre:[],quotes:[],depurazioneConsuntivi:[],discaricheConsuntivi:[],consuntivi:[],vcRecords:[]}};
+  const context={console,Intl,Date,Math,S:{set(){}},db:{jobs:[{id:'job-1',title:'Hera Cadriano',code:'CAD',hourlyRevenueRate:35}],economicEntries:[],expenses:[],vcOre:[],quotes:[],depurazioneConsuntivi:[],discaricheConsuntivi:[],consuntivi:[],vcRecords:[]}};
   context.globalThis=context;
   vm.createContext(context);
   vm.runInContext(fs.readFileSync(path.join(__dirname,'..','job-economics.js'),'utf8'),context,{filename:'job-economics.js'});
@@ -36,15 +36,24 @@ test('lo stesso documento aggiorna una sola entrata',()=>{
   assert.equal(c.db.economicEntries[0].amount,125);
 });
 
-test('la ricevuta MAP conferma la stessa entrata del consuntivo',()=>{
+test('il consuntivo di un singolo impianto non crea un entrata',()=>{
   const c=load(),api=c.VargaJobEconomics;
   c.db.depurazioneConsuntivi.push({id:'dep-1',jobId:'job-1',jobName:'Hera Cadriano',plantName:'Impianto 1',date:'2026-09-03',total:450,status:'Completato'});
   api.registerDocument({jobId:'job-1',type:'Consuntivo',sourceId:'dep-1',amount:450,title:'Consuntivo Impianto 1'},{persist:false});
   api.confirmByMapReceipt({id:'map-1',depurazioneConsuntivoId:'dep-1',subject:'MAP 123',emailDate:'2026-09-05'},{persist:false});
+  api.reconcile(c.db.jobs[0]);
+  assert.equal(c.db.economicEntries.length,0);
+  assert.equal(api.candidateDocuments(c.db.jobs[0]).length,0);
+});
+
+test('la contabilita del giro crea una sola entrata riepilogativa',()=>{
+  const c=load(),api=c.VargaJobEconomics,job=c.db.jobs[0];
+  job.vcSourceId='commesse/cad';
+  c.db.vcRecords.push({sourcePath:'commesse/cad/giriContabili/giro-01',data:{numeroGiro:1,commessaNome:'Hera Cadriano',totalAmount:900,closedAtIso:'2026-09-05',accountingSentAt:'2026-09-06'}});
+  api.reconcile(job);
   assert.equal(c.db.economicEntries.length,1);
-  assert.equal(c.db.economicEntries[0].status,api.CONFIRMED);
-  assert.equal(c.db.economicEntries[0].mapReceiptId,'map-1');
-  assert.equal(c.db.economicEntries[0].mapReference,'MAP 123');
+  assert.equal(c.db.economicEntries[0].type,'Contabilita');
+  assert.equal(c.db.economicEntries[0].amount,900);
 });
 
 test('la vista commessa espone pulsante, scheda e sincronizzazione economica',()=>{
