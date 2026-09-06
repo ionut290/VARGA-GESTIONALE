@@ -1,87 +1,21 @@
 /* Pacchetto DISCARICHE nella vista commesse.
    Raggruppa solo la visualizzazione: ogni commessa mantiene ID, codice, ore, squadre e dati separati.
-   CADRIANO e STR G restano sempre commesse autonome. */
+   CADRIANO, STR G e OZZANO restano sempre commesse autonome. */
 (function(){
 'use strict';
 if(typeof db==='undefined')return;
-
 const norm=v=>String(v||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,' ').trim();
 const escHtml=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-
-function isDiscarica(job){
-  const text=norm([job?.title,job?.code,job?.site,job?.commessa,job?.nome].filter(Boolean).join(' '));
-  if(!text.includes('discaric'))return false;
-  if(text.includes('cadriano'))return false;
-  if(/\bstr\s*g\b/.test(text)||text.includes('strg'))return false;
-  return true;
-}
+function isDiscarica(job){const text=norm([job?.title,job?.code,job?.site,job?.commessa,job?.nome].filter(Boolean).join(' '));if(!text.includes('discaric'))return false;if(text.includes('cadriano')||text.includes('ozzano'))return false;if(/\bstr\s*g\b/.test(text)||text.includes('strg'))return false;return true}
 function packageJobs(){return (Array.isArray(db.jobs)?db.jobs:[]).filter(isDiscarica)}
-function openJob(id){
-  closeModal();
-  if(typeof window.VargaOpenJob==='function')window.VargaOpenJob(id);
-}
+function openJob(id){closeModal();if(typeof window.VargaOpenJob==='function')window.VargaOpenJob(id)}
 function statusText(job){return job?.status||job?.stato||'Attiva'}
-
-function ensureStyles(){
-  if(document.getElementById('vgDiscarichePackageStyles'))return;
-  const s=document.createElement('style');s.id='vgDiscarichePackageStyles';s.textContent=`
-  .vg-discariche-package-card{border:2px solid #287756;background:linear-gradient(180deg,#f3fbf7,#fff)}
-  .vg-discariche-package-card .vg-job-code{color:#176b48;opacity:1}.vg-discariche-package-card h3{color:#153d2e}
-  .vg-discariche-modal{position:fixed;inset:0;background:rgba(15,23,42,.46);z-index:10050;display:flex;align-items:center;justify-content:center;padding:18px}
-  .vg-discariche-modal[hidden]{display:none}.vg-discariche-modal-card{background:#fff;width:min(920px,96vw);max-height:88vh;overflow:auto;border-radius:18px;box-shadow:0 24px 70px rgba(0,0,0,.28);padding:20px}
-  .vg-discariche-modal-head{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;margin-bottom:15px}.vg-discariche-modal-head h2{margin:0 0 4px}.vg-discariche-modal-head p{margin:0;color:#667085}
-  .vg-discariche-close{border:1px solid #d0d5dd;background:#fff;border-radius:9px;padding:8px 11px;font-weight:800;cursor:pointer}
-  .vg-discariche-list{display:grid;gap:10px}.vg-discariche-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;align-items:center;border:1px solid #dfe6e2;border-radius:12px;padding:13px 14px;background:#fff}
-  .vg-discariche-row-code{font-size:12px;font-weight:900;color:#176b48;letter-spacing:.04em}.vg-discariche-row-title{font-weight:900;margin-top:2px}.vg-discariche-row-meta{font-size:12px;color:#667085;margin-top:4px}
-  .vg-discariche-open{border:0;background:#176b48;color:#fff;border-radius:9px;padding:9px 13px;font-weight:900;cursor:pointer}
-  @media(max-width:620px){.vg-discariche-row{grid-template-columns:1fr}.vg-discariche-open{width:100%}}
-  `;document.head.appendChild(s);
-}
-
-function ensureModal(){
-  let modal=document.getElementById('vgDiscaricheModal');
-  if(modal)return modal;
-  modal=document.createElement('div');modal.id='vgDiscaricheModal';modal.className='vg-discariche-modal';modal.hidden=true;
-  modal.innerHTML='<div class="vg-discariche-modal-card"><div class="vg-discariche-modal-head"><div><h2>Pacchetto DISCARICHE</h2><p>Ogni discarica mantiene codice commessa, ore, squadre e contabilità separati.</p></div><button type="button" class="vg-discariche-close">CHIUDI</button></div><div class="vg-discariche-list"></div></div>';
-  document.body.appendChild(modal);
-  modal.querySelector('.vg-discariche-close').onclick=closeModal;
-  modal.onclick=e=>{if(e.target===modal)closeModal()};
-  return modal;
-}
+function ensureStyles(){if(document.getElementById('vgDiscarichePackageStyles'))return;const s=document.createElement('style');s.id='vgDiscarichePackageStyles';s.textContent=`.vg-discariche-package-card{border:2px solid #287756;background:linear-gradient(180deg,#f3fbf7,#fff)}.vg-discariche-package-card .vg-job-code{color:#176b48;opacity:1}.vg-discariche-package-card h3{color:#153d2e}.vg-discariche-modal{position:fixed;inset:0;background:rgba(15,23,42,.46);z-index:10050;display:flex;align-items:center;justify-content:center;padding:18px}.vg-discariche-modal[hidden]{display:none}.vg-discariche-modal-card{background:#fff;width:min(920px,96vw);max-height:88vh;overflow:auto;border-radius:18px;box-shadow:0 24px 70px rgba(0,0,0,.28);padding:20px}.vg-discariche-modal-head{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;margin-bottom:15px}.vg-discariche-modal-head h2{margin:0 0 4px}.vg-discariche-modal-head p{margin:0;color:#667085}.vg-discariche-close{border:1px solid #d0d5dd;background:#fff;border-radius:9px;padding:8px 11px;font-weight:800;cursor:pointer}.vg-discariche-list{display:grid;gap:10px}.vg-discariche-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;align-items:center;border:1px solid #dfe6e2;border-radius:12px;padding:13px 14px;background:#fff}.vg-discariche-row-code{font-size:12px;font-weight:900;color:#176b48;letter-spacing:.04em}.vg-discariche-row-title{font-weight:900;margin-top:2px}.vg-discariche-row-meta{font-size:12px;color:#667085;margin-top:4px}.vg-discariche-open{border:0;background:#176b48;color:#fff;border-radius:9px;padding:9px 13px;font-weight:900;cursor:pointer}@media(max-width:620px){.vg-discariche-row{grid-template-columns:1fr}.vg-discariche-open{width:100%}}`;document.head.appendChild(s)}
+function ensureModal(){let modal=document.getElementById('vgDiscaricheModal');if(modal)return modal;modal=document.createElement('div');modal.id='vgDiscaricheModal';modal.className='vg-discariche-modal';modal.hidden=true;modal.innerHTML='<div class="vg-discariche-modal-card"><div class="vg-discariche-modal-head"><div><h2>Pacchetto DISCARICHE</h2><p>Ogni discarica mantiene codice commessa, ore, squadre e contabilità separati.</p></div><button type="button" class="vg-discariche-close">CHIUDI</button></div><div class="vg-discariche-list"></div></div>';document.body.appendChild(modal);modal.querySelector('.vg-discariche-close').onclick=closeModal;modal.onclick=e=>{if(e.target===modal)closeModal()};return modal}
 function closeModal(){const m=document.getElementById('vgDiscaricheModal');if(m)m.hidden=true}
-function showPackage(){
-  const jobs=packageJobs().slice().sort((a,b)=>String(a.title||'').localeCompare(String(b.title||''),'it'));
-  const modal=ensureModal(),list=modal.querySelector('.vg-discariche-list');
-  list.innerHTML=jobs.length?jobs.map(j=>`<div class="vg-discariche-row"><div><div class="vg-discariche-row-code">${escHtml(j.code||'Codice non assegnato')}</div><div class="vg-discariche-row-title">${escHtml(j.title||'Discarica')}</div><div class="vg-discariche-row-meta">${escHtml([j.site,statusText(j)].filter(Boolean).join(' • '))}</div></div><button type="button" class="vg-discariche-open" data-vg-discarica-open="${escHtml(j.id)}">APRI</button></div>`).join(''):'<div class="vg-empty">Nessuna discarica nel pacchetto.</div>';
-  list.querySelectorAll('[data-vg-discarica-open]').forEach(b=>b.onclick=()=>openJob(b.dataset.vgDiscaricaOpen));
-  modal.hidden=false;
-}
-
+function showPackage(){const jobs=packageJobs().slice().sort((a,b)=>String(a.title||'').localeCompare(String(b.title||''),'it'));const modal=ensureModal(),list=modal.querySelector('.vg-discariche-list');list.innerHTML=jobs.length?jobs.map(j=>`<div class="vg-discariche-row"><div><div class="vg-discariche-row-code">${escHtml(j.code||'Codice non assegnato')}</div><div class="vg-discariche-row-title">${escHtml(j.title||'Discarica')}</div><div class="vg-discariche-row-meta">${escHtml([j.site,statusText(j)].filter(Boolean).join(' • '))}</div></div><button type="button" class="vg-discariche-open" data-vg-discarica-open="${escHtml(j.id)}">APRI</button></div>`).join(''):'<div class="vg-empty">Nessuna discarica nel pacchetto.</div>';list.querySelectorAll('[data-vg-discarica-open]').forEach(b=>b.onclick=()=>openJob(b.dataset.vgDiscaricaOpen));modal.hidden=false}
 function cardHtml(count){return `<div class="vg-job-card vg-discariche-package-card" data-vg-discariche-package><div class="vg-job-code">PACCHETTO COMMESSE</div><h3>DISCARICHE</h3><div class="vg-job-meta">${count} commesse raggruppate • codici e dati separati</div><div class="vg-job-bottom"><span class="badge">ATTIVE</span><span class="vg-job-open">APRI PACCHETTO →</span></div><div class="vg-job-meta" style="margin-top:10px">Ore • squadre • consuntivi • contabilità restano per singola discarica</div></div>`}
-
-function groupGrid(grid){
-  if(!grid)return;
-  grid.querySelectorAll('[data-vg-discariche-package]').forEach(x=>x.remove());
-  const ids=new Set(packageJobs().map(j=>String(j.id)));
-  const cards=[...grid.querySelectorAll('[data-open-job]')];
-  const grouped=cards.filter(c=>ids.has(String(c.dataset.openJob)));
-  if(!grouped.length)return;
-  grouped.forEach(c=>c.style.display='none');
-  const wrap=document.createElement('div');wrap.innerHTML=cardHtml(packageJobs().length);const card=wrap.firstElementChild;
-  grid.insertBefore(card,grid.firstChild);card.onclick=showPackage;
-}
-function applyGrouping(){
-  ensureStyles();
-  groupGrid(document.getElementById('vgJobGrid'));
-  const dashGrid=document.querySelector('#vgDashboardJobs .vg-job-grid');
-  groupGrid(dashGrid);
-}
-
-const baseRefresh=window.refresh;
-if(typeof baseRefresh==='function')window.refresh=function(){const out=baseRefresh.apply(this,arguments);setTimeout(applyGrouping,0);return out};
-
-const observer=new MutationObserver(()=>{clearTimeout(observer._t);observer._t=setTimeout(applyGrouping,30)});
-observer.observe(document.documentElement,{childList:true,subtree:true});
-setTimeout(applyGrouping,0);
-window.VargaOpenDiscarichePackage=showPackage;
+function groupGrid(grid){if(!grid)return;grid.querySelectorAll('[data-vg-discariche-package]').forEach(x=>x.remove());const ids=new Set(packageJobs().map(j=>String(j.id)));const cards=[...grid.querySelectorAll('[data-open-job]')];cards.forEach(c=>c.style.display='');const grouped=cards.filter(c=>ids.has(String(c.dataset.openJob)));if(!grouped.length)return;grouped.forEach(c=>c.style.display='none');const wrap=document.createElement('div');wrap.innerHTML=cardHtml(packageJobs().length);const card=wrap.firstElementChild;grid.insertBefore(card,grid.firstChild);card.onclick=showPackage}
+function applyGrouping(){ensureStyles();groupGrid(document.getElementById('vgJobGrid'));groupGrid(document.querySelector('#vgDashboardJobs .vg-job-grid'))}
+const baseRefresh=window.refresh;if(typeof baseRefresh==='function')window.refresh=function(){const out=baseRefresh.apply(this,arguments);setTimeout(applyGrouping,0);return out};const observer=new MutationObserver(()=>{clearTimeout(observer._t);observer._t=setTimeout(applyGrouping,30)});observer.observe(document.documentElement,{childList:true,subtree:true});setTimeout(applyGrouping,0);window.VargaOpenDiscarichePackage=showPackage;
 })();
