@@ -31,6 +31,9 @@ test('il documento contiene quantità e date per ogni voce',()=>{
   assert.match(code,/Quantità/);
   assert.match(code,/Contratto n\.2670001725/);
   assert.match(code,/N\(l\.quantity\)\*N\(l\.price\)/);
+  assert.match(code,/money\(l\.price\)/);
+  assert.match(code,/\\u20AC/);
+  assert.match(code,/VARGA_DEPURAZIONE_STAMP_JPG/);
 });
 
 test('il PDF viene scaricato prima del tentativo di archiviazione Drive',()=>{
