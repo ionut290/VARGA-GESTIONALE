@@ -14,12 +14,15 @@ test('catalogo Hera Cadriano riproduce le sei voci della matrice AVOLA C14',()=>
   assert.ok(rows.every(row=>row.unit==='CAD'));
 });
 
-test('modulo Cadriano offre preventivo e consuntivo compilando solo data e quantità',()=>{
+test('modulo Cadriano offre preventivo e consuntivo con richiedente e righe manuali',()=>{
   const code=fs.readFileSync(path.join(root,'cadriano-documenti.js'),'utf8');
-  for(const text of ['HGSbSp7CQ5W08rS1RQ0R','28013','id="cadDate"','cad-quantity'])assert.ok(code.includes(text));
+  for(const text of ['HGSbSp7CQ5W08rS1RQ0R','28013','id="cadDate"','id="cadRequester"','cad-quantity','data-cad-add-row','data-cad-remove-row','manual:true'])assert.ok(code.includes(text));
   assert.match(code,/\['preventivo','consuntivo'\]/);
   assert.match(code,/\+ CREA \$\{typeLabel\(type\)\.toUpperCase\(\)\}/);
   assert.match(code,/N\(row\.quantity\)\*N\(row\.price\)/);
+  assert.match(code,/requester,rows,total/);
+  assert.match(code,/record\.requester\|\|'ZEROUAL WASSIM'/);
+  assert.match(code,/manualRows\.slice\(offset,offset\+8\)/);
   assert.match(code,/VARGA_DEPURAZIONE_STAMP_JPG/);
   assert.match(code,/Preventivi':'Contabilita/);
   assert.match(code,/\.\.\.\(editing\|\|\{\}\)/);

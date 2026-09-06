@@ -26,15 +26,54 @@ function addStyle(){
   const style=document.createElement('style');
   style.id='cadrianoDocumentStyle';
   style.textContent=`
-  .cad-card{border:2px solid #d9d500;background:#fffef0;margin-bottom:14px}.cad-card-head{display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap}.cad-card-head h2{margin:0}.cad-actions{display:flex;gap:7px;flex-wrap:wrap}.cad-history-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;padding:11px 0;border-top:1px solid #e7e2a4}.cad-history-row small{display:block;color:#667085;margin-top:3px}.cad-modal{position:fixed;inset:0;background:rgba(9,32,23,.72);z-index:100004;display:flex;align-items:flex-start;justify-content:center;padding:18px;overflow:auto}.cad-dialog{background:#f7f8f7;border-radius:16px;width:min(1450px,100%);min-height:calc(100vh - 36px);padding:18px;box-shadow:0 20px 60px rgba(0,0,0,.25)}.cad-head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}.cad-head h1{margin:0}.cad-form{display:grid;grid-template-columns:minmax(220px,360px) 1fr;gap:12px;margin:14px 0}.cad-fixed{border:1px solid #dce5df;border-radius:10px;background:#fff;padding:10px 12px}.cad-fixed strong{display:block}.cad-table-wrap{border:1px solid #d8e2dc;border-radius:10px;overflow:auto;max-height:58vh;background:#fff}.cad-table{border-collapse:separate;border-spacing:0;min-width:1080px;width:100%;font-size:11px}.cad-table th,.cad-table td{padding:8px;border-right:1px solid #777;border-bottom:1px solid #777;vertical-align:top}.cad-table th{position:sticky;top:0;background:#fff900;color:#111;z-index:2}.cad-table td:first-child,.cad-table td:nth-child(5){background:#fff900;font-weight:900}.cad-table .cad-description{min-width:330px;white-space:normal}.cad-table input{width:90px;min-height:36px}.cad-total{display:flex;justify-content:flex-end;gap:18px;font-size:19px;font-weight:900;margin:13px 0}.cad-footer{display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap}.cad-ok{color:#08723d;font-weight:800}.cad-warn{color:#9a6113;font-weight:800}@media(max-width:760px){.cad-modal{padding:0}.cad-dialog{min-height:100vh;border-radius:0;padding:12px}.cad-form{grid-template-columns:1fr}.cad-history-row{grid-template-columns:1fr}}
+  .cad-card{border:2px solid #d9d500;background:#fffef0;margin-bottom:14px}.cad-card-head{display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap}.cad-card-head h2{margin:0}.cad-actions{display:flex;gap:7px;flex-wrap:wrap}.cad-history-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;padding:11px 0;border-top:1px solid #e7e2a4}.cad-history-row small{display:block;color:#667085;margin-top:3px}.cad-modal{position:fixed;inset:0;background:rgba(9,32,23,.72);z-index:100004;display:flex;align-items:flex-start;justify-content:center;padding:18px;overflow:auto}.cad-dialog{background:#f7f8f7;border-radius:16px;width:min(1450px,100%);min-height:calc(100vh - 36px);padding:18px;box-shadow:0 20px 60px rgba(0,0,0,.25)}.cad-head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}.cad-head h1{margin:0}.cad-form{display:grid;grid-template-columns:minmax(170px,240px) minmax(220px,360px) 1fr;gap:12px;margin:14px 0}.cad-fixed{border:1px solid #dce5df;border-radius:10px;background:#fff;padding:10px 12px}.cad-fixed strong{display:block}.cad-table-actions{display:flex;justify-content:flex-end;margin:8px 0}.cad-table-wrap{border:1px solid #d8e2dc;border-radius:10px;overflow:auto;max-height:58vh;background:#fff}.cad-table{border-collapse:separate;border-spacing:0;min-width:1250px;width:100%;font-size:11px}.cad-table th,.cad-table td{padding:8px;border-right:1px solid #777;border-bottom:1px solid #777;vertical-align:top}.cad-table th{position:sticky;top:0;background:#fff900;color:#111;z-index:2}.cad-table td:first-child,.cad-table td:nth-child(5){background:#fff900;font-weight:900}.cad-table .cad-manual-row td{background:#fffde0}.cad-table .cad-description{min-width:330px;white-space:normal}.cad-table input,.cad-table textarea{box-sizing:border-box;min-height:36px}.cad-table .cad-code{width:70px}.cad-table .cad-short{width:150px}.cad-table .cad-description-input{width:100%;min-width:320px;min-height:64px;resize:vertical}.cad-table .cad-unit{width:65px}.cad-table .cad-quantity,.cad-table .cad-price{width:90px}.cad-total{display:flex;justify-content:flex-end;gap:18px;font-size:19px;font-weight:900;margin:13px 0}.cad-footer{display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap}.cad-ok{color:#08723d;font-weight:800}.cad-warn{color:#9a6113;font-weight:800}@media(max-width:760px){.cad-modal{padding:0}.cad-dialog{min-height:100vh;border-radius:0;padding:12px}.cad-form{grid-template-columns:1fr}.cad-history-row{grid-template-columns:1fr}}
   `;
   document.head.appendChild(style);
 }
 
 function editableLines(record){
   if(!record)return blankLines();
-  const saved=new Map((record.rows||[]).map(row=>[String(row.code),row]));
-  return blankLines().map(row=>saved.has(row.code)?{...row,quantity:saved.get(row.code).quantity}:row);
+  const stored=Array.isArray(record.rows)?record.rows:[];
+  const saved=new Map(stored.filter(row=>!row.manual).map(row=>[String(row.code),row]));
+  const fixed=blankLines().map(row=>saved.has(row.code)?{...row,quantity:saved.get(row.code).quantity}:row);
+  const manual=stored.filter(row=>row.manual).map(row=>({
+    id:row.id||uid(),manual:true,code:String(row.code||''),short:String(row.short||''),
+    description:String(row.description||''),unit:String(row.unit||''),quantity:row.quantity??'',price:N(row.price)
+  }));
+  return [...fixed,...manual];
+}
+
+function rowMarkup(row,index){
+  const manual=row.manual===true;
+  const value=(field,className,type='text',extra='')=>`<input class="${className}" type="${type}" value="${E(row[field])}" ${extra}>`;
+  return `<tr data-index="${index}" class="${manual?'cad-manual-row':''}">
+    <td>${manual?value('code','cad-code'):`${E(row.code)}`}</td>
+    <td>${manual?value('short','cad-short'):`${E(row.short)}`}</td>
+    <td class="cad-description">${manual?`<textarea class="cad-description-input" rows="3">${E(row.description)}</textarea>`:E(row.description)}</td>
+    <td>${manual?value('unit','cad-unit'):`${E(row.unit)}`}</td>
+    <td>${value('quantity','cad-quantity','number','min="0" step="0.01"')}</td>
+    <td>${manual?value('price','cad-price','number','min="0" step="0.01"'):money(row.price)}</td>
+    <td>NO</td><td data-net-price>${money(row.price)}</td>
+    <td data-amount>${N(row.quantity)>0?money(N(row.quantity)*N(row.price)):'—'}</td>
+    <td>${manual?'<button class="mini danger" type="button" data-cad-remove-row>ELIMINA</button>':''}</td>
+  </tr>`;
+}
+
+function refreshTotals(modal){modal.querySelector('#cadTotal').textContent=money(total(lines))}
+
+function renderEditorRows(modal){
+  const tbody=modal.querySelector('.cad-table tbody');
+  tbody.innerHTML=lines.map(rowMarkup).join('');
+  tbody.querySelectorAll('tr').forEach(tr=>{
+    const row=lines[Number(tr.dataset.index)];
+    const updateAmount=()=>{tr.querySelector('[data-net-price]').textContent=money(row.price);tr.querySelector('[data-amount]').textContent=N(row.quantity)>0?money(N(row.quantity)*N(row.price)):'—';refreshTotals(modal)};
+    tr.querySelector('.cad-quantity').oninput=event=>{row.quantity=event.target.value;updateAmount()};
+    if(row.manual){
+      for(const [selector,field] of [['.cad-code','code'],['.cad-short','short'],['.cad-description-input','description'],['.cad-unit','unit']])tr.querySelector(selector).oninput=event=>{row[field]=event.target.value};
+      tr.querySelector('.cad-price').oninput=event=>{row.price=event.target.value;updateAmount()};
+      tr.querySelector('[data-cad-remove-row]').onclick=()=>{lines.splice(Number(tr.dataset.index),1);renderEditorRows(modal);refreshTotals(modal)};
+    }
+  });
 }
 
 function history(job,type){
@@ -44,7 +83,7 @@ function history(job,type){
 }
 
 function mount(host,job,type){
-  host.innerHTML=`<div class="panel cad-card"><div class="cad-card-head"><div><h2>${E(typeLabel(type))} Hera Cadriano</h2><div class="muted">Matrice AVOLA C14: inserisci soltanto la data e le quantità.</div></div><button class="primary" data-cad-new="${E(type)}">+ CREA ${E(typeLabel(type).toUpperCase())}</button></div><div>${history(job,type)}</div></div>`;
+  host.innerHTML=`<div class="panel cad-card"><div class="cad-card-head"><div><h2>${E(typeLabel(type))} Hera Cadriano</h2><div class="muted">Matrice AVOLA C14: inserisci data, richiedente, quantità ed eventuali righe manuali.</div></div><button class="primary" data-cad-new="${E(type)}">+ CREA ${E(typeLabel(type).toUpperCase())}</button></div><div>${history(job,type)}</div></div>`;
   host.querySelector('[data-cad-new]').onclick=()=>open(job,type);
   host.querySelectorAll('[data-cad-edit]').forEach(button=>button.onclick=()=>{const record=records().find(row=>row.id===button.dataset.cadEdit);open(job,record.type,record)});
   host.querySelectorAll('[data-cad-open]').forEach(button=>button.onclick=()=>openStoredPdf(records().find(row=>row.id===button.dataset.cadOpen)));
@@ -78,10 +117,11 @@ function open(job,type,record=null){
   lines=editableLines(record);
   const modal=document.createElement('div');
   modal.className='cad-modal';
-  modal.innerHTML=`<div class="cad-dialog"><div class="cad-head"><div><h1>${record?'Modifica':'Nuovo'} ${E(typeLabel(type).toLowerCase())} Hera Cadriano</h1><div class="muted">Il modello, le voci, i prezzi e la firma Depurazione sono già impostati.</div></div><button class="ghost" data-close>CHIUDI</button></div><div class="cad-form"><label>Data<input id="cadDate" type="date" value="${E(record?.date||today())}"></label><div class="cad-fixed"><strong>Impianto di depurazione c/o stabilimento Granarolo – Cadriano (BO)</strong><span>Richiedente intervento: ZEROUAL WASSIM</span></div></div><div class="cad-table-wrap"><table class="cad-table"><thead><tr><th>Cod.</th><th>Testo breve</th><th>Testo esteso</th><th>U.M.</th><th>Quantità</th><th>Prezzo</th><th>Ribasso</th><th>Prezzo netto</th><th>Importo</th></tr></thead><tbody>${lines.map((row,index)=>`<tr data-index="${index}"><td>${E(row.code)}</td><td>${E(row.short)}</td><td class="cad-description">${E(row.description)}</td><td>${E(row.unit)}</td><td><input class="cad-quantity" type="number" min="0" step="0.01" value="${E(row.quantity)}"></td><td>${money(row.price)}</td><td>NO</td><td>${money(row.price)}</td><td data-amount>${N(row.quantity)>0?money(N(row.quantity)*N(row.price)):'—'}</td></tr>`).join('')}</tbody></table></div><div class="cad-total"><span>TOTALE INTERVENTO</span><span id="cadTotal">${money(total(lines))}</span></div><div class="cad-footer"><div id="cadInfo" class="muted">Il PDF definitivo verrà archiviato nella cartella ${type==='preventivo'?'Preventivi':'Contabilita'} della commessa.</div><div class="cad-actions"><button class="ghost" data-save>SALVA BOZZA</button><button class="primary" data-complete>COMPLETA, CREA PDF E ARCHIVIA SU DRIVE</button></div></div></div>`;
+  modal.innerHTML=`<div class="cad-dialog"><div class="cad-head"><div><h1>${record?'Modifica':'Nuovo'} ${E(typeLabel(type).toLowerCase())} Hera Cadriano</h1><div class="muted">Il modello, le voci, i prezzi e la firma Depurazione sono già impostati.</div></div><button class="ghost" data-close>CHIUDI</button></div><div class="cad-form"><label>Data<input id="cadDate" type="date" value="${E(record?.date||today())}"></label><label>Richiedente intervento<input id="cadRequester" type="text" value="${E(record?.requester||'ZEROUAL WASSIM')}" placeholder="Nome del richiedente" required></label><div class="cad-fixed"><strong>Impianto di depurazione c/o stabilimento Granarolo – Cadriano (BO)</strong><span>Il richiedente può essere modificato manualmente.</span></div></div><div class="cad-table-actions"><button class="ghost" type="button" data-cad-add-row>+ AGGIUNGI RIGA MANUALE</button></div><div class="cad-table-wrap"><table class="cad-table"><thead><tr><th>Cod.</th><th>Testo breve</th><th>Testo esteso</th><th>U.M.</th><th>Quantità</th><th>Prezzo</th><th>Ribasso</th><th>Prezzo netto</th><th>Importo</th><th>Azioni</th></tr></thead><tbody></tbody></table></div><div class="cad-total"><span>TOTALE INTERVENTO</span><span id="cadTotal">${money(total(lines))}</span></div><div class="cad-footer"><div id="cadInfo" class="muted">Il PDF definitivo verrà archiviato nella cartella ${type==='preventivo'?'Preventivi':'Contabilita'} della commessa.</div><div class="cad-actions"><button class="ghost" data-save>SALVA BOZZA</button><button class="primary" data-complete>COMPLETA, CREA PDF E ARCHIVIA SU DRIVE</button></div></div></div>`;
   document.body.appendChild(modal);
   modal.querySelector('[data-close]').onclick=()=>modal.remove();
-  modal.querySelectorAll('tbody tr').forEach(tr=>{tr.querySelector('.cad-quantity').oninput=event=>{const row=lines[Number(tr.dataset.index)];row.quantity=event.target.value;tr.querySelector('[data-amount]').textContent=N(row.quantity)>0?money(N(row.quantity)*N(row.price)):'—';modal.querySelector('#cadTotal').textContent=money(total(lines))}});
+  renderEditorRows(modal);
+  modal.querySelector('[data-cad-add-row]').onclick=()=>{lines.push({id:uid(),manual:true,code:'',short:'',description:'',unit:'',quantity:'',price:''});renderEditorRows(modal);modal.querySelector('.cad-table-wrap').scrollTop=modal.querySelector('.cad-table-wrap').scrollHeight};
   modal.querySelector('[data-save]').onclick=()=>saveDraft(job,type,modal);
   modal.querySelector('[data-complete]').onclick=()=>complete(job,type,modal);
 }
@@ -89,9 +129,13 @@ function open(job,type,record=null){
 function store(job,type,modal,status,extra={}){
   const date=modal.querySelector('#cadDate')?.value||'';
   if(!date){alert('Inserisci la data.');return null}
+  const requester=String(modal.querySelector('#cadRequester')?.value||'').trim();
+  if(!requester){alert('Inserisci il richiedente intervento.');return null}
+  const incompleteManual=lines.find(row=>row.manual&&N(row.quantity)>0&&!String(row.short||row.description||'').trim());
+  if(incompleteManual){alert('Per ogni riga manuale inserisci almeno il testo breve o la descrizione.');return null}
   const rows=selected(lines).map(row=>({...row,amount:N(row.quantity)*N(row.price)}));
   if(!rows.length){alert('Inserisci almeno una quantità.');return null}
-  const record={...(editing||{}),id:editing?.id||uid(),jobId:job.id,jobCode:job.code||JOB_CODE,jobName:job.title||'Hera Cadriano',job:{id:job.id,title:job.title||'Hera Cadriano',code:job.code||JOB_CODE},type,date,plantName:'Impianto di depurazione c/o stabilimento Granarolo – Cadriano (BO)',comune:'CADRIANO',requester:'ZEROUAL WASSIM',rows,total:rows.reduce((sum,row)=>sum+row.amount,0),status,createdAt:editing?.createdAt||new Date().toISOString(),updatedAt:new Date().toISOString(),...extra};
+  const record={...(editing||{}),id:editing?.id||uid(),jobId:job.id,jobCode:job.code||JOB_CODE,jobName:job.title||'Hera Cadriano',job:{id:job.id,title:job.title||'Hera Cadriano',code:job.code||JOB_CODE},type,date,plantName:'Impianto di depurazione c/o stabilimento Granarolo – Cadriano (BO)',comune:'CADRIANO',requester,rows,total:rows.reduce((sum,row)=>sum+row.amount,0),status,createdAt:editing?.createdAt||new Date().toISOString(),updatedAt:new Date().toISOString(),...extra};
   const index=records().findIndex(row=>row.id===record.id);if(index>=0)records()[index]=record;else records().push(record);editing=record;save();return record;
 }
 
@@ -109,7 +153,7 @@ function safePdf(value){return String(value??'').replace(/[–—]/g,'-').replac
 function wrap(font,text,size,width){const words=safePdf(text).replace(/\s+/g,' ').trim().split(' '),result=[];let line='';for(const word of words){const next=line?`${line} ${word}`:word;if(font.widthOfTextAtSize(next,size)<=width)line=next;else{if(line)result.push(line);line=word}}if(line)result.push(line);return result}
 
 async function makePdf(record){
-  const {PDFDocument,StandardFonts,rgb}=await pdfLib(),pdf=await PDFDocument.create(),font=await pdf.embedFont(StandardFonts.Helvetica),bold=await pdf.embedFont(StandardFonts.HelveticaBold),page=pdf.addPage([841.92,595.32]);
+  const {PDFDocument,StandardFonts,rgb}=await pdfLib(),pdf=await PDFDocument.create(),font=await pdf.embedFont(StandardFonts.Helvetica),bold=await pdf.embedFont(StandardFonts.HelveticaBold);let page=pdf.addPage([841.92,595.32]);
   const yellow=rgb(1,1,0),white=rgb(1,1,1),black=rgb(0,0,0),pale=rgb(.96,.96,.96),margin=24,width=793.92;
   const text=(value,x,y,size=5.2,face=font)=>page.drawText(safePdf(value),{x,y,size,font:face,color:black});
   const rect=(x,y,w,h,fill=white)=>page.drawRectangle({x,y,width:w,height:h,color:fill,borderColor:black,borderWidth:.65});
@@ -123,13 +167,26 @@ async function makePdf(record){
   rect(margin,505,width,18);text(record.type==='preventivo'?`OFF. 26-AM del ${displayDate(record.date)}`:`CONSUNTIVO SU OFF. 26-AM del ${displayDate(record.date)}`,margin+2,512,5.3,bold);text("VALIDITA':",margin+250,512,5,bold);text('TIPOLOGIA:',margin+470,512,5,bold);
   rect(margin,487,width,18);text('NOME IMPIANTO:',margin+2,494,5,bold);text(record.plantName,margin+168,494,5.2);text('COMUNE:',margin+530,494,5,bold);text('CADRIANO',margin+575,494,5.2);text('ODL:',margin+690,494,5,bold);
   rect(margin,469,width,18);text('DESCRIZIONE INTERVENTO:',margin+2,476,5,bold);text(typeLabel(record.type)+' manutenzione del verde',margin+168,476,5.2);
-  rect(margin,448,width,21);text('RICHIEDENTE INTERVENTO:',margin+2,456,5,bold);text('ZEROUAL WASSIM',margin+168,456,5.2);
+  rect(margin,448,width,21);text('RICHIEDENTE INTERVENTO:',margin+2,456,5,bold);cellText(record.requester||'ZEROUAL WASSIM',margin+166,448,355,21,5.2,font,2);
   rect(margin,427,width,21);text('DATA RICHIESTA',margin+2,435,5,bold);text(displayDate(record.date),margin+105,435,5.2);text('DATA INIZIO LAVORI',margin+355,435,5,bold);text(record.type==='consuntivo'?displayDate(record.date):'',margin+455,435,5.2);text('DATA FINE LAVORI',margin+590,435,5,bold);text(record.type==='consuntivo'?displayDate(record.date):'',margin+690,435,5.2);
   rect(margin+497,410,182,17,yellow);center('TOTALE INTERVENTO',margin+497,416,110,5,bold);right(euro(record.total),margin+607,416,72,5,bold);
   const widths=[75,103,188,40,46,55,35,50,72,60,69],headers=['Cod. Prest. Est.','Testo breve','TESTO ESTESO','U.M.','Quantita','Prezzo Capitolato','% Ribasso','Ribasso Si/No','Prezzo NETTO','IMPORTO','NOTE / ATTIVITA'];let y=375,x=margin;
   headers.forEach((header,index)=>{rect(x,y,widths[index],35,yellow);cellText(header,x,y,widths[index],35,4.2,bold,5);x+=widths[index]});
-  const saved=new Map(record.rows.map(row=>[row.code,row]));
+  const saved=new Map(record.rows.filter(row=>!row.manual).map(row=>[row.code,row]));
   for(const source of CATALOG){const row=saved.get(source.code),height=58;y-=height;x=margin;const values=[source.code,source.short,source.description,source.unit,row?String(row.quantity):'',euro(source.price),'','NO',euro(source.price),row?euro(row.amount):'',''];values.forEach((value,index)=>{rect(x,y,widths[index],height,index===0||index===4?yellow:pale);if([0,3,4,5,6,7,8,9].includes(index))center(value,x,y+25,widths[index],4.3,index===0?bold:font);else cellText(value,x,y,widths[index],height,index===2?3.8:4.1,index===1?bold:font,index===2?10:8);x+=widths[index]})}
+  const manualRows=record.rows.filter(row=>row.manual);
+  for(let offset=0;offset<manualRows.length;offset+=8){
+    page=pdf.addPage([841.92,595.32]);
+    rect(margin,574,width,11,yellow);center(`${typeLabel(record.type).toUpperCase()} HERA CADRIANO - RIGHE MANUALI ${Math.floor(offset/8)+1}`,margin,577,width,5,bold);
+    text('RICHIEDENTE:',margin,552,5,bold);cellText(record.requester||'ZEROUAL WASSIM',margin+78,545,360,16,5.2,font,2);text('DATA:',margin+610,552,5,bold);text(displayDate(record.date),margin+650,552,5.2);
+    y=500;x=margin;
+    headers.forEach((header,index)=>{rect(x,y,widths[index],35,yellow);cellText(header,x,y,widths[index],35,4.2,bold,5);x+=widths[index]});
+    for(const row of manualRows.slice(offset,offset+8)){
+      const height=55;y-=height;x=margin;
+      const values=[row.code,row.short,row.description,row.unit,String(row.quantity),euro(row.price),'','NO',euro(row.price),euro(row.amount),'Riga manuale'];
+      values.forEach((value,index)=>{rect(x,y,widths[index],height,index===0||index===4?yellow:pale);if([0,3,4,5,6,7,8,9].includes(index))center(value,x,y+23,widths[index],4.3,index===0?bold:font);else cellText(value,x,y,widths[index],height,index===2?3.8:4.1,index===1?bold:font,index===2?9:7);x+=widths[index]});
+    }
+  }
   pdf.setTitle(`${typeLabel(record.type)} Hera Cadriano - ${displayDate(record.date)}`);return new Blob([await pdf.save()],{type:'application/pdf'});
 }
 
