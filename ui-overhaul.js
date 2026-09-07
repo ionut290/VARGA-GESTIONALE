@@ -56,6 +56,7 @@ function ensureSignatureAssetsView(){
     view.innerHTML='<div class="topline"><div><h1>Firma e timbro personali</h1><p class="subtitle">Crea le immagini da una fotografia e usale nei tuoi preventivi e consuntivi.</p></div></div><div class="panel" id="userDocumentAssetsPanel"></div>';
     const company=$('azienda');if(company)company.before(view);else main.appendChild(view);
   }
+  button.classList.remove('vg-hidden-nav');
   button.onclick=()=>{if(typeof nav==='function')nav('firmaTimbro')};
   window.VargaUserDocumentAssets?.refresh?.();
 }
