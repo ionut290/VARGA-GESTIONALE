@@ -164,7 +164,9 @@ function bindWorkspace(){
   document.querySelectorAll('[data-open-request]').forEach(row=>{const open=()=>{if(typeof window.VargaOpenRequest==='function')window.VargaOpenRequest(row.dataset.openRequest);else openModule('richieste')};row.onclick=open;row.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();open()}}});
   const driveHost=document.querySelector('[data-vg-drive-manager]');if(driveHost&&window.VargaDriveManager)window.VargaDriveManager.mount(driveHost,currentJob());
   document.querySelectorAll('[data-accounting-block]').forEach(block=>{let filter='all';const search=block.querySelector('.vg-account-search'),buttons=[...block.querySelectorAll('[data-account-filter]')],apply=()=>{const q=N(search?.value),rows=[...block.querySelectorAll('tbody tr')];let visible=0;rows.forEach(row=>{const show=(filter==='all'||row.dataset.accountState===filter)&&(!q||N(row.dataset.accountSearch).includes(q));row.hidden=!show;if(show)visible++});const none=block.querySelector('.vg-account-no-results');if(none)none.hidden=visible>0};if(search)search.oninput=apply;buttons.forEach(button=>button.onclick=()=>{filter=button.dataset.accountFilter;buttons.forEach(x=>x.classList.toggle('active',x===button));apply()})});
-  if(activeTab==='economics')window.VargaJobEconomics?.bind(currentJob(),renderWorkspace);
+  // All panes already exist in the DOM. Tab clicks only change visibility,
+  // so bind the forms now, including when the initial tab is the overview.
+  if(currentJob())window.VargaJobEconomics?.bind(currentJob(),renderWorkspace);
 }
 
 function renderJobCards(){
