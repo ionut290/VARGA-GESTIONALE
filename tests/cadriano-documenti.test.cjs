@@ -36,3 +36,22 @@ test('documenti Cadriano sono persistiti e sincronizzati come sezione autonoma',
   assert.ok(app.indexOf('assets/cadriano-catalog.js')<app.indexOf('cadriano-documenti.js'));
   assert.ok(app.indexOf('depurazione-consuntivi.js')<app.indexOf('cadriano-documenti.js'));
 });
+
+test('note standard e manuali sopravvivono alla riapertura e vengono scritte nel PDF',async()=>{
+  const drawn=[];let pages=0;
+  const font={widthOfTextAtSize:(s,size)=>s.length*size/2};
+  const pdf={embedFont:async()=>font,addPage(){pages++;return{drawText:s=>drawn.push(s),drawRectangle(){}}},setTitle(){},save:async()=>new Uint8Array()};
+  const context={window:{PDFLib:{PDFDocument:{create:async()=>pdf},StandardFonts:{},rgb(){}}},Blob,crypto:require('node:crypto').webcrypto};vm.createContext(context);
+  vm.runInContext(fs.readFileSync(path.join(root,'assets/cadriano-catalog.js'),'utf8'),context);
+  let code=fs.readFileSync(path.join(root,'cadriano-documenti.js'),'utf8');
+  code=code.slice(0,code.indexOf('addStyle();new MutationObserver'))+'window.api={editableLines,makePdf,rowMarkup};})();';
+  vm.runInContext(code,context);
+  const record={type:'consuntivo',date:'2026-09-08',description:'Taglio siepe lato ingresso',rows:[{code:'A1',quantity:1,amount:700,notes:'Raccolta completata'},{id:'extra',manual:true,code:'X1',quantity:1,price:20,amount:20,notes:'Trasporto incluso'}],total:720};
+  const restored=context.window.api.editableLines(record);
+  assert.equal(restored[0].notes,'Raccolta completata');assert.equal(restored.at(-1).notes,'Trasporto incluso');
+  assert.match(context.window.api.rowMarkup(restored[0],0),/cad-notes/);
+  await context.window.api.makePdf(record);
+  assert.ok(drawn.includes(record.description));assert.ok(drawn.includes('Raccolta completata'));assert.ok(drawn.includes('Trasporto incluso'));
+  record.rows[0].notes='Intervento dettagliato '.repeat(100)+'ULTIMA NOTA';drawn.length=0;pages=0;
+  await context.window.api.makePdf(record);assert.ok(pages>=3);assert.ok(drawn.some(s=>s.includes('ULTIMA NOTA')));
+});
