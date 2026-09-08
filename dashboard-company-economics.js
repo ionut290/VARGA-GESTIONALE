@@ -27,7 +27,7 @@ root.VargaCompanyEconomics={aggregate,pendingMapRows,barPercent,buildWorkbook:(r
 if(typeof document==='undefined')return;
 let snapshot=null,pending=false,year=new Date().getFullYear(),lastHtml='';
 function businessDay(){const d=new Date();if(d.getHours()<7)d.setDate(d.getDate()-1);return d.toLocaleDateString('sv-SE')}
-function build(){const data=typeof db!=='undefined'?db:{};const hours=typeof root.VargaWorkforceHours==='function'?root.VargaWorkforceHours():list(data.vcOre);snapshot={results:{},refs:[data.jobs,data.vcOre,data.vcRecords,data.economicEntries],day:businessDay(),at:new Date(),jobs:list(data.jobs).map(j=>({...j})),hours,entries:list(data.economicEntries).map(e=>({...e}))};}
+function build(){root.VargaJobEconomics?.cleanupPrematureQuoteEntries?.();const data=typeof db!=='undefined'?db:{};const hours=typeof root.VargaWorkforceHours==='function'?root.VargaWorkforceHours():list(data.vcOre);snapshot={results:{},refs:[data.jobs,data.vcOre,data.vcRecords,data.economicEntries],day:businessDay(),at:new Date(),jobs:list(data.jobs).map(j=>({...j})),hours,entries:list(data.economicEntries).map(e=>({...e}))};}
 function comparison(rows){
  const ordered=list(rows).slice().sort((a,b)=>(b.cost+b.income)-(a.cost+a.income));
  const maximum=Math.max(1,...ordered.flatMap(g=>[number(g.cost),number(g.income)]));
