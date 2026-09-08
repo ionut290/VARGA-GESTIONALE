@@ -57,6 +57,22 @@ test('rimuove una vecchia entrata preventivo creata prima dell accettazione',()=
   assert.equal(c.db.economicEntries.length,0);
 });
 
+test('riconosce e rimuove i preventivi legacy per numero anche con identificativo diverso',()=>{
+  const c=load(),api=c.VargaJobEconomics,job=c.db.jobs[0];
+  c.db.quotes.push({id:'quote-new-id',jobId:job.id,number:'2-VG',subject:'Rivestimento ligneo',total:12967.26,status:'Inviato'});
+  api.registerDocument({jobId:job.id,type:'Preventivo',sourceId:'legacy-random-id',title:'2-VG — Rimozione e sostituzione del rivestimento ligneo',amount:12967.26,status:api.PENDING},{persist:false});
+  assert.equal(api.cleanupPrematureQuoteEntries({persist:false}),1);
+  assert.equal(c.db.economicEntries.length,0);
+});
+
+test('la pulizia legacy conserva un preventivo realmente accettato',()=>{
+  const c=load(),api=c.VargaJobEconomics,job=c.db.jobs[0];
+  c.db.quotes.push({id:'quote-accepted',jobId:job.id,number:'3-VG',status:'Accettato'});
+  api.registerDocument({jobId:job.id,type:'Preventivo',sourceId:'legacy-id',title:'3-VG — Lavorazione accettata',amount:30649.89,status:api.PENDING},{persist:false});
+  assert.equal(api.cleanupPrematureQuoteEntries({persist:false}),0);
+  assert.equal(c.db.economicEntries.length,1);
+});
+
 test('la UI impone il percorso Creato, Inviato, Accettato e registra solo all accettazione',()=>{
   const source=fs.readFileSync(path.join(__dirname,'..','job-workspace.js'),'utf8');
   assert.match(source,/Creato → Inviato → Accettato → In attesa conferma MAP/);
