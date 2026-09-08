@@ -36,6 +36,34 @@ test('lo stesso documento aggiorna una sola entrata',()=>{
   assert.equal(c.db.economicEntries[0].amount,125);
 });
 
+test('il preventivo entra nei conteggi solo dopo essere stato accettato',()=>{
+  const c=load(),api=c.VargaJobEconomics,job=c.db.jobs[0];
+  c.db.quotes.push({id:'q1',jobId:job.id,number:'PREV-1',subject:'Sfalcio',total:500,status:'Inviato',sentAt:'2026-09-01'});
+  api.reconcile(job);
+  assert.equal(c.db.economicEntries.length,0);
+  c.db.quotes[0].status='Accettato';
+  c.db.quotes[0].acceptedAt='2026-09-02';
+  api.reconcile(job);
+  assert.equal(c.db.economicEntries.length,1);
+  assert.equal(c.db.economicEntries[0].status,api.PENDING);
+  assert.equal(api.calculate(job).pending,500);
+});
+
+test('rimuove una vecchia entrata preventivo creata prima dell accettazione',()=>{
+  const c=load(),api=c.VargaJobEconomics,job=c.db.jobs[0];
+  c.db.quotes.push({id:'q-old',jobId:job.id,total:250,status:'Inviato'});
+  api.registerDocument({jobId:job.id,type:'Preventivo',sourceId:'q-old',amount:250,status:api.PENDING},{persist:false});
+  api.reconcile(job);
+  assert.equal(c.db.economicEntries.length,0);
+});
+
+test('la UI impone il percorso Creato, Inviato, Accettato e registra solo all accettazione',()=>{
+  const source=fs.readFileSync(path.join(__dirname,'..','job-workspace.js'),'utf8');
+  assert.match(source,/Creato → Inviato → Accettato → In attesa conferma MAP/);
+  assert.match(source,/if\(status==='Accettato'\)window\.VargaJobEconomics\?\.registerDocument/);
+  assert.doesNotMatch(source,/if\(status==='Inviato'\)window\.VargaJobEconomics\?\.registerDocument/);
+});
+
 test('il consuntivo di un singolo impianto non crea un entrata',()=>{
   const c=load(),api=c.VargaJobEconomics;
   c.db.depurazioneConsuntivi.push({id:'dep-1',jobId:'job-1',jobName:'Hera Cadriano',plantName:'Impianto 1',date:'2026-09-03',total:450,status:'Completato'});
