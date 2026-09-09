@@ -2,7 +2,7 @@
 (function(){
 'use strict';
 const P=window.VGPriceCatalog,KEY='vg_activePriceListId_v3',LIMIT=500;
-let draft=null,ready=false,busy=false,hydrated=false;
+let draft=null,ready=false,busy=false,hydrated=false,sharingTask=null;
 const $=id=>document.getElementById(id),txt=v=>String(v??'').trim();
 const norm=v=>txt(v).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
 const safe=v=>typeof esc==='function'?esc(String(v??'')):String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -26,10 +26,27 @@ function column(headers,key){const hs=headers.map(norm),names=aliases[key].map(n
 function mapping(headers){return{code:column(headers,'code'),description:column(headers,'description'),unit:column(headers,'unit'),price:column(headers,'price'),discount:column(headers,'discount')}}
 function header(matrix){for(let i=0;i<Math.min(matrix.length,50);i++){const map=mapping(matrix[i]||[]);if(map.description>=0&&map.price>=0)return{i,map}}throw new Error('Non trovo le colonne DESCRIZIONE e PREZZO UNITARIO.')}
 async function read(file,mode,targetId){if(typeof XLSX==='undefined')throw new Error('Modulo Excel non disponibile. Ricarica la pagina con Internet attivo.');const wb=XLSX.read(await file.arrayBuffer(),{type:'array'}),sheetName=wb.SheetNames.find(n=>norm(n)==='prezziario')||wb.SheetNames[0];if(!sheetName)throw new Error('Il file non contiene fogli leggibili.');const matrix=XLSX.utils.sheet_to_json(wb.Sheets[sheetName],{header:1,defval:'',raw:true}),h=header(matrix),rows=[];matrix.slice(h.i+1).forEach((r,i)=>{const description=txt(r[h.map.description]);if(!description)return;rows.push({id:uid(),code:(h.map.code>=0?txt(r[h.map.code]):'')||`VOCE-${i+1}`,description,unit:h.map.unit>=0?(txt(r[h.map.unit])||'cad'):'cad',price:number(r[h.map.price]),discount:h.map.discount>=0?number(r[h.map.discount]):0})});if(!rows.length)throw new Error('Non ho trovato voci valide nel file.');return{mode,targetId:targetId||'',fileName:file.name,sheetName,name:file.name.replace(/\.(xlsx|xls|csv)$/i,'').replace(/[_-]+/g,' ').replace(/\s+/g,' ').trim(),rows}}
-function controls(){document.querySelectorAll('#prezzari button,#prezzari input[type=file]').forEach(b=>{b.disabled=busy||!hydrated});const el=$('plSaveStatus');if(el){const status=window.VGPriceSaveStatus;el.textContent=status?.message||'Caricamento archivio prezziari…';el.dataset.error=String(!!status?.error)}}
+function controls(){document.querySelectorAll('#prezzari button,#prezzari input[type=file]').forEach(b=>{b.disabled=busy||!hydrated||(b.id==='plRetryCloud'&&!!sharingTask)});const retry=$('plRetryCloud');if(retry){retry.textContent=sharingTask?'CONDIVISIONE IN CORSO…':'RIPROVA CONDIVISIONE';retry.setAttribute('aria-busy',String(!!sharingTask))}const el=$('plSaveStatus');if(el){const status=window.VGPriceSaveStatus;el.textContent=status?.message||'Caricamento archivio prezziari…';el.dataset.error=String(!!status?.error)}}
 function progress(percent,message,error=false){$('plImport').innerHTML=`<div class="panel pl-import ${error?'pl-error':percent===100?'pl-success':''}"><h2>${error?'Caricamento non riuscito':percent===100?'Prezziario salvato sul dispositivo':'Caricamento del prezziario…'}</h2><div class="pl-progress" role="progressbar" aria-valuenow="${percent}" aria-valuemin="0" aria-valuemax="100"><div class="pl-progress-bar" style="width:${percent}%"></div></div><div class="pl-progress-text">${safe(message)}</div></div>`}
 function renderImport(){const box=$('plImport');if(!box)return;if(!draft){box.innerHTML='';return}const target=db.priceLists.find(p=>p.id===draft.targetId),isNew=draft.mode==='new';box.innerHTML=`<div class="panel pl-import"><h2>${isNew?'Nuovo prezziario pronto':`Aggiorna “${safe(target?.name||'')}”`}</h2><div class="pl-import-grid">${isNew?`<label>NOME DEL PREZZARIO<input id="plDraftName" value="${safe(draft.name)}"></label>`:`<div><strong>Destinazione:</strong> ${safe(target?.name||'')}</div>`}<button id="plConfirm" class="primary">${isNew?'SALVA PREZZIARIO':'SOSTITUISCI LE VOCI'}</button></div><p class="muted">File: <strong>${safe(draft.fileName)}</strong> · Foglio: <strong>${safe(draft.sheetName)}</strong> · <strong>${draft.rows.length} voci valide</strong></p><div class="pl-preview"><table class="pl-table"><thead><tr><th>CODICE</th><th>DESCRIZIONE</th><th>U.M.</th><th>PREZZO UNITARIO</th><th>RIBASSO %</th></tr></thead><tbody>${draft.rows.slice(0,8).map(r=>`<tr><td>${safe(r.code)}</td><td>${safe(r.description)}</td><td>${safe(r.unit)}</td><td>${fixed(r.price)}</td><td>${fixed(r.discount)}</td></tr>`).join('')}</tbody></table></div><div class="actions left"><button id="plCancel" class="ghost">ANNULLA</button></div></div>`;$('plCancel').onclick=()=>{draft=null;renderImport()};$('plConfirm').onclick=confirmImport;controls()}
-async function share(){if(typeof cloudUser==='undefined'||!cloudUser){P.notify('Salvato sul dispositivo — accedi al cloud per condividere.');return {ok:false}}if(typeof pushCloudNow!=='function')return {ok:false};return pushCloudNow(true)}
+function share(){
+ if(sharingTask)return sharingTask;
+ P.notify('Tentativo avviato: verifica della condivisione…');
+ let waitTimer;
+ sharingTask=Promise.resolve().then(async()=>{
+  // Give immediate feedback even when an action resolves {ok:false} rather
+  // than rejecting; previously this outcome was silently discarded.
+  if(typeof window.retryPriceCatalog!=='function')throw Error('Modulo condivisione non caricato. Premi Ctrl + F5 senza cancellare i dati del browser.');
+  waitTimer=setTimeout(()=>P.notify('Il cloud non ha ancora confermato il tentativo. È ancora in corso: non avviare altri invii. La copia locale resta disponibile.'),20000);
+  const result=await window.retryPriceCatalog();
+  if(!result?.ok){const message=result?.error||'Condivisione non confermata.';P.notify(/copia locale/i.test(message)?message:message+' Copia locale conservata.',true)}
+  else if(result.pending)P.notify('La versione inviata è confermata; restano modifiche locali successive da condividere.');
+  else if(result.message)P.notify(result.message);
+  return result;
+ }).catch(error=>{P.notify(error.message||'Condivisione non riuscita. Copia locale conservata.',true);return {ok:false,error:error.message}})
+ .finally(()=>{clearTimeout(waitTimer);sharingTask=null;controls()});
+ controls();return sharingTask;
+}
 async function confirmImport(){
  if(!draft||busy)return;const importedDraft=draft,isNew=draft.mode==='new',name=isNew?txt($('plDraftName')?.value):'';
  if(isNew&&!name)return alert('Inserisci il nome del prezziario.');busy=true;controls();

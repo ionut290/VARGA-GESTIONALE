@@ -51,6 +51,7 @@ function commit(catalog,options={}){
  const frozen=clone(validate(catalog));activeWrites++;
  const task=tail.catch(()=>{}).then(async()=>{
   await ready;if(workspace()!==scope)throw Error('Workspace cambiato. Ricarica il Gestionale prima di salvare.');
+  if(options.expectedRevision!=null&&record.revision!==options.expectedRevision)throw Object.assign(Error('I prezziari locali sono cambiati durante la verifica. Riprova condivisione: nessuna modifica sostituita.'),{code:'PREZZIARI_REVISIONE'});
   const mode=options.source||'local',candidate=mode==='ack'?clone(record.catalog):frozen,nextHash=hash(candidate),oldHash=hash(record.catalog);
   if(mode==='cloud'&&record.pending&&nextHash!==oldHash)throw Error('Esistono prezziari locali non condivisi: download sospeso per non sostituirli.');
   if(mode==='local'&&oldHash===nextHash){lastError=null;return clone(record)}
@@ -63,9 +64,9 @@ function commit(catalog,options={}){
   signal(pending?'Salvato sul dispositivo — condivisione cloud in attesa.':'Salvato sul dispositivo e sincronizzato nel cloud.');
   return clone(record);
  });
- tail=task;task.catch(error=>{lastError=error;signal('Prezziari: '+error.message,true)}).finally(()=>{activeWrites--});return task;
+ tail=task;task.catch(error=>{lastError=error.code==='PREZZIARI_REVISIONE'?null:error;signal('Prezziari: '+error.message,true)}).finally(()=>{activeWrites--});return task;
 }
-async function flush(){await ready;await tail;if(lastError)throw lastError;return clone(record)}
+async function flush(){await ready;await tail.catch(error=>{if(error.code!=='PREZZIARI_REVISIONE')throw error});if(lastError)throw lastError;return clone(record)}
 // app-core's delayed legacy hydration must not resurrect an older, larger array.
 readLargeEntries=async function(){await ready;return db.entries};
 storeLargeEntries=function(rows){return ready.then(()=>commit({priceLists:db.priceLists,entries:rows}))};

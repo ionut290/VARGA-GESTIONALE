@@ -1,0 +1,40 @@
+name: Verifica pulsante condivisione prezziari
+on:
+  pull_request:
+    paths:
+      - 'app-core.js'
+      - 'app.js'
+      - 'prezzari-*.js'
+      - 'cloud-incremental-sync.js'
+      - 'tests/**'
+      - '.github/workflows/prezzari-retry.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  retry:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v6
+      - name: Prepara test isolati
+        run: |
+          python3 -m venv .test-venv
+          .test-venv/bin/pip install playwright==1.57.0
+          .test-venv/bin/python -m playwright install --with-deps chromium
+      - name: Controlla sintassi
+        run: |
+          node --check app.js
+          node --check prezzari-persistence.js
+          node --check prezzari-excel-view.js
+          node --check cloud-incremental-sync.js
+          python3 -m py_compile tests/test_catalog_retry.py
+      - name: Prova click, errori, riapertura e conflitti su dati fittizi
+        run: .test-venv/bin/python tests/test_catalog_retry.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: prezzari-retry-results
+          path: |
+            tests/results.json
+            tests/prezzari-ui.png
