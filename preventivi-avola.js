@@ -163,63 +163,6 @@
     if(names.length>1)return `Riferimento economico: voci e prezzi unitari dei prezzari selezionati (${names.join(', ')}).`;
     return 'Riferimento economico: voci e prezzi unitari del prezzario riportati nella documentazione tecnica ricevuta.';
   }
-  function clientBlock(c){
-    const locality=[c?.cap,c?.city,c?.province].filter(Boolean).join(' '),lines=[c?.name,c?.address,locality,c?.vat?`P.IVA / C.F.: ${c.vat}`:'',c?.email,c?.pec?`PEC: ${c.pec}`:''].filter(Boolean);
-    return `<strong>Spett.le</strong><br>${lines.map(E).join('<br>')}`;
-  }
-  function embeddedImage(base64,fallback){
-    const value=String(base64||'').trim();
-    return value?`data:image/webp;base64,${value}`:fallback;
-  }
-  function buildPrintMarkup(q){
-    const d=q.date||dateIt(q.dateIso||todayIso());
-    const total=Number(q.subtotal??q.total??0);
-    return `<div class="avola-print-doc">
-      <img class="avola-letterhead" src="${SIDEBAR_IMG}?v=20260904-letterhead-v6" alt="Foglio intestato Avola">
-      <div class="avola-content">
-        <div class="avola-header-grid"><div class="avola-place">${E(q.place||DEFAULT_PLACE)}, il ${E(d)}</div><div class="avola-client">${clientBlock(q.client||{})}</div></div>
-        <div class="avola-offer-title">OFFERTA ${E(q.number||'')} del ${E(d)}</div>
-        <div class="avola-object"><strong>OGGETTO:</strong> ${E(q.subject||'')}</div>
-        <div class="avola-intro">${E(q.intro||DEFAULT_INTRO)}</div>
-        <table class="avola-table"><thead><tr><th>Codice</th><th>Descrizione</th><th>U.M.</th><th>Prezzo<br>unitario</th><th>Quantità</th><th>Importo</th></tr></thead><tbody>
-          ${(q.rows||[]).map(r=>`<tr><td>${E(r.code||'')}</td><td>${E(r.description||'')}</td><td>${E(unitText(r.unit))}</td><td>${money(r.price)}</td><td>${qtyFmt(r.qty)}</td><td><strong>${money(Number(r.qty||0)*Number(r.price||0))}</strong></td></tr>`).join('')}
-        </tbody></table>
-        <div class="avola-reference">${E(referenceText(q))}</div>
-        <div class="avola-bottom"><div class="avola-total"><strong>TOTALE OFFERTA (IVA ESCLUSA)</strong><div>${money(total)}</div><em>(oneri della sicurezza inclusi)</em></div></div>
-      </div>
-    </div>`;
-  }
-
-  function printDocumentHtml(q){
-    const base=E(new URL('.',location.href).href);
-    return `<!doctype html><html><head><meta charset="utf-8"><base href="${base}"><title>Offerta ${E(q.number||'')}</title><style>
-      @page{size:A4 portrait;margin:0}
-      *{box-sizing:border-box}
-      html,body{width:210mm;margin:0;padding:0;background:#fff;color:#000;font-family:Arial,Helvetica,sans-serif;-webkit-print-color-adjust:exact;print-color-adjust:exact}
-      .avola-print-doc{position:relative;width:210mm;min-height:297mm;background:#fff;font-size:10.2pt;line-height:1.18}
-      .avola-letterhead{position:absolute;left:0;top:0;width:48.5mm;height:297mm;object-fit:fill;display:block;z-index:0}
-      .avola-content{position:relative;z-index:1;margin-left:51mm;width:154mm;padding:25mm 4mm 16mm 0;min-height:297mm}
-      .avola-header-grid{display:grid;grid-template-columns:minmax(0,1fr) 57mm;gap:8mm;align-items:start;min-height:28mm}
-      .avola-place{padding-top:2mm;white-space:nowrap}.avola-client{font-size:9.6pt;line-height:1.2;overflow-wrap:anywhere}
-      .avola-offer-title{font-weight:800;font-size:11pt;margin:0 0 12mm;clear:both}
-      .avola-object{font-size:10.6pt;line-height:1.35;margin-bottom:3mm;overflow-wrap:anywhere}.avola-object strong{font-size:11pt}
-      .avola-intro{font-size:9.7pt;line-height:1.25;margin-bottom:12mm;white-space:pre-wrap;overflow-wrap:anywhere}
-      .avola-table{width:100%;border-collapse:collapse;table-layout:fixed;font-size:8.2pt;margin:0}
-      .avola-table thead{display:table-header-group}.avola-table tr{break-inside:avoid;page-break-inside:avoid}
-      .avola-table th{background:#006b3c;color:#fff;border:.25mm solid #9ba39f;text-align:center;padding:2.1mm 1.4mm;font-weight:700;line-height:1.15}
-      .avola-table td{border:.25mm solid #a6ada9;padding:2.2mm 1.5mm;vertical-align:middle;line-height:1.15;overflow-wrap:anywhere}
-      .avola-table th:nth-child(1),.avola-table td:nth-child(1){width:12%}.avola-table th:nth-child(2),.avola-table td:nth-child(2){width:40%}.avola-table th:nth-child(3),.avola-table td:nth-child(3){width:8%;text-align:center}.avola-table th:nth-child(4),.avola-table td:nth-child(4){width:14%;text-align:center}.avola-table th:nth-child(5),.avola-table td:nth-child(5){width:11%;text-align:center}.avola-table th:nth-child(6),.avola-table td:nth-child(6){width:15%;text-align:center}
-      .avola-reference{font-size:7.8pt;font-style:italic;margin-top:2mm;line-height:1.2;break-inside:avoid;page-break-inside:avoid}
-      .avola-bottom{display:block;margin-top:17mm;break-inside:avoid;page-break-inside:avoid;position:relative}
-      .avola-total{font-size:12pt;line-height:1.2;min-width:0}.avola-total>div{font-weight:800;font-size:12.5pt;margin-top:1mm}.avola-total em{font-size:8.7pt;font-weight:400}
-      @media screen{body{margin:0 auto}}
-    </style></head><body>${buildPrintMarkup(q)}<script>window.addEventListener('load',()=>setTimeout(()=>{window.focus();window.print()},150))<\/script></body></html>`;
-  }
-  function printQuoteObject(q){
-    const w=window.open('','_blank');
-    if(!w)return alert('Consenti i popup per aprire la stampa.');
-    w.document.open();w.document.write(printDocumentHtml(q));w.document.close();
-  }
   printCurrent=function(){if(!qrows.length)return alert('Inserisci almeno una voce.');return downloadEditablePdf(collectQ())};
 
   function loadExcelJs(){
@@ -244,28 +187,39 @@
   async function downloadEditablePdf(q,{flatten=false}={}){
     try{
       await loadPdfLib();
-      const {PDFDocument,StandardFonts,rgb,PDFName,PDFNumber,PDFHexString}=window.PDFLib,pdf=await PDFDocument.create(),font=await pdf.embedFont(StandardFonts.Helvetica),bold=await pdf.embedFont(StandardFonts.HelveticaBold),form=pdf.getForm();
-      const sidebarBytes=await fetch(`${SIDEBAR_IMG}?v=20260904-letterhead-v6`,{cache:'force-cache'}).then(r=>{if(!r.ok)throw new Error('Carta intestata non disponibile');return r.arrayBuffer()}),sidebar=await pdf.embedPng(sidebarBytes);
-      const W=595.28,H=841.89,left=151,green=rgb(0,.42,.24),gray=rgb(.42,.45,.44),black=rgb(0,0,0);
-      const addPage=()=>{const page=pdf.addPage([W,H]);page.drawImage(sidebar,{x:0,y:0,width:137,height:H});return page};
-      let page=addPage(),pageNo=1,y=767;
-      const text=(value,x,yy,size=9,usedFont=font,color=black)=>page.drawText(String(value??''),{x,y:yy,size,font:usedFont,color});
-      const field=(name,value,x,yy,width,height=16,size=9)=>{const f=form.createTextField(`${name}_${pageNo}`);f.setText(String(value??''));if(height>20)f.enableMultiline();f.addToPage(page,{x,y:yy,width,height,borderWidth:0,textColor:black,backgroundColor:rgb(1,1,1),font});f.setFontSize(size);return f};
-      const tableWidths=[67,153,42,58,47,63],tableHeader=()=>{const heads=['Codice','Descrizione','U.M.','Prezzo unit.','Quantità','Importo'];let x=left;heads.forEach((h,i)=>{page.drawRectangle({x,y:y-21,width:tableWidths[i],height:24,color:green});text(h,x+4,y-13,7,bold,rgb(1,1,1));x+=tableWidths[i]});y-=24};
-      const newPage=()=>{page=addPage();pageNo++;y=790;text(`OFFERTA ${q.number||''} del ${q.date||dateIt(q.dateIso)}`,left,y,8,bold,gray);y-=23;tableHeader()};
-      field('luogo',q.place||DEFAULT_PLACE,left,y,110);text(', il',263,y+3,9);field('data_offerta',q.date||dateIt(q.dateIso),282,y,78);text('Spett.le',410,y+4,8,bold);
-      field('cliente',q.client?.name||q.clientName||'',410,y-15,160);field('indirizzo_cliente',q.client?.address||'',410,y-31,160);field('localita_cliente',[q.client?.cap,q.client?.city,q.client?.province].filter(Boolean).join(' '),410,y-47,160);
-      y-=73;text('OFFERTA',left,y+4,10,bold);field('numero_offerta',q.number||'',202,y,100,18,10);text('del',308,y+4,10,bold);field('data_offerta_titolo',q.date||dateIt(q.dateIso),330,y,82,18,10);y-=35;
-      text('OGGETTO:',left,y+4,10,bold);field('oggetto',q.subject||'',213,y-18,357,38,9);y-=51;field('introduzione',q.intro||DEFAULT_INTRO,left,y-18,419,36,9);y-=61;tableHeader();
-      (q.rows||[]).forEach((row,index)=>{const height=Math.max(25,Math.ceil(String(row.description||'').length/28)*10+9);if(y-height<105)newPage();let x=left;tableWidths.forEach(w=>{page.drawRectangle({x,y:y-height,width:w,height,borderColor:rgb(.68,.7,.69),borderWidth:.5});x+=w});const starts=tableWidths.reduce((a,w,i)=>(a.push((a[i]||left)+w),a),[left]);field(`codice_riga_${index+1}`,row.code||'',starts[0]+3,y-height+5,tableWidths[0]-6,height-8,7);field(`descrizione_riga_${index+1}`,row.description||'',starts[1]+3,y-height+4,tableWidths[1]-6,height-7,7);field(`unita_riga_${index+1}`,unitText(row.unit),starts[2]+3,y-height+5,tableWidths[2]-6,height-8,7);field(`prezzo_riga_${index+1}`,money(row.price),starts[3]+3,y-height+5,tableWidths[3]-6,height-8,7);field(`quantita_riga_${index+1}`,row.qty||'',starts[4]+3,y-height+5,tableWidths[4]-6,height-8,7);field(`importo_riga_${index+1}`,money(Number(row.qty||0)*Number(row.price||0)),starts[5]+3,y-height+5,tableWidths[5]-6,height-8,7);y-=height});
-      if(y<125)newPage();y-=18;text(referenceText(q),left,y,7,font,gray);y-=37;text('TOTALE OFFERTA (IVA ESCLUSA)',350,y+3,9,bold);field('totale_offerta',money(q.subtotal??q.total??0),500,y,70,18,9);
-      await window.VargaUserDocumentAssets?.drawOnPdf(pdf,page,q.documentSeal,{preset:window.VARGA_DEPURAZIONE_STAMP_JPG||'',x:153,y:17,width:220,height:50});
-      if(!flatten){
-        const printButton=form.createButton('stampa_pdf_normale');printButton.addToPage('STAMPA / CREA PDF NORMALE',page,{x:390,y:20,width:180,height:24,font,borderWidth:0,backgroundColor:green,textColor:rgb(1,1,1)});
-        const widget=printButton.acroField.getWidgets()[0],action=pdf.context.register(pdf.context.obj({S:'JavaScript',JS:PDFHexString.fromText("this.print({bUI:true,bSilent:false,bShrinkToFit:true});")}));widget.dict.set(PDFName.of('A'),action);widget.dict.set(PDFName.of('F'),PDFNumber.of(0));
-      }
-      form.updateFieldAppearances(font);if(flatten)form.flatten();const bytes=await pdf.save(),blob=new Blob([bytes],{type:'application/pdf'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`Offerta-${safeFileName(q.number)}-${safeFileName(q.clientName||q.client?.name)}-${flatten?'normale':'compilabile'}.pdf`;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);
-    }catch(err){console.error(err);alert('Non riesco a creare il PDF compilabile. Ricarica la pagina e riprova.')}
+      if(!window.VargaAvolaLayout)throw new Error('Generatore Avola non caricato. Ricarica con Ctrl+F5.');
+      const template=db.company?.quoteAvolaTemplate||null;
+      const sidebarBytes=template?null:await fetch(`${SIDEBAR_IMG}?v=20260904-letterhead-v6`,{cache:'force-cache'}).then(r=>{if(!r.ok)throw new Error('Carta intestata non disponibile');return r.arrayBuffer()});
+      const result=await window.VargaAvolaLayout.build({...q,reference:q.reference||referenceText(q)},{
+        PDFLib:window.PDFLib,template,sidebarBytes,editable:!flatten,
+        drawSeal:async(pdf,page,area)=>{await window.VargaUserDocumentAssets?.drawOnPdf(pdf,page,q.documentSeal,{preset:window.VARGA_DEPURAZIONE_STAMP_JPG||'',...area})}
+      });
+      const blob=new Blob([result.bytes],{type:'application/pdf'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`Offerta-${safeFileName(q.number)}-${safeFileName(q.clientName||q.client?.name)}-${flatten?'normale':'compilabile'}.pdf`;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+      const message=document.getElementById('avQuoteTemplateInfo');
+      if(message)message.textContent=template?(result.warnings.length?'Modello originale applicato. Alcuni caratteri non incorporati nel modello usano un carattere sostitutivo.':'Modello originale applicato al PDF.'):'PDF generato con le misure del modello. Carica il modello Avola per usare anche carta intestata e caratteri originali.';
+      return result;
+    }catch(err){console.error(err);alert('Non riesco a creare il PDF: '+(err.message||err));return null}
+  }
+  function installQuoteTemplate(){
+    const anchor=$('qDocumentSeal');if(!anchor||$('avQuoteTemplate'))return;
+    const panel=document.createElement('div');panel.id='avQuoteTemplate';panel.className='panel';
+    panel.innerHTML='<strong>Modello preventivi Avola</strong><p id="avQuoteTemplateInfo" class="muted"></p><button id="avLoadQuoteTemplate" class="ghost" type="button">CARICA MODELLO AVOLA</button><input id="avQuoteTemplateFile" hidden type="file" accept=".json">';
+    anchor.insertAdjacentElement('afterend',panel);
+    const status=()=>{$('avQuoteTemplateInfo').textContent=db.company?.quoteAvolaTemplate?'Carta intestata e caratteri del modello originale attivi. Timbro e firma sono gestiti separatamente.':'Impaginazione Avola a cinque colonne. Per conservare anche carta intestata e caratteri originali, carica il file del modello pulito.'};status();
+    $('avLoadQuoteTemplate').onclick=()=>{$('avQuoteTemplateFile').value='';$('avQuoteTemplateFile').click()};
+    $('avQuoteTemplateFile').onchange=async event=>{
+      const f=event.target.files?.[0];if(!f)return;const button=$('avLoadQuoteTemplate');button.disabled=true;
+      try{
+        if(f.size>600000)throw Error('Il file del modello è troppo grande.');
+        const input=JSON.parse(await f.text());
+        if(input.type!=='varga-avola-template'||input.version!==1||typeof input.pdfBase64!=='string'||!input.pdfBase64.startsWith('JVBERi0'))throw Error('Seleziona il file Modello_Avola_Preventivi.json, non il backup del gestionale.');
+        for(const name of ['AR','AB','AI']){if(!input.metrics?.[name]||Object.entries(input.metrics[name]).some(([ch,v])=>ch.length>2||!Array.isArray(v)||v.length!==2||!Number.isInteger(v[0])||v[0]<0||v[0]>65535||!Number.isFinite(v[1])||v[1]<0||v[1]>5000))throw Error('Metriche del modello non valide.')}
+        await loadPdfLib();const pdf=await PDFLib.PDFDocument.load(input.pdfBase64,{updateMetadata:false});
+        if(pdf.getPageCount()!==1||Math.abs(pdf.getPage(0).getWidth()-595.27559)>0.1||Math.abs(pdf.getPage(0).getHeight()-841.88976)>0.1||pdf.getForm().getFields().length)throw Error('Il modello deve essere una carta intestata A4 pulita, non un preventivo compilato.');
+        const next={...db.company,quoteAvolaTemplate:{type:input.type,version:1,name:'Modello Avola',pdfBase64:input.pdfBase64,metrics:input.metrics}};
+        S.set('vg_company',next);db.company=next;queueCloudPush();status();
+      }catch(error){alert(error.message||'Modello non valido.')}finally{button.disabled=false}
+    };
   }
   function excelRowHeight(text,charsPerLine=42,min=18,lineHeight=14){
     const lines=String(text||'').split(/\r?\n/).reduce((sum,line)=>sum+Math.max(1,Math.ceil(line.length/charsPerLine)),0);
@@ -360,7 +314,7 @@
   }
 
   function install(){
-    installStyles();enhanceForm();addCurrentExcelButton();addCurrentNormalPdfButton();
+    installStyles();enhanceForm();installQuoteTemplate();addCurrentExcelButton();addCurrentNormalPdfButton();
     if($('smartSearch'))$('smartSearch').onclick=runPriceSearch;
     if($('newQuote'))$('newQuote').onclick=clearQuote;
     if($('saveQuote'))$('saveQuote').onclick=async()=>{if(!qrows.length)return alert('Inserisci almeno una voce.');const q=collectQ();let saved=q;if(editingQuoteId){const index=(db.quotes||[]).findIndex(x=>x.id===editingQuoteId);if(index>=0){const old=db.quotes[index];saved=db.quotes[index]={...old,...q,id:editingQuoteId,jobId:old.jobId||'',status:old.status||'Bozza',statusChangedAt:old.statusChangedAt||q.statusChangedAt,statusHistory:Array.isArray(old.statusHistory)&&old.statusHistory.length?old.statusHistory:q.statusHistory,scheduledDate:old.scheduledDate||''}}}else{db.quotes.push(saved)}save();const job=(db.jobs||[]).find(x=>x.id===saved.jobId)||{id:'preventivi-generali',title:'Preventivi generali'};try{await window.VargaDriveLifecycle?.saveDraft(saved,job,'Preventivo');save();alert('Preventivo salvato anche nella cartella BOZZE di Drive.')}catch(e){alert('Preventivo salvato nel Gestionale, ma Drive non ha risposto: '+(e.message||e))}clearQuote()};
@@ -369,7 +323,7 @@
     if($('qDiscount'))$('qDiscount').oninput=calcQ;
     const oldRefresh=typeof refresh==='function'?refresh:null;
     if(oldRefresh&&!oldRefresh.__avolaPreventivi){
-      refresh=function(){const r=oldRefresh();enhanceForm();addCurrentExcelButton();addCurrentNormalPdfButton();renderPriceListPicker(false);updateClientPreview();addSavedQuotePdfButtons();return r};
+      refresh=function(){const r=oldRefresh();enhanceForm();installQuoteTemplate();addCurrentExcelButton();addCurrentNormalPdfButton();renderPriceListPicker(false);updateClientPreview();addSavedQuotePdfButtons();return r};
       refresh.__avolaPreventivi=true;
     }
     addSavedQuotePdfButtons();calcQ();

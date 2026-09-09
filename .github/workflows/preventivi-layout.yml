@@ -4,6 +4,7 @@ on:
     paths:
       - 'preventivi-*.js'
       - 'app.js'
+      - 'app-business.js'
       - 'tests/quote-*'
       - '.github/workflows/preventivi-layout.yml'
 permissions:
@@ -14,22 +15,25 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v6
-      - name: Libreria PDF per test isolati
+      - name: Dipendenze per test isolati
         run: |
           mkdir -p /tmp/quote-deps
           npm install --prefix /tmp/quote-deps --ignore-scripts --no-audit --no-fund pdf-lib@1.17.1
-          mkdir -p build/quote-test-tools
-          cp /tmp/quote-deps/node_modules/pdf-lib/dist/pdf-lib.min.js build/quote-test-tools/
-          cp /tmp/quote-deps/node_modules/pdf-lib/LICENSE.md build/quote-test-tools/
-      - name: Prova generatore su dati fittizi
+          python3 -m venv /tmp/quote-python
+          /tmp/quote-python/bin/pip install pymupdf==1.26.7 pillow==11.3.0
+          sudo apt-get update -qq
+          sudo apt-get install -y poppler-utils
+      - name: Sintassi e generatore con dati fittizi
         run: |
-          if [ -f tests/quote-layout.test.cjs ]; then
-            NODE_PATH=/tmp/quote-deps/node_modules node tests/quote-layout.test.cjs
-          else
-            echo 'Preparazione dipendenze; test layout non ancora aggiunti. Nessuna verifica grafica dichiarata.'
-          fi
+          node --check preventivi-layout.js
+          node --check preventivi-avola.js
+          node --check app-business.js
+          node --check app.js
+          NODE_PATH=/tmp/quote-deps/node_modules node tests/quote-layout.test.cjs
+      - name: Verifica PDF statici e compilabili in due motori
+        run: /tmp/quote-python/bin/python tests/quote-render-test.py
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: quote-layout-results
-          path: build/quote-*
+          path: build/quote-output
