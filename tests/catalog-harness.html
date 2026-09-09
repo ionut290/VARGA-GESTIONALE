@@ -1,0 +1,16 @@
+<!doctype html><meta charset="utf-8"><title>Prezziari - test locale</title>
+<input id="workspaceId" value="varga-azienda"><div id="cloudInfo"></div><section id="prezzari"></section>
+<script>
+let cloudUser=null,cloudStore=null,cloudUnsub=null;
+const cloudCfg={workspaceId:'varga-azienda'};
+function cloudStatus(s){window.testCloudStatus=s}function cloudDisplayName(){return 'Test'}function companyToForm(){}function autoFolderBackup(){}function updateBackupInfo(){}function bindDynamic(){}
+const norm=s=>String(s||'').toLowerCase();
+// Minimal DOM for the real app-core's refresh function. No real user data or credentials.
+for(const id of ['kPrev','kCli','kJobs','kDue','kDead','qClient','docClient','docJob','cPriceList','jClient','fClient','xJob','clientsList','quotesList','jobsList','invoicesList','expensesList','deadlinesList','dashDeadlines','documentsList']){const el=document.createElement('div');el.id=id;el.hidden=true;document.body.append(el)}
+function queueCloudPush(){};
+</script>
+<script src="../app-core.js"></script>
+<script src="../prezzari-persistence.js"></script>
+<script src="firestore-double.js"></script>
+<script src="../cloud-incremental-sync.js"></script>
+<script src="../prezzari-excel-view.js"></script>
