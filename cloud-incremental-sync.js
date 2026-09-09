@@ -47,14 +47,14 @@ function splitEntries(entries){
  for(const row of entries){const size=new TextEncoder().encode(JSON.stringify(row)).length+1;if(size>400000)throw Error('Una voce è troppo lunga per il cloud; è conservata solo sul dispositivo.');if(current.length&&(bytes+size>400000||current.length>=900)){chunks.push(current);current=[];bytes=2}current.push(row);bytes+=size}
  if(current.length)chunks.push(current);return chunks;
 }
-async function stageCatalog(catalog,version,id){
+async function stageCatalog(catalog,version,id,onProgress){
  P.validate(catalog);const generation='g'+version+'_'+crypto.randomUUID().replace(/-/g,'');
  const chunks=splitEntries(catalog.entries),staged=[{reference:listRef(generation),row:{dataJson:JSON.stringify(catalog.priceLists),version}}];
  if(new TextEncoder().encode(staged[0].row.dataJson).length>700000)throw Error('Elenco prezziari troppo grande per il cloud. Copia locale conservata.');
  chunks.forEach((rows,i)=>staged.push({reference:chunkRef(i,generation),row:{dataJson:JSON.stringify(rows),version,chunk:i}}));
  // Small batches stay below Firestore request size. An interrupted staging never
  // changes the manifest or the currently readable catalog.
- for(let start=0;start<staged.length;start+=10){assertSession(id);const batch=cloudStore.batch();staged.slice(start,start+10).forEach(({reference,row})=>batch.set(reference,{...row,workspaceId:scope(),updatedBy:cloudUser.uid,updatedAt:firebase.firestore.FieldValue.serverTimestamp()}));await batch.commit()}
+ for(let start=0;start<staged.length;start+=10){assertSession(id);const batch=cloudStore.batch();staged.slice(start,start+10).forEach(({reference,row})=>batch.set(reference,{...row,workspaceId:scope(),updatedBy:cloudUser.uid,updatedAt:firebase.firestore.FieldValue.serverTimestamp()}));await batch.commit();if(onProgress)onProgress(Math.min(start+10,staged.length),staged.length)}
  return {catalogGeneration:generation,entryChunkCount:chunks.length,entryCount:catalog.entries.length,catalogHash:hash(catalog)};
 }
 async function migrateLegacy(id){
@@ -129,6 +129,118 @@ async function push(silent){
   if(P.status().pending)queueCloudPush();return {ok:true};
  }catch(error){return fail(error)}
 }
+
+// The price-list retry is intentionally separate from the all-section push.
+// It shares the same serial queue, but a broken jobs/invoices section cannot
+// prevent publishing a complete, verified price catalog.
+let priceRetryTask=null;
+function retryError(code,message){return Object.assign(new Error(message),{code})}
+function validCatalog(catalog){
+ P.validate(catalog);const ids=new Set(catalog.priceLists.map(p=>p.id));
+ if(catalog.entries.some(e=>!ids.has(e.priceListId)))throw retryError('PREZZIARI_ORFANI','Alcune voci non hanno il loro listino. Scarica una copia dei prezziari prima di correggerle.');
+ return catalog;
+}
+function catalogToken(m){return JSON.stringify([catalogVersions(m),m.catalogGeneration||'',m.entryChunkCount??null,m.entryCount??null,m.catalogHash||''])}
+function catalogEqual(a,b){
+ const ordered=c=>({priceLists:c.priceLists.slice().sort((a,b)=>a.id.localeCompare(b.id)),entries:c.entries.slice().sort((a,b)=>a.id.localeCompare(b.id))});
+ return hash(ordered(a))===hash(ordered(b));
+}
+function mergeNewPriceLists(remote,local){
+ // Only whole new list IDs can be added across an unknown/stale baseline.
+ // No last-writer-wins merge of prices, deletions, or renamed lists.
+ validCatalog(remote);validCatalog(local);
+ const merged=copy(remote),remoteLists=new Map(remote.priceLists.map(p=>[p.id,p]));
+ const group=rows=>{const map=new Map();for(const row of rows){if(!map.has(row.priceListId))map.set(row.priceListId,[]);map.get(row.priceListId).push(row)}return map};
+ const re=group(remote.entries),le=group(local.entries),usedIds=new Set(remote.entries.map(e=>e.id));
+ for(const list of local.priceLists){
+  const rows=le.get(list.id)||[],existing=remoteLists.get(list.id);
+  if(existing){
+   if(!catalogEqual({priceLists:[existing],entries:re.get(list.id)||[]},{priceLists:[list],entries:rows})){
+    throw retryError('PREZZIARI_CONFLITTO','Il listino “'+String(list.name||list.id).slice(0,100)+'” ha una versione diversa nel cloud. Nessuna versione è stata sostituita. Scarica la copia dei prezziari per conservarla.');
+   }
+   continue;
+  }
+  if(rows.some(row=>usedIds.has(row.id)))throw retryError('PREZZIARI_ID_DUPLICATI','Ci sono identificatori di voci già usati da altri listini. Invio sospeso senza sostituzioni.');
+  merged.priceLists.push(copy(list));for(const row of rows){merged.entries.push(copy(row));usedIds.add(row.id)}
+ }
+ return validCatalog(merged);
+}
+function priceFailure(error){
+ const code=String(error?.code||'PREZZIARI_INVIO').replace(/^firestore\//,'');
+ const friendly={
+  'permission-denied':'Il cloud non autorizza la condivisione con questo account. Non è stato cambiato alcun permesso.',
+  'unauthenticated':'La sessione cloud è scaduta. Accedi nuovamente in Cloud e utenti.',
+  'unavailable':'Il cloud non è raggiungibile. Controlla la connessione e riprova.',
+  'resource-exhausted':'Il cloud ha raggiunto un limite di servizio. Riprova più tardi.',
+  'deadline-exceeded':'Il cloud non ha risposto in tempo. Riprova la verifica.'
+ };
+ const message=(friendly[code]||error?.message||'Condivisione non riuscita.')+' [ '+code+' ]';
+ P.notify(message+' Copia locale conservata.',true);info(message);cloudStatus('Prezziari da sincronizzare');
+ return {ok:false,error:message,code};
+}
+async function retryCatalog(){
+ try{
+  if(!cloudStore||!cloudUser)throw retryError('PREZZIARI_ACCESSO','Accedi in Cloud e utenti prima di riprovare la condivisione.');
+  if(navigator.onLine===false)throw retryError('PREZZIARI_OFFLINE','Connessione assente. Riprova quando torna Internet.');
+  const id=identity();await P.flush();assertSession(id);
+  P.notify('Verifica dei soli prezziari nel cloud…');
+  // Unlike initialize(), this does not read unrelated business sections.
+  let snap=await manifestRef().get({source:'server'});
+  if(!snap.exists)snap=await migrateLegacy(id);
+  const before=snap.exists?snap.data():{},versions=catalogVersions(before),token=catalogToken(before);
+  let remote={priceLists:[],entries:[]};
+  const hasRemote=!!(versions.priceLists||versions.entries||before.catalogGeneration||before.entryChunkCount);
+  if(hasRemote){
+   try{remote=await readCatalog(before)}catch(error){
+    if(error.code)throw error;
+    throw retryError('PREZZIARI_CLOUD_INCOMPLETO','Il catalogo cloud è incompleto o non coerente. Il tentativo è stato fermato per non sostituire dati recuperabili. '+error.message);
+   }
+  }
+  const local=await P.flush();assertSession(id);validCatalog(local.catalog);
+  if(hasRemote&&catalogEqual(local.catalog,remote)){
+   await P.commit(remote,{source:'ack',uploadedHash:hash(local.catalog),versions});
+   const result={ok:true,pending:P.status().pending,message:'Prezziari già presenti e verificati nel cloud.'};
+   P.notify(result.pending?'La verifica è riuscita; restano nuove modifiche locali da condividere.':result.message);return result;
+  }
+  if(hasRemote&&!local.pending&&local.syncedHash){
+   await P.commit(remote,{source:'cloud',versions,expectedRevision:local.revision});
+   try{refresh()}catch(_){}
+   return {ok:true,message:'Prezziari aggiornati dal cloud e conservati sul dispositivo.'};
+  }
+  let catalog;
+  if(!hasRemote || (local.syncedHash&&sameVersions(local.base,versions)))catalog=copy(local.catalog);
+  else catalog=mergeNewPriceLists(remote,local.catalog);
+  // Include remote-only lists locally before publishing, retaining the previous
+  // local catalog for recovery; reject a concurrent local edit, never replace it.
+  if(!catalogEqual(catalog,local.catalog))await P.commit(catalog,{expectedRevision:local.revision});
+  const uploadedHash=hash(catalog);
+  const version=Math.max(Date.now(),versions.priceLists+1,versions.entries+1);
+  P.notify('Invio dei prezziari in corso…');
+  const staged=await stageCatalog(catalog,version,id,(done,total)=>P.notify('Invio prezziari: '+done+' di '+total+' blocchi confermati.'));
+  const published=await cloudStore.runTransaction(async tx=>{
+   const fresh=await tx.get(manifestRef()),latest=fresh.exists?fresh.data():{};
+   assertSession(id);
+   if(catalogToken(latest)!==token)throw retryError('PREZZIARI_AGGIORNATI_ALTROVE','Un altro dispositivo ha aggiornato il catalogo durante il tentativo. Premi di nuovo RIPROVA CONDIVISIONE.');
+   // Preserve all unrelated sections and publish the complete catalog at once.
+   const updatedVersions={...(latest.versions||{}),priceLists:version,entries:version};
+   tx.set(manifestRef(),{...staged,workspaceId:scope(),mode:'incremental-v3',versions:updatedVersions,updatedSections:['priceLists','entries'],updatedAt:firebase.firestore.FieldValue.serverTimestamp(),updatedBy:cloudUser.uid,updatedByName:cloudDisplayName()},{merge:true});
+   return catalogVersions({versions:updatedVersions});
+  });
+  assertSession(id);const latest=await P.flush();
+  await P.commit(latest.catalog,{source:'ack',uploadedHash,versions:published});
+  const pending=P.status().pending;
+  const message=pending?'Invio confermato. Restano modifiche locali successive: premi RIPROVA CONDIVISIONE.':'Condivisione completata: '+catalog.priceLists.length+' listini e '+catalog.entries.length.toLocaleString('it-IT')+' voci confermati nel cloud.';
+  P.notify(message);cloudStatus(pending?'Prezziari da sincronizzare':'Sincronizzato');info(message);
+  try{refresh()}catch(_){}
+  return {ok:true,pending,message};
+ }catch(error){return priceFailure(error)}
+}
+window.retryPriceCatalog=function(){
+ if(priceRetryTask)return priceRetryTask;
+ P.notify('Tentativo avviato: verifica accesso e copia locale…');
+ priceRetryTask=serial(retryCatalog).finally(()=>{priceRetryTask=null});return priceRetryTask;
+};
+
 window.pushCloudNow=function(silent=false){return serial(()=>push(silent))};
 window.queueCloudPush=function(){if(!cloudUser||!cloudStore)return;clearTimeout(timer);timer=setTimeout(()=>{pushCloudNow(true)},1200)};
 window.stopCloudRealtime=function(){epoch++;initialized=false;clearTimeout(timer);if(manifestUnsub){manifestUnsub();manifestUnsub=null}if(typeof cloudUnsub!=='undefined'&&cloudUnsub){cloudUnsub();cloudUnsub=null}};
@@ -143,6 +255,6 @@ window.startCloudRealtime=function(){
 window.pullCloudNow=function(){return serial(async()=>{if(!cloudStore||!cloudUser)return {ok:false};try{const id=identity();await P.ready;const result=await applyManifest(await manifestRef().get({source:'server'}),id,true);return {ok:!result.conflict,...result}}catch(error){return fail(error)}})};
 window.addEventListener('online',()=>{if(cloudUser&&cloudStore){startCloudRealtime();queueCloudPush()}});
 // Testable exports contain no credentials or live database access.
-window.VGIncrementalSync={splitEntries,readCatalog,applyManifest,initialize};
+window.VGIncrementalSync={splitEntries,readCatalog,applyManifest,initialize,mergeNewPriceLists};
 setTimeout(()=>{if(typeof cloudUser!=='undefined'&&cloudUser&&cloudStore)startCloudRealtime()},0);
 })();
