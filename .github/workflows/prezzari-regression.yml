@@ -1,0 +1,40 @@
+name: Verifica persistenza prezziari
+on:
+  pull_request:
+    paths:
+      - 'app-core.js'
+      - 'app.js'
+      - 'prezzari-*.js'
+      - 'cloud-incremental-sync.js'
+      - 'tests/**'
+      - '.github/workflows/prezzari-regression.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  catalog:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v6
+      - name: Prepara test isolati
+        run: |
+          python3 -m venv .test-venv
+          .test-venv/bin/pip install playwright==1.57.0
+          .test-venv/bin/python -m playwright install --with-deps chromium
+      - name: Sintassi JavaScript
+        run: |
+          node --check app-core.js
+          node --check app.js
+          node --check prezzari-persistence.js
+          node --check prezzari-excel-view.js
+          node --check cloud-incremental-sync.js
+      - name: Regressioni Chromium e IndexedDB, senza dati aziendali
+        run: .test-venv/bin/python tests/test_catalog_browser.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: prezzari-regression-results
+          path: |
+            tests/results.json
+            tests/prezzari-ui.png
