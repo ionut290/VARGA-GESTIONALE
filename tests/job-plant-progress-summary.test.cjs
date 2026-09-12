@@ -43,5 +43,7 @@ test('usa gli impianti fisici quando non esistono righe lavorazione',()=>{
 
 test('il modulo viene caricato dopo la vista commesse',()=>{
   const loader=fs.readFileSync(path.join(__dirname,'..','app.js'),'utf8');
+  const index=fs.readFileSync(path.join(__dirname,'..','index.html'),'utf8');
   assert.ok(loader.indexOf('job-workspace.js')<loader.indexOf('job-plant-progress-summary.js'));
+  assert.match(index,/app\.js\?v=20260912-impianti-riepilogo-v130/);
 });
