@@ -65,10 +65,52 @@ function summaries(){
   return A(database().jobs).filter(job=>family(job)).map(jobSummary).sort((a,b)=>a.family.localeCompare(b.family,'it')||a.title.localeCompare(b.title,'it'));
 }
 
+async function ensureXlsx(){
+  if(root.XLSX)return root.XLSX;
+  if(root.__vgPlantXlsxPromise)return root.__vgPlantXlsxPromise;
+  root.__vgPlantXlsxPromise=new Promise((resolve,reject)=>{
+    if(typeof document==='undefined')return reject(new Error('Esportazione Excel disponibile solo nel browser'));
+    const script=document.createElement('script');
+    script.src='https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js';
+    script.onload=()=>resolve(root.XLSX);
+    script.onerror=()=>reject(new Error('Componente Excel non disponibile'));
+    document.head.appendChild(script);
+  });
+  return root.__vgPlantXlsxPromise;
+}
+async function exportExcel(rows=summaries()){
+  const XLSX=await ensureXlsx();
+  const totals=rows.reduce((sum,row)=>({total:sum.total+row.total,done:sum.done+row.done,todo:sum.todo+row.todo}),{total:0,done:0,todo:0});
+  const progress=totals.total?Math.round(totals.done/totals.total*100):0;
+  const data=[
+    ['SITUAZIONE IMPIANTI'],
+    ['Riepilogo contabilità impianti DEPURAZIONE e INRETE'],
+    [],
+    ['Impianti totali','FATTI','DA FARE','Avanzamento'],
+    [totals.total,totals.done,totals.todo,progress/100],
+    [],
+    ['Area','Commessa','Codice','Impianti fatti','Impianti da fare','Totale impianti','Avanzamento %'],
+    ...rows.map(row=>[row.family,row.title,row.code||'',row.done,row.todo,row.total,row.progress/100])
+  ];
+  const sheet=XLSX.utils.aoa_to_sheet(data);
+  sheet['!cols']=[{wch:16},{wch:34},{wch:22},{wch:16},{wch:18},{wch:17},{wch:17}];
+  ['D5','G8'].forEach(()=>{});
+  if(sheet.D5)sheet.D5.z='0%';
+  for(let index=0;index<rows.length;index++){
+    const cell=sheet[`G${8+index}`];
+    if(cell)cell.z='0%';
+  }
+  sheet['!freeze']={xSplit:0,ySplit:7,topLeftCell:'A8',activePane:'bottomLeft',state:'frozen'};
+  const workbook=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(workbook,sheet,'Situazione impianti');
+  const date=new Date().toISOString().slice(0,10);
+  XLSX.writeFile(workbook,`Situazione-impianti-${date}.xlsx`,{compression:true});
+}
+
 function ensureStyles(){
   if(typeof document==='undefined'||document.getElementById('vgPlantProgressStyles'))return;
   const style=document.createElement('style');style.id='vgPlantProgressStyles';style.textContent=`
-.vg-plant-summary-modal{position:fixed;inset:0;z-index:10120;display:flex;align-items:center;justify-content:center;padding:18px;background:rgba(15,23,42,.5)}.vg-plant-summary-modal[hidden]{display:none}.vg-plant-summary-card{width:min(1050px,97vw);max-height:90vh;overflow:auto;padding:20px;border-radius:18px;background:#fff;box-shadow:0 24px 70px rgba(0,0,0,.3)}.vg-plant-summary-head{display:flex;justify-content:space-between;gap:14px;align-items:flex-start}.vg-plant-summary-head h2{margin:0 0 4px}.vg-plant-summary-head p{margin:0;color:#667085}.vg-plant-summary-kpis{display:grid;grid-template-columns:repeat(4,minmax(120px,1fr));gap:10px;margin:16px 0}.vg-plant-summary-kpi{padding:12px;border:1px solid #dfe7e2;border-radius:12px;background:#f8fbf9}.vg-plant-summary-kpi span{display:block;color:#667085;font-size:12px}.vg-plant-summary-kpi strong{display:block;margin-top:4px;font-size:22px}.vg-plant-summary-table-wrap{overflow:auto;border:1px solid #dfe7e2;border-radius:12px}.vg-plant-summary-table{width:100%;min-width:760px;border-collapse:collapse}.vg-plant-summary-table th,.vg-plant-summary-table td{padding:11px;border-bottom:1px solid #e6ece8;text-align:left}.vg-plant-summary-table th{background:#eaf4ee;color:#123b2c}.vg-plant-summary-bar{width:150px;height:8px;margin-top:5px;border-radius:99px;background:#e3e8e5;overflow:hidden}.vg-plant-summary-bar span{display:block;height:100%;background:#1d7a51}.vg-plant-summary-actions{display:flex;gap:8px;align-items:center}.vg-plant-summary-open{border:0;border-radius:8px;padding:8px 11px;background:#176b48;color:#fff;font-weight:800;cursor:pointer}@media(max-width:700px){.vg-plant-summary-kpis{grid-template-columns:1fr 1fr}.vg-plant-summary-head{align-items:center}}
+.vg-plant-summary-modal{position:fixed;inset:0;z-index:10120;display:flex;align-items:center;justify-content:center;padding:18px;background:rgba(15,23,42,.5)}.vg-plant-summary-modal[hidden]{display:none}.vg-plant-summary-card{width:min(1050px,97vw);max-height:90vh;overflow:auto;padding:20px;border-radius:18px;background:#fff;box-shadow:0 24px 70px rgba(0,0,0,.3)}.vg-plant-summary-head{display:flex;justify-content:space-between;gap:14px;align-items:flex-start}.vg-plant-summary-head h2{margin:0 0 4px}.vg-plant-summary-head p{margin:0;color:#667085}.vg-plant-summary-kpis{display:grid;grid-template-columns:repeat(4,minmax(120px,1fr));gap:10px;margin:16px 0}.vg-plant-summary-kpi{padding:12px;border:1px solid #dfe7e2;border-radius:12px;background:#f8fbf9}.vg-plant-summary-kpi span{display:block;color:#667085;font-size:12px}.vg-plant-summary-kpi strong{display:block;margin-top:4px;font-size:22px}.vg-plant-summary-table-wrap{overflow:auto;border:1px solid #dfe7e2;border-radius:12px}.vg-plant-summary-table{width:100%;min-width:760px;border-collapse:collapse}.vg-plant-summary-table th,.vg-plant-summary-table td{padding:11px;border-bottom:1px solid #e6ece8;text-align:left}.vg-plant-summary-table th{background:#eaf4ee;color:#123b2c}.vg-plant-summary-bar{width:150px;height:8px;margin-top:5px;border-radius:99px;background:#e3e8e5;overflow:hidden}.vg-plant-summary-bar span{display:block;height:100%;background:#1d7a51}.vg-plant-summary-actions{display:flex;gap:8px;align-items:center}.vg-plant-summary-export{border:0;border-radius:8px;padding:8px 12px;background:#176b48;color:#fff;font-weight:800;cursor:pointer}.vg-plant-summary-export:disabled{opacity:.6;cursor:wait}.vg-plant-summary-open{border:0;border-radius:8px;padding:8px 11px;background:#176b48;color:#fff;font-weight:800;cursor:pointer}@media(max-width:700px){.vg-plant-summary-kpis{grid-template-columns:1fr 1fr}.vg-plant-summary-head{align-items:center;flex-direction:column}.vg-plant-summary-actions{width:100%;justify-content:flex-end;flex-wrap:wrap}}
   `;document.head.appendChild(style);
 }
 function close(){const modal=document.getElementById('vgPlantProgressModal');if(modal)modal.hidden=true}
@@ -76,8 +118,14 @@ function show(){
   ensureStyles();let modal=document.getElementById('vgPlantProgressModal');
   if(!modal){modal=document.createElement('div');modal.id='vgPlantProgressModal';modal.className='vg-plant-summary-modal';modal.hidden=true;document.body.appendChild(modal);modal.onclick=event=>{if(event.target===modal)close()}}
   const rows=summaries(),totals=rows.reduce((sum,row)=>({total:sum.total+row.total,done:sum.done+row.done,todo:sum.todo+row.todo}),{total:0,done:0,todo:0}),progress=totals.total?Math.round(totals.done/totals.total*100):0;
-  modal.innerHTML=`<section class="vg-plant-summary-card"><div class="vg-plant-summary-head"><div><h2>Situazione impianti</h2><p>Riepilogo per commessa della contabilità impianti DEPURAZIONE e INRETE.</p></div><button class="ghost" type="button" data-plant-summary-close>CHIUDI</button></div><div class="vg-plant-summary-kpis"><div class="vg-plant-summary-kpi"><span>Impianti totali</span><strong>${totals.total}</strong></div><div class="vg-plant-summary-kpi"><span>FATTI</span><strong>${totals.done}</strong></div><div class="vg-plant-summary-kpi"><span>DA FARE</span><strong>${totals.todo}</strong></div><div class="vg-plant-summary-kpi"><span>Avanzamento</span><strong>${progress}%</strong></div></div>${rows.length?`<div class="vg-plant-summary-table-wrap"><table class="vg-plant-summary-table"><thead><tr><th>Area</th><th>Commessa</th><th>Fatti</th><th>Da fare</th><th>Totale</th><th>Avanzamento</th><th></th></tr></thead><tbody>${rows.map(row=>`<tr><td><b>${E(row.family)}</b></td><td><b>${E(row.title)}</b><div class="muted">${E(row.code||'Codice non assegnato')}</div></td><td>${row.done}</td><td>${row.todo}</td><td>${row.total}</td><td><b>${row.progress}%</b><div class="vg-plant-summary-bar"><span style="width:${row.progress}%"></span></div></td><td><button class="vg-plant-summary-open" type="button" data-plant-summary-job="${E(row.jobId)}">APRI</button></td></tr>`).join('')}</tbody></table></div>`:'<div class="vg-empty">Nessuna commessa DEPURAZIONE o INRETE trovata.</div>'}</section>`;
+  modal.innerHTML=`<section class="vg-plant-summary-card"><div class="vg-plant-summary-head"><div><h2>Situazione impianti</h2><p>Riepilogo per commessa della contabilità impianti DEPURAZIONE e INRETE.</p></div><div class="vg-plant-summary-actions"><button class="vg-plant-summary-export" type="button" data-plant-summary-export>⬇ ESPORTA EXCEL</button><button class="ghost" type="button" data-plant-summary-close>CHIUDI</button></div></div><div class="vg-plant-summary-kpis"><div class="vg-plant-summary-kpi"><span>Impianti totali</span><strong>${totals.total}</strong></div><div class="vg-plant-summary-kpi"><span>FATTI</span><strong>${totals.done}</strong></div><div class="vg-plant-summary-kpi"><span>DA FARE</span><strong>${totals.todo}</strong></div><div class="vg-plant-summary-kpi"><span>Avanzamento</span><strong>${progress}%</strong></div></div>${rows.length?`<div class="vg-plant-summary-table-wrap"><table class="vg-plant-summary-table"><thead><tr><th>Area</th><th>Commessa</th><th>Fatti</th><th>Da fare</th><th>Totale</th><th>Avanzamento</th><th></th></tr></thead><tbody>${rows.map(row=>`<tr><td><b>${E(row.family)}</b></td><td><b>${E(row.title)}</b><div class="muted">${E(row.code||'Codice non assegnato')}</div></td><td>${row.done}</td><td>${row.todo}</td><td>${row.total}</td><td><b>${row.progress}%</b><div class="vg-plant-summary-bar"><span style="width:${row.progress}%"></span></div></td><td><button class="vg-plant-summary-open" type="button" data-plant-summary-job="${E(row.jobId)}">APRI</button></td></tr>`).join('')}</tbody></table></div>`:'<div class="vg-empty">Nessuna commessa DEPURAZIONE o INRETE trovata.</div>'}</section>`;
   modal.querySelector('[data-plant-summary-close]').onclick=close;
+  const exportButton=modal.querySelector('[data-plant-summary-export]');
+  exportButton.onclick=async()=>{
+    const oldText=exportButton.textContent;
+    exportButton.disabled=true;exportButton.textContent='CREAZIONE EXCEL...';
+    try{await exportExcel(rows)}catch(error){console.error(error);root.alert?.('Impossibile creare il file Excel. Controlla la connessione e riprova.')}finally{exportButton.disabled=false;exportButton.textContent=oldText}
+  };
   modal.querySelectorAll('[data-plant-summary-job]').forEach(button=>button.onclick=()=>{close();root.VargaOpenJob?.(button.dataset.plantSummaryJob)});
   modal.hidden=false;
 }
@@ -91,5 +139,5 @@ if(typeof document!=='undefined'){
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',installButtons);else installButtons();
   const observer=new MutationObserver(()=>{clearTimeout(observer._timer);observer._timer=setTimeout(installButtons,30)});observer.observe(document.documentElement,{childList:true,subtree:true});
 }
-root.VargaPlantProgressSummary={family,jobSummary,summaries,show};
+root.VargaPlantProgressSummary={family,jobSummary,summaries,show,exportExcel};
 })(globalThis);
