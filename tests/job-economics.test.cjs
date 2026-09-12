@@ -16,6 +16,7 @@ test('calcola valore ore, entrate, uscite e risultati senza sommare due volte i 
   const c=load(),job=c.db.jobs[0],api=c.VargaJobEconomics;
   c.db.vcOre.push({jobId:job.id,data:'2026-09-01',ore:2},{jobId:job.id,data:'2026-09-02',ore:3});
   c.db.expenses.push({id:'x1',jobId:job.id,amount:50,date:'2026-09-02'});
+  c.db.quotes.push({id:'p1',jobId:job.id,status:'Accettato'});
   api.registerDocument({jobId:job.id,type:'Preventivo',sourceId:'p1',amount:100,title:'Preventivo 1',status:api.PENDING},{persist:false});
   api.registerDocument({jobId:job.id,type:'Contabilita',sourceId:'c1',amount:200,title:'Giro 1',status:api.CONFIRMED},{persist:false});
   const result=api.calculate(job);
@@ -52,15 +53,35 @@ test('il preventivo entra nei conteggi solo dopo essere stato accettato',()=>{
 test('rimuove una vecchia entrata preventivo creata prima dell accettazione',()=>{
   const c=load(),api=c.VargaJobEconomics,job=c.db.jobs[0];
   c.db.quotes.push({id:'q-old',jobId:job.id,total:250,status:'Inviato'});
-  api.registerDocument({jobId:job.id,type:'Preventivo',sourceId:'q-old',amount:250,status:api.PENDING},{persist:false});
+  c.db.economicEntries.push({id:'legacy',jobId:job.id,type:'Preventivo',sourceId:'q-old',sourceKey:'PREVENTIVO:q-old',amount:250,status:api.PENDING});
   api.reconcile(job);
   assert.equal(c.db.economicEntries.length,0);
+});
+
+test('blocca anche un preventivo manuale o scollegato non accettato',()=>{
+  const c=load(),api=c.VargaJobEconomics,job=c.db.jobs[0];
+  const row=api.registerDocument({jobId:job.id,type:'Preventivo',sourceId:'manuale',title:'Preventivo manuale',amount:300,status:api.PENDING},{persist:false});
+  assert.equal(row,null);
+  assert.equal(c.db.economicEntries.length,0);
+  c.db.economicEntries.push({id:'orfano',jobId:job.id,type:'Preventivo',sourceId:'sconosciuto',sourceKey:'PREVENTIVO:sconosciuto',amount:300,status:api.PENDING});
+  assert.equal(api.cleanupPrematureQuoteEntries({persist:false}),1);
+  assert.equal(c.db.economicEntries.length,0);
+});
+
+test('nei documenti selezionabili compaiono solo preventivi accettati',()=>{
+  const c=load(),api=c.VargaJobEconomics,job=c.db.jobs[0];
+  c.db.quotes.push(
+    {id:'q-inviato',jobId:job.id,number:'1-VG',status:'Inviato',total:100},
+    {id:'q-accettato',jobId:job.id,number:'2-VG',status:'Accettato',total:200}
+  );
+  const docs=api.candidateDocuments(job).filter(x=>x.type==='Preventivo');
+  assert.deepEqual(Array.from(docs,x=>x.sourceId),['q-accettato']);
 });
 
 test('riconosce e rimuove i preventivi legacy per numero anche con identificativo diverso',()=>{
   const c=load(),api=c.VargaJobEconomics,job=c.db.jobs[0];
   c.db.quotes.push({id:'quote-new-id',jobId:job.id,number:'2-VG',subject:'Rivestimento ligneo',total:12967.26,status:'Inviato'});
-  api.registerDocument({jobId:job.id,type:'Preventivo',sourceId:'legacy-random-id',title:'2-VG — Rimozione e sostituzione del rivestimento ligneo',amount:12967.26,status:api.PENDING},{persist:false});
+  c.db.economicEntries.push({id:'legacy-number',jobId:job.id,type:'Preventivo',sourceId:'legacy-random-id',sourceKey:'PREVENTIVO:legacy-random-id',title:'2-VG — Rimozione e sostituzione del rivestimento ligneo',amount:12967.26,status:api.PENDING});
   assert.equal(api.cleanupPrematureQuoteEntries({persist:false}),1);
   assert.equal(c.db.economicEntries.length,0);
 });
