@@ -14,7 +14,17 @@
     button.hidden = !isDesktopBrowser();
   }
 
-  function openVargaCantieri() {
+  async function createTransferUrl() {
+    const user = typeof cloudAuth !== 'undefined' ? cloudAuth?.currentUser : null;
+    const functions = typeof cloudFunctions !== 'undefined' ? cloudFunctions : null;
+    if (!user || !functions) return VARGA_CANTIERI_URL;
+    const result = await functions.httpsCallable('createVargaCantieriTransferToken')();
+    const token = String(result?.data?.token || '').trim();
+    if (!token) throw new Error('Credenziale temporanea non disponibile.');
+    return `${VARGA_CANTIERI_URL}#vargaSso=${encodeURIComponent(token)}`;
+  }
+
+  async function openVargaCantieri() {
     if (!isDesktopBrowser()) return;
     const button = document.getElementById('openVargaCantieriDesktop');
     if (button) {
@@ -30,12 +40,15 @@
     loading.setAttribute('role', 'status');
     loading.setAttribute('aria-live', 'polite');
     loading.style.cssText = 'min-height:100vh;display:grid;place-items:center;background:#f4f6f5;color:#123b2c;font:800 18px Inter,Segoe UI,Arial,sans-serif;text-align:center;padding:24px';
-    loading.textContent = 'Apertura Varga Cantieri…';
+    loading.textContent = 'Accesso automatico a Varga Cantieri…';
     document.body.replaceChildren(loading);
 
-    // replace evita di conservare il Gestionale nella cronologia e riduce il
-    // picco di memoria mentre Opera prepara la pagina operativa.
-    window.setTimeout(() => window.location.replace(VARGA_CANTIERI_URL), 60);
+    try {
+      window.location.replace(await createTransferUrl());
+    } catch (error) {
+      console.warn('Accesso condiviso non disponibile:', error);
+      window.location.replace(VARGA_CANTIERI_URL);
+    }
   }
 
   function initialize() {
