@@ -2,7 +2,7 @@
 (function(){
 'use strict';
 const P=window.VGPriceCatalog;
-const SECTION_KEYS=['clients','quotes','jobs','invoices','expenses','economicEntries','deadlines','documents','consuntivi','depurazioneConsuntivi','discaricheConsuntivi','cadrianoDocuments','requests','company'];
+const SECTION_KEYS=['clients','quotes','jobs','invoices','expenses','economicEntries','deadlines','documents','consuntivi','depurazioneConsuntivi','discaricheConsuntivi','wteModenaConsuntivi','cadrianoDocuments','requests','company'];
 let manifestUnsub=null,timer=null,epoch=0,initialized=false,syncTail=Promise.resolve();
 const copy=v=>JSON.parse(JSON.stringify(v)), hash=P.hash;
 function scope(){return String(document.getElementById('workspaceId')?.value||cloudCfg.workspaceId||'varga-azienda').trim().replace(/[^a-zA-Z0-9_-]/g,'_')}
