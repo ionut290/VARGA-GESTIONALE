@@ -20,7 +20,7 @@ R('B8/a','Ippocastano - Aesculus Hyppocastanum (circonf. 16/18)','Sostituzione p
 R('B9','ONERI SICUREZZA','ONERI SICUREZZA','AC',150.00)
 ];
 const N=v=>{const n=Number(String(v??'').replace(',','.'));return Number.isFinite(n)?n:0},E=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])),norm=v=>String(v??'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,' ').trim(),money=v=>new Intl.NumberFormat('it-IT',{style:'currency',currency:'EUR'}).format(N(v)),num=v=>N(v).toLocaleString('it-IT',{maximumFractionDigits:4});
-const isWteModena=j=>{const t=norm([j?.title,j?.code,j?.site,j?.name,j?.commessa].join(' '));return t.includes('wte modena')||t.includes('termovalorizzatore modena')};
+const isWteModena=j=>{const t=norm([j?.title,j?.code,j?.site,j?.name,j?.commessa].join(' '));return /(^| )wte mo($| )/.test(t)||t.includes('wte modena')||t.includes('termovalorizzatore modena')};
 const currentJob=()=>(db.jobs||[]).find(j=>j.id===localStorage.getItem('vg_activeJobId'));
 const records=()=>{db.wteModenaConsuntivi=Array.isArray(db.wteModenaConsuntivi)?db.wteModenaConsuntivi:[];return db.wteModenaConsuntivi};
 let editing=null,lines=[];const calc=l=>N(l.quantity)*N(l.price),total=()=>lines.reduce((s,l)=>s+calc(l),0);
