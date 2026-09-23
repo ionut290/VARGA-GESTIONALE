@@ -22,3 +22,12 @@ test('rejected settings do not overwrite existing connection',async()=>{
 test('valid settings are verified before persistence and configuration',async()=>{
  const x=setup({},{});await x.elements.saveMapBridge.onclick();assert.equal(x.saves(),1);assert.deepEqual(x.requests.map(r=>r.action),['ping','configure']);assert.equal(x.requests[0].token,'new-key');assert.equal(x.ctx.db.company.driveBridge.token,'new-key');
 });
+test('recovers a valid local key when the shared copy is stale',async()=>{
+ const x=setup({url:'https://script.google.com/shared',token:'stale'},{url:'https://script.google.com/shared',token:'current'});
+ x.ctx.fetch=async(url,opts)=>{const request=JSON.parse(opts.body);x.requests.push({url,...request});return{ok:true,json:async()=>request.token==='current'?{ok:true}:{ok:false,error:'Token ponte non valido'}}};
+ const result=await x.ctx.window.VargaMailBridgeCall('ping');assert.equal(result.ok,true);assert.deepEqual(x.requests.map(r=>r.token),['stale','current']);assert.equal(x.ctx.db.company.driveBridge.token,'current');assert.equal(x.saves(),1);
+});
+test('never tries a key cached for a different URL',async()=>{
+ const x=setup({url:'https://script.google.com/shared',token:'stale'},{url:'https://script.google.com/other',token:'current'},true);
+ await assert.rejects(x.ctx.window.VargaMailBridgeCall('ping'),/VARGA_MAP_TOKEN/);assert.equal(x.requests.length,1);assert.equal(x.saves(),0);
+});
