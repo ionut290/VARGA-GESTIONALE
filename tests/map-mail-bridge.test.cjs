@@ -13,6 +13,19 @@ test('shared connection replaces stale local URL and token together',async()=>{
  const x=setup({url:'https://script.google.com/shared',token:'current'},{url:'https://script.google.com/old',token:'stale'});
  await x.ctx.window.VargaMailBridgeCall('ping');assert.equal(x.requests[0].token,'current');assert.equal(x.requests[0].url,'https://script.google.com/shared');
 });
+test('vault call removes the browser and shared token after server verification',async()=>{
+ const x=setup({url:'https://script.google.com/shared',token:'old-key'},{url:'https://script.google.com/shared',token:'old-key'});
+ let cached={url:'https://script.google.com/shared',token:'old-key'};
+ x.ctx.localStorage.getItem=()=>JSON.stringify(cached);
+ x.ctx.localStorage.setItem=(_,value)=>{cached=JSON.parse(value)};
+ const sent=[];x.ctx.cloudUser={uid:'owner'};
+ x.ctx.cloudFunctions={httpsCallable:()=>async payload=>{sent.push(payload);return{data:{ok:true}}}};
+ await x.ctx.window.VargaMailBridgeCall('driveList',{folderId:'folder'});
+ assert.deepEqual(sent.map(x=>x.action),['ping','driveList']);
+ assert.equal(sent[1].token,undefined);assert.equal(cached.token,'');
+ assert.equal(x.ctx.db.company.driveBridge.token,'');assert.equal(cached.vault,true);
+ assert.equal(x.requests.length,0);
+});
 test('does not mix a missing shared key with an unrelated local key',async()=>{
  const x=setup({url:'https://script.google.com/shared'},{token:'stale'});await x.ctx.window.VargaMailBridgeCall('ping');assert.equal(x.requests[0].token,'');
 });
