@@ -36,62 +36,55 @@ async function pdfLib(){
 }
 async function createPdf(job,rows,form){
   validate(rows);
-  const {PDFDocument,StandardFonts,rgb}=await pdfLib(),pdf=await PDFDocument.create();
-  const regular=await pdf.embedFont(StandardFonts.Helvetica),bold=await pdf.embedFont(StandardFonts.HelveticaBold);
-  const ink=rgb(.12,.2,.16),green=rgb(.06,.32,.22),line=rgb(.78,.84,.8),pale=rgb(.93,.97,.94);
-  const W=842,H=595,margin=28,headY=452,rowH=22,perPage=14;
-  // Standard PDF fonts support Latin-1; replace unsupported characters rather than abort export.
+  const {PDFDocument,StandardFonts,rgb}=await pdfLib();
+  const response=await fetch(`assets/atex-blank-template.png.b64?v=${encodeURIComponent(window.VG_BUILD||'1')}`);
+  if(!response.ok)throw new Error('Modello originale del verbale ATEX non disponibile.');
+  const encoded=(await response.text()).replace(/\s/g,''),templateBytes=Uint8Array.from(atob(encoded),c=>c.charCodeAt(0));
+  const pdf=await PDFDocument.create(),templateImage=await pdf.embedPng(templateBytes);
+  const regular=await pdf.embedFont(StandardFonts.Helvetica),bold=await pdf.embedFont(StandardFonts.HelveticaBold),italic=await pdf.embedFont(StandardFonts.HelveticaBoldOblique);
+  const black=rgb(0,0,0),red=rgb(.9,0,0),border=rgb(.38,.38,.38),H=1081.75,perPage=28,pages=Math.ceil(rows.length/perPage),rowTop=261.1,rowHeight=26.625;
   const safe=v=>txt(v).replace(/[\u2010-\u2015]/g,'-').replace(/[\u2018\u2019]/g,"'").replace(/[\u201c\u201d]/g,'"').replace(/[^\x20-\x7e\xa0-\xff]/g,'?');
-  const fit=(v,font,size,width)=>{let s=safe(v);while(s&&font.widthOfTextAtSize(s,size)>width)s=s.slice(0,-1);return s===safe(v)?s:s.replace(/\s+$/,'')+'...'};
-  const text=(page,v,x,y,size=9,font=regular,color=ink,max=1000)=>page.drawText(fit(v,font,size,max),{x,y,size,font,color});
-  const cols=[28,50,184,277,412,473,523,587,654,814];
-  const headers=['N.','Denominazione impianto','Comune','Via e civico','Data','Ora','Atmosfera / gas','Strumento','Firma operatore'];
-  const pages=Math.ceil(rows.length/perPage);
-  let signatureImage=null;
-  if(form.documentSeal?.mode==='personal'){
-    const url=window.VargaUserDocumentAssets?.resolveForHtml(form.documentSeal,{preset:''})?.signatureDataUrl||'';
-    const match=txt(url).match(/^data:image\/(png|jpe?g);base64,(.+)$/i);
-    if(match){const bytes=Uint8Array.from(atob(match[2]),c=>c.charCodeAt(0));signatureImage=match[1].toLowerCase()==='png'?await pdf.embedPng(bytes):await pdf.embedJpg(bytes)}
-  }
+  const fit=(v,font,size,width)=>{const full=safe(v);let s=full;while(s&&font.widthOfTextAtSize(s,size)>width-3)s=s.slice(0,-1);return s===full?s:s.replace(/\s+$/,'')+'...'};
+  const text=(page,v,x,top,size=10,font=regular,width=1000,color=black)=>page.drawText(fit(v,font,size,width),{x,y:H-top,size,font,color});
+  const centered=(page,v,left,right,top,size=12,font=italic,color=black)=>{const s=fit(v,font,size,right-left),w=font.widthOfTextAtSize(s,size);text(page,s,left+(right-left-w)/2,top,size,font,right-left,color)};
+  const image=async url=>{const m=txt(url).match(/^data:image\/(png|jpe?g);base64,(.+)$/i);if(!m)return null;const bytes=Uint8Array.from(atob(m[2]),c=>c.charCodeAt(0));return m[1].toLowerCase()==='png'?pdf.embedPng(bytes):pdf.embedJpg(bytes)};
+  const drawFit=(page,img,box)=>{if(!img)return;const scale=Math.min(box.width/img.width,box.height/img.height);page.drawImage(img,{x:box.x+(box.width-img.width*scale)/2,y:box.y+(box.height-img.height*scale)/2,width:img.width*scale,height:img.height*scale})};
+  const assets=form.documentSeal?.mode==='personal'?window.VargaUserDocumentAssets?.resolveForHtml(form.documentSeal,{preset:''}):null;
+  const signature=await image(assets?.signatureDataUrl),stamp=await image(assets?.stampDataUrl);
   for(let p=0;p<pages;p++){
-    const page=pdf.addPage([W,H]);
-    text(page,'VERBALE DI VERIFICA STRUMENTALE DI ESPLOSIVITA - ZONE ATEX',margin,555,13,bold,green,785);
-    text(page,`Commessa: ${job.title||''}`,margin,534,10,bold,ink,520);
-    text(page,`Contratto: ${form.atexContract||'da indicare'}`,600,534,9,regular,ink,214);
-    text(page,`Attivita: ${form.subject||job.title||''}   Periodo: ${form.period||''}`,margin,514,9,regular,ink,786);
-    text(page,'Modello: ALTAIR 4X     Matricola: 406176',margin,489,9,bold,ink,400);
-    text(page,`Scadenza calibrazione: ${form.atexCalibration||'________________'}`,440,489,9,regular,ink,365);
-    page.drawRectangle({x:margin,y:headY,width:786,height:25,color:green});
-    headers.forEach((h,i)=>text(page,h,cols[i]+3,headY+8,7,bold,rgb(1,1,1),cols[i+1]-cols[i]-6));
-    const slice=rows.slice(p*perPage,(p+1)*perPage);
-    slice.forEach((r,i)=>{
-      const y=headY-(i+1)*rowH;
-      if(i%2===0)page.drawRectangle({x:margin,y,width:786,height:rowH,color:pale});
-      page.drawLine({start:{x:margin,y},end:{x:814,y},thickness:.4,color:line});
-      const cells=[p*perPage+i+1,r.impianto,r.comune,r.indirizzo,displayDate(r.data),timeValue(r.ora),'NO','ALTAIR 4X',signatureImage?'':'____________'];
-      cells.forEach((v,j)=>text(page,v,cols[j]+3,y+7,7.5,j===6?bold:regular,ink,cols[j+1]-cols[j]-6));
-      if(signatureImage){const scale=Math.min(150/signatureImage.width,18/signatureImage.height);page.drawImage(signatureImage,{x:659,y:y+2,width:signatureImage.width*scale,height:signatureImage.height*scale})}
+    const page=pdf.addPage([1530.98,H]);
+    page.drawImage(templateImage,{x:0,y:0,width:1530.98,height:H});
+    text(page,`Verbale Rilievo ATEX - ${job.title||'INRETE'}`,98,35,12,regular,650);
+    text(page,displayDate(form.documentDate)||'',1370,35,12,regular,125);
+    text(page,`Contratto n. ${form.atexContract||'__________'}`,75,68,12,italic,570);
+    const subject=`RILIEVI ESEGUITI IN OCCASIONE DELL'ATTIVITA' DI  " ${form.subject||job.title||''} " - ${job.title||'INRETE'}`;
+    centered(page,subject,295,1230,128,11,italic);
+    if(form.period)text(page,form.period,1235,128,11,italic,240,red);
+    text(page,'Marca  ___________________',1059,185,10,regular,176);
+    text(page,'Modello  ALTAIR 4X',1059,208,10,regular,176);
+    text(page,'Matricola  406176',1059,231,10,regular,176);
+    text(page,`Scadenza Calibrazione  ${form.atexCalibration?displayDate(form.atexCalibration):'________'}`,1059,253,9,regular,178);
+    rows.slice(p*perPage,(p+1)*perPage).forEach((r,i)=>{
+      const top=rowTop+i*rowHeight,baseline=top+18;
+      text(page,p*perPage+i+1,40,baseline,10,regular,20);
+      text(page,r.impianto,63,baseline,10,regular,228);
+      text(page,r.comune,296,baseline,10,regular,156);
+      text(page,r.indirizzo,457,baseline,10,regular,162);
+      text(page,displayDate(r.data),655,baseline,11,regular,111);
+      text(page,timeValue(r.ora),808,baseline,11,regular,87);
+      centered(page,'X',975,1056,baseline,12,bold);
+      text(page,'ALTAIR 4X / 406176',1059,baseline,9,regular,184);
+      if(signature)drawFit(page,signature,{x:1251,y:H-(top+24),width:242,height:20});
+      else text(page,'Varga Ionel  __________________',1250,baseline,10,regular,244);
     });
-    cols.forEach(x=>page.drawLine({start:{x,y:headY+25},end:{x,y:headY-slice.length*rowH},thickness:.4,color:line}));
-    const foot=64;
-    page.drawLine({start:{x:margin,y:foot+55},end:{x:814,y:foot+55},thickness:.7,color:line});
-    text(page,'Operatore delle verifiche: Varga Ionel',margin,foot+40,9,bold);
-    text(page,'Timbro impresa',443,foot+40,8,bold);
-    text(page,'Firma',648,foot+40,8,bold);
-    page.drawRectangle({x:440,y:foot-4,width:182,height:37,borderColor:line,borderWidth:.7});
-    page.drawRectangle({x:645,y:foot-4,width:169,height:37,borderColor:line,borderWidth:.7});
-    text(page,`Pagina ${p+1} di ${pages}`,730,24,8,regular,ink,84);
-    // The selected personal assets are applied only in their dedicated footer boxes.
-    if(p===pages-1&&form.documentSeal?.mode==='personal'){
-      const assets=window.VargaUserDocumentAssets?.resolveForHtml(form.documentSeal,{preset:''});
-      for(const [url,box] of [[assets?.stampDataUrl,{x:444,y:foot,width:174,height:29}],[assets?.signatureDataUrl,{x:650,y:foot,width:160,height:29}]]){
-        const match=txt(url).match(/^data:image\/(png|jpe?g);base64,(.+)$/i);if(!match)continue;
-        const bytes=Uint8Array.from(atob(match[2]),c=>c.charCodeAt(0)),img=match[1].toLowerCase()==='png'?await pdf.embedPng(bytes):await pdf.embedJpg(bytes);
-        const scale=Math.min(box.width/img.width,box.height/img.height);
-        page.drawImage(img,{x:box.x+(box.width-img.width*scale)/2,y:box.y+(box.height-img.height*scale)/2,width:img.width*scale,height:img.height*scale});
-      }
-    }
+    text(page,`Pagina ${p+1} di ${pages}`,38,1054,11,regular,180);
+    text(page,'Timbro impresa',1058,1020,9,bold,177);
+    text(page,'Firma',1252,1020,9,bold,240);
+    page.drawRectangle({x:1056,y:H-1065,width:185,height:38,borderColor:border,borderWidth:.7});
+    page.drawRectangle({x:1248,y:H-1065,width:250,height:38,borderColor:border,borderWidth:.7});
+    if(p===pages-1){drawFit(page,stamp,{x:1059,y:H-1063,width:179,height:34});drawFit(page,signature,{x:1252,y:H-1063,width:242,height:34})}
   }
+  pdf.setTitle(`Verbale ATEX - ${job.title||'INRETE'}`);
   return await pdf.save();
 }
 async function download(job,rows,form,prefetched){
