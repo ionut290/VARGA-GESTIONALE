@@ -61,6 +61,15 @@ assert.equal(context.db.jobs.length, beforeLength, 'Le eliminazioni non devono r
 assert.equal(context.db.jobs[0].vcArchived, true);
 assert.equal(context.db.meta.vcDeltaCursor, '000000000100.000000002:test');
 
+// Archived work remains in the raw history but must not create another live consuntivo.
+const historyPath='commesse/1/giriContabili/giro-01/lavorazioni/w1';
+assert.equal(context.isAccountingRow({sourcePath:historyPath}),false);
+assert.equal(context.isAccountingRow({sourcePath:'commesse/1/lavorazioni/w1'}),true);
+const beforeCons=context.db.consuntivi.length;
+context.mapSnapshotRecords([{sourcePath:historyPath,rootCollection:'commesse',id:'w1',data:{stato:'FATTO',totale:100}}],{mode:'incremental'});
+assert.equal(context.db.consuntivi.length,beforeCons);
+assert.equal(context.db.vcRecords.some(r=>r.sourcePath===historyPath),true);
+
 (async () => {
   const calls = [];
   context.db.meta.vcDeltaCursor = 'cursor-0';
