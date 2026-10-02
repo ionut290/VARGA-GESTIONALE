@@ -12,10 +12,11 @@ threading.Thread(target=server.serve_forever,daemon=True).start()
 URL=f'http://127.0.0.1:{server.server_port}/tests/catalog-harness.html'
 results=[]
 
-def check(name,script,after=None):
+def check(name,script,after=None,initial=None):
     ctx=browser.new_context(viewport={'width':1280,'height':950})
     page=ctx.new_page(); errors=[]; page.on('pageerror',lambda e:errors.append(str(e)))
     try:
+        if initial: ctx.add_init_script(initial)
         page.goto(URL); page.evaluate('VGPriceCatalog.ready')
         if errors: raise AssertionError(errors)
         value=page.evaluate(script)
@@ -79,6 +80,14 @@ with sync_playwright() as pw:
         page.reload();page.evaluate('VGPriceCatalog.ready');assert page.evaluate("db.entries.some(e=>e.code==='A1'&&e.price===12.5)")
         page.screenshot(path=str(ROOT/'tests/prezzari-ui.png'),full_page=True)
     check('UI import confirms local commit; no false cloud-success message','()=>true',ui_test)
+    def cantieri_reopen(ctx,page):
+        page.reload();page.evaluate('VGCantieriArchive.ready')
+        assert page.evaluate("db.vcRecords.length===7000&&db.vcRecords[6999].data.note.length===1024&&localStorage.getItem('vg_vcRecords')===null")
+    check('Cantieri mirror larger than localStorage quota survives reload',"""async()=>{db.vcRecords=Array.from({length:7000},(_,i)=>({id:String(i),sourcePath:'impianti/'+i,data:{note:'x'.repeat(1024)}}));let quota=false;try{localStorage.setItem('quota-probe',JSON.stringify(db.vcRecords))}catch(e){quota=e.name==='QuotaExceededError'}finally{localStorage.removeItem('quota-probe')}return quota&&await save({skipCloud:true})&&localStorage.getItem('vg_vcRecords')===null}""",cantieri_reopen)
+    check('Legacy Cantieri records migrate without losing archived history',"""()=>db.vcRecords.length===1&&db.vcRecords[0].vcArchived&&localStorage.getItem('vg_vcRecords')===null""",initial="if(!sessionStorage.getItem('seeded')){localStorage.setItem('vg_vcRecords',JSON.stringify([{id:'legacy',vcArchived:true}]));sessionStorage.setItem('seeded','yes')}")
+    def previous_cantieri(ctx,page):
+        page.reload();page.evaluate('VGCantieriArchive.ready');assert page.evaluate("db.vcRecords.length===1&&db.vcRecords[0].id==='previous'")
+    check('Aborted Cantieri transaction retains previous durable data',"""async()=>{await S.set('vg_vcRecords',[{id:'previous'}]);const put=IDBObjectStore.prototype.put;IDBObjectStore.prototype.put=function(value,key){if(this.name==='sections'&&key==='vg_vcRecords'){this.transaction.abort();return {}}return put.call(this,value,key)};let failed=false;try{await S.set('vg_vcRecords',[{id:'failed'}])}catch(e){failed=true}finally{IDBObjectStore.prototype.put=put}return failed}""",previous_cantieri)
     browser.close()
 server.shutdown()
 (ROOT/'tests/results.json').write_text(json.dumps(results,ensure_ascii=False,indent=2))

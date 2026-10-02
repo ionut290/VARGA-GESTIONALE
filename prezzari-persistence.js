@@ -32,6 +32,7 @@ function cache(catalog){
  try{localStorage.setItem('vg_priceLists',JSON.stringify(catalog.priceLists));localStorage.setItem('vg_entries',catalog.entries.length>2000?'[]':JSON.stringify(catalog.entries));localStorage.setItem('vg_priceCatalogScope',scope)}catch(error){console.warn('Cache compatibilità piena; archivio prezziari conservato in IndexedDB.',error)}
 }
 const ready=(async()=>{
+ if(window.VGCantieriArchive)await window.VGCantieriArchive.ready;
  record=await readKey(currentKey);
  if(record){validate(record.catalog);db.priceLists=clone(record.catalog.priceLists);db.entries=clone(record.catalog.entries);cache(record.catalog)}
  else{

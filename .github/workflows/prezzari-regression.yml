@@ -3,6 +3,8 @@ on:
   pull_request:
     paths:
       - 'app-core.js'
+      - 'cantieri-persistence.js'
+      - 'app-sync.js'
       - 'app.js'
       - 'prezzari-*.js'
       - 'cloud-incremental-sync.js'
@@ -24,6 +26,9 @@ jobs:
           .test-venv/bin/python -m playwright install --with-deps chromium
       - name: Sintassi JavaScript
         run: |
+          node --check cantieri-persistence.js
+          node --check app-sync.js
+          node tests/app-sync-incremental.test.cjs
           node --check app-core.js
           node --check app.js
           node --check prezzari-persistence.js

@@ -14,7 +14,7 @@ const context = {
   norm: (value) => String(value || '').trim().toLowerCase(),
   uid: () => 'generated-id',
   upsertBySource: () => 0,
-  save: () => {},
+  save: () => true,
   refreshVcCounts: () => {},
   refresh: () => {},
   ingestVcRows: () => ({ changed: 0, created: 0 }),
@@ -30,6 +30,7 @@ const context = {
   URL: { createObjectURL: () => 'blob:test', revokeObjectURL: () => {} }
 };
 
+context.window=context;
 vm.createContext(context);
 vm.runInContext(
   fs.readFileSync(path.join(__dirname, '..', 'app-sync.js'), 'utf8'),
@@ -49,9 +50,10 @@ result = context.mergeRawVcRecords([{
 assert.equal(result.updated, 1);
 assert.equal(context.db.vcRecords[0].data.nome, 'B');
 
+(async()=>{
 context.db.jobs.push({ id: 'job-1', vcSourceId: 'commesse/1', title: 'Commessa protetta' });
 const beforeLength = context.db.jobs.length;
-result = context.mapSnapshotRecords([{
+result = await context.mapSnapshotRecords([{
   sourcePath: 'commesse/1', rootCollection: 'commesse', id: '1', operation: 'delete',
   deleted: true, deletedAt: '000000000100.000000002:test', data: null
 }], { mode: 'incremental', nextCursor: '000000000100.000000002:test' });
@@ -66,11 +68,10 @@ const historyPath='commesse/1/giriContabili/giro-01/lavorazioni/w1';
 assert.equal(context.isAccountingRow({sourcePath:historyPath}),false);
 assert.equal(context.isAccountingRow({sourcePath:'commesse/1/lavorazioni/w1'}),true);
 const beforeCons=context.db.consuntivi.length;
-context.mapSnapshotRecords([{sourcePath:historyPath,rootCollection:'commesse',id:'w1',data:{stato:'FATTO',totale:100}}],{mode:'incremental'});
+await context.mapSnapshotRecords([{sourcePath:historyPath,rootCollection:'commesse',id:'w1',data:{stato:'FATTO',totale:100}}],{mode:'incremental'});
 assert.equal(context.db.consuntivi.length,beforeCons);
 assert.equal(context.db.vcRecords.some(r=>r.sourcePath===historyPath),true);
 
-(async () => {
   const calls = [];
   context.db.meta.vcDeltaCursor = 'cursor-0';
   context.cloudUser = { uid: 'user-1' };
@@ -129,6 +130,15 @@ assert.equal(context.db.vcRecords.some(r=>r.sourcePath===historyPath),true);
   );
   assert.equal(context.db.meta.vcDeltaCursor, 'baseline-1');
   assert.equal(context.db.vcRecords.some((record) => record.sourcePath === 'impianti/3'), true);
+  const previousCursor=context.db.meta.vcDeltaCursor;
+  context.save=()=>false;
+  await assert.rejects(context.mapSnapshotRecords([], {nextCursor:'must-not-advance'}), /Salvataggio locale/);
+  assert.equal(context.db.meta.vcDeltaCursor,previousCursor);
+  let finish;context.save=()=>new Promise(resolve=>{finish=resolve});
+  const saving=context.mapSnapshotRecords([], {nextCursor:'durable-cursor'});
+  let done=false;saving.then(()=>{done=true});
+  await Promise.resolve();assert.equal(done,false);finish(true);await saving;
+  assert.equal(context.db.meta.vcDeltaCursor,'durable-cursor');
   console.log('Client Varga Gestionale incrementale: controlli superati.');
 })().catch((error) => {
   console.error(error);
