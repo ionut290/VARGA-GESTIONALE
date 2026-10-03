@@ -67,7 +67,7 @@ function groupRowsBySite(rows){
   const identityFields=['distretto','idSap','impianto','comune','indirizzo','gpsY','gpsX','cdc'];
   const keyOf=row=>txt(row.idSap)?`sap:${norm(row.idSap)}`:`site:${norm([row.impianto,row.comune,row.indirizzo].join('|'))}`;
   source.forEach(row=>{const key=keyOf(row);if(!firstOrder.has(key))firstOrder.set(key,firstOrder.size);const known=siteData.get(key)||{};identityFields.forEach(field=>{if(txt(row[field])!==''&&!txt(known[field]))known[field]=row[field]});siteData.set(key,known)});
-  return source.sort((a,b)=>firstOrder.get(keyOf(a))-firstOrder.get(keyOf(b))||a.__index-b.__index).map(row=>{const complete={...siteData.get(keyOf(row)),...row};delete complete.__index;return complete});
+  return source.sort((a,b)=>firstOrder.get(keyOf(a))-firstOrder.get(keyOf(b))||a.__index-b.__index).map(row=>{const known=siteData.get(keyOf(row)),complete={...known,...row};identityFields.forEach(field=>{if(!txt(complete[field])&&txt(known[field]))complete[field]=known[field]});delete complete.__index;return complete});
 }
 function pivotSheet(xml,rows){
   const d=parse(xml),sd=d.getElementsByTagNameNS('*','sheetData')[0],old=[...sd.children].filter(x=>x.localName==='row'),detail=old.find(x=>x.getAttribute('r')==='4'),grand=old.find(x=>x.getAttribute('r')==='9')||detail,groups=pivotSummary(rows);old.filter(x=>+x.getAttribute('r')>=4).forEach(x=>x.remove());

@@ -5,7 +5,7 @@ const vm = require('node:vm');
 
 const element = { value: '', textContent: '', onclick: null, onchange: null, oninput: null };
 const context = {
-  console,
+  console,Event,dispatchEvent(){},
   db: {
     vcRecords: [], vcImpianti: [], vcUtenti: [], vcOre: [], vcSquadre: [],
     documents: [], vcSegnalazioni: [], vcCommesse: [], jobs: [], consuntivi: [],

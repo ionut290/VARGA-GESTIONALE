@@ -15,7 +15,7 @@ function fake(initial){
 }
 function seed(){return{
  'commesse/bo':{nome:'INRETE BOLOGNA',code:'BO',firstDoneAt:'2026-09-01'},
- 'commesse/bo/lavorazioni/w1':{impiantoId:'p1',stato:'FATTO',totale:'1.200,50',denominazione:'Cabina',idSap:'SAP1',operatoreNome:'Cris',dataEsecuzione:'2026-09-30',oraEsecuzione:'10:00',note:'Nota storica'},
+ 'commesse/bo/lavorazioni/w1':{impiantoId:'p1',stato:'FATTO',totale:'1.200,50',denominazione:'Cabina',idSap:'SAP1',operatoreNome:'Cris',dataEsecuzione:'2026-09-30',oraEsecuzione:'10:00',note:'Nota storica',latitudine:'44.123456',longitudine:'11.654321'},
  'commesse/bo/lavorazioni/w2':{impiantoId:'p2',stato:'DA FARE',totale:20,denominazione:'Seconda cabina'},
  'commesse/bo/impiantiFisici/p1':{denominazione:'Cabina',idSap:'SAP1'},
  'commesse/bo/impiantiFisici/p2':{denominazione:'Seconda cabina'},
@@ -70,15 +70,17 @@ test('the real management button closes the round and replaces local active rows
  const f=fake(seed()),elements=new Map(),events=[];
  const el=()=>({innerHTML:'',disabled:false,textContent:'',querySelector(selector){if(!elements.has(selector))elements.set(selector,el());return elements.get(selector)},querySelectorAll:()=>[]});
  const manager=el();elements.set('jobPlantManager',manager);
- const context={console,Date,Intl,Map,Set,Event,window:null,document:{getElementById:id=>elements.get(id),addEventListener(){}},setTimeout(){},db:{jobs:[{id:'j1',vcSourceId:'commesse/bo',title:'INRETE BOLOGNA',code:'BO'}],vcRecords:Object.entries(seed()).map(([sourcePath,data])=>({sourcePath,id:sourcePath.split('/').pop(),data})),vcImpianti:[]},cloudUserRole:'admin',cloudUser:{uid:'admin'},cloudStore:f.store,firebase:{firestore:{FieldValue:{serverTimestamp:()=>123,delete:()=>DEL}}},save(){},nav(){},scrollTo(){},confirm:()=>true,alert:message=>events.push(message),dispatchEvent:event=>events.push(event.type)};
+ const context={console,Date,Intl,Map,Set,Event,TextEncoder,crypto:require('node:crypto').webcrypto,addEventListener(){},setInterval(){},window:null,document:{getElementById:id=>elements.get(id),addEventListener(){}},setTimeout(){},db:{jobs:[{id:'j1',vcSourceId:'commesse/bo',title:'INRETE BOLOGNA',code:'BO'}],vcRecords:Object.entries(seed()).map(([sourcePath,data])=>({sourcePath,id:sourcePath.split('/').pop(),data})),vcImpianti:[]},cloudUserRole:'admin',cloudUser:{uid:'admin'},cloudStore:f.store,firebase:{firestore:{FieldValue:{serverTimestamp:()=>123,delete:()=>DEL}}},save(){},nav(){},scrollTo(){},confirm:()=>true,alert:message=>events.push(message),dispatchEvent:event=>events.push(event.type)};
  context.window=context;vm.createContext(context);
- for(const file of ['accounting-round-close.js','job-plant-management.js'])vm.runInContext(fs.readFileSync(file,'utf8'),context);
+ for(const file of ['plant-registry.js','accounting-round-close.js','job-plant-management.js'])vm.runInContext(fs.readFileSync(file,'utf8'),context);
  context.VargaRoundWorkflow={day:v=>String(v||'').slice(0,10),review:async()=>({numeroGiro:1,periodStart:'2026-09-01',periodEnd:'2026-09-30',accountingDueAt:'2026-10-07'})};
  context.VargaJobPlantManager.open('j1');
+ await context.VargaPlantRegistry.initialize(context.db.jobs[0]);
  assert.match(manager.innerHTML,/FINE GIRO — ARCHIVIA IMPIANTI/);
  await elements.get('[data-vpm-close]').onclick();
  assert.equal(context.db.vcRecords.some(r=>r.sourcePath.startsWith('commesse/bo/lavorazioni/')),false);
  assert.equal(context.db.vcRecords.filter(r=>/giriContabili\/[^/]+\/lavorazioni\//.test(r.sourcePath)).length,2);
+ assert.ok([...f.data.keys()].some(p=>p.startsWith('commesse/bo/archivioImpianti/')));assert.equal(context.VargaPlantRegistry.entries(context.db.jobs[0]).length,2);
  assert.ok(events.includes('varga-round-closed'));assert.ok(events.some(x=>x.includes('archiviato e verificato')));
 });
 test('archived list keeps states, operators, times and Italian amounts; accounting and MAP actions still work',async()=>{
@@ -93,8 +95,8 @@ test('archived list keeps states, operators, times and Italian amounts; accounti
  context.VargaRoundWorkflow={sent:async()=>({accountingSentAt:'2026-10-01',accountingReference:'PROT-12',mapDueAt:'2026-10-09'}),map:async()=>({mapReceivedAt:'2026-10-02',mapReference:'MAP-123'})};
  assert.match(panel.innerHTML,/VEDI ELENCO ARCHIVIATO/);assert.match(panel.innerHTML,/CONTABILITÀ INVIATA/);
  const click=ra=>panel.onclick({target:{closest:()=>({dataset:{ra,path:r.roundPath},disabled:false})}});
- await click('view');assert.match(modals[0].innerHTML,/Seconda cabina/);assert.match(modals[0].innerHTML,/DA FARE/);assert.match(modals[0].innerHTML,/Cris/);assert.match(modals[0].innerHTML,/10:00/);assert.match(modals[0].innerHTML,/1\.?200,50/);
- await click('excel');assert.equal(files.length,1);assert.equal(sheets[1].name,'Contabilita FATTO');assert.equal(sheets[1].rows.length,2);assert.equal(sheets[1].rows[1][8],1200.5);assert.equal(sheets[2].name,'Non eseguite');assert.equal(sheets[2].rows[1][1],'Seconda cabina');
+ await click('view');assert.match(modals[0].innerHTML,/Seconda cabina/);assert.match(modals[0].innerHTML,/DA FARE/);assert.match(modals[0].innerHTML,/Cris/);assert.match(modals[0].innerHTML,/10:00/);assert.match(modals[0].innerHTML,/44.123456/);assert.match(modals[0].innerHTML,/1\.?200,50/);
+ await click('excel');assert.equal(files.length,1);assert.equal(sheets[1].name,'Contabilita FATTO');assert.equal(sheets[1].rows.length,2);assert.equal(sheets[1].rows[1][8],1200.5);assert.equal(sheets[1].rows[1][14],44.123456);assert.equal(sheets[1].rows[1][15],11.654321);assert.equal(sheets[2].name,'Non eseguite');assert.equal(sheets[2].rows[1][1],'Seconda cabina');
  await click('sent');assert.equal(f.data.get(r.roundPath).accountingSentAt,'2026-10-01');assert.equal(f.data.get(r.roundPath).accountingReference,'PROT-12');assert.equal(f.data.get(r.roundPath).stato,'MAP_IN_ATTESA');assert.match(panel.innerHTML,/MAP RICEVUTO/);
  await click('map');assert.equal(f.data.get(r.roundPath).stato,'CHIUSO_DEFINITIVAMENTE');assert.equal(f.data.get(r.roundPath).mapReference,'MAP-123');assert.equal(f.data.get(r.roundPath).mapReceivedAt,'2026-10-02');
  assert.match(panel.innerHTML,/PROT-12/);assert.match(panel.innerHTML,/CHIUSO CON MAP/);
