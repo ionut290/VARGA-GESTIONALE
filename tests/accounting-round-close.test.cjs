@@ -98,6 +98,12 @@ test('archived list keeps states, operators, times and Italian amounts; accounti
  await click('sent');assert.equal(f.data.get(r.roundPath).accountingSentAt,'2026-10-01');assert.equal(f.data.get(r.roundPath).accountingReference,'PROT-12');assert.equal(f.data.get(r.roundPath).stato,'MAP_IN_ATTESA');assert.match(panel.innerHTML,/MAP RICEVUTO/);
  await click('map');assert.equal(f.data.get(r.roundPath).stato,'CHIUSO_DEFINITIVAMENTE');assert.equal(f.data.get(r.roundPath).mapReference,'MAP-123');assert.equal(f.data.get(r.roundPath).mapReceivedAt,'2026-10-02');
  assert.match(panel.innerHTML,/PROT-12/);assert.match(panel.innerHTML,/CHIUSO CON MAP/);
+ await click('hide');assert.equal(f.data.get(r.roundPath).dashboardHidden,true);assert.match(panel.innerHTML,/MOSTRA NELLA HOME/);assert.match(panel.innerHTML,/VEDI ELENCO ARCHIVIATO/);
+ await click('show');assert.equal(f.data.get(r.roundPath).dashboardHidden,false);
+ context.confirm=()=>false;await click('delete');assert.equal(f.data.get(r.roundPath).roundDeletedAt,undefined);
+ context.confirm=()=>true;await click('delete');assert.ok(f.data.get(r.roundPath).roundDeletedAt);assert.match(panel.innerHTML,/Cestino \(1\)/);assert.doesNotMatch(panel.innerHTML,/VEDI ELENCO ARCHIVIATO/);assert.ok(f.data.has(r.roundPath+'/lavorazioni/w1'));
+ await assert.rejects(click('view'),/cestino/);await click('restore');assert.equal(f.data.get(r.roundPath).roundDeletedAt,null);assert.equal(f.data.get(r.roundPath).mapReference,'MAP-123');assert.match(panel.innerHTML,/VEDI ELENCO ARCHIVIATO/);
+
  context.db.vcRecords.find(x=>x.sourcePath===r.roundPath).data={...r.header,accountingSentAt:null,mapStatus:'NON_RICEVUTO'};
  await assert.rejects(click('sent'),/già registrato/);assert.equal(f.data.get(r.roundPath).mapStatus,'RICEVUTO');
  f.data.get(r.roundPath).clearStatus='PENDING';await assert.rejects(click('sent'),/Completa prima/);

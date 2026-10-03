@@ -134,3 +134,12 @@ test('la vista commessa espone pulsante, scheda e sincronizzazione economica',()
   assert.match(cloud,/'economicEntries'/);
   assert.ok(loader.indexOf('job-economics.js')<loader.indexOf('job-workspace.js'));
 });
+
+test('nascondere dalla Home conserva i totali; il cestino esclude il giro e il ripristino li recupera',()=>{
+ const c=load(),job=c.db.jobs[0],api=c.VargaJobEconomics,path='commesse/bo/giriContabili/g1';job.vcSourceId='commesse/bo';
+ const round={sourcePath:path,data:{numeroGiro:1,totalAmount:200,accountingSentAt:'2026-10-01',mapStatus:'RICEVUTO',dashboardHidden:true}};c.db.vcRecords.push(round);
+ api.registerDocument({jobId:job.id,type:'Contabilita',sourceId:path,sourcePath:path,amount:200,title:'Giro 1',status:api.CONFIRMED},{persist:false});
+ assert.equal(api.calculate(job).confirmed,200);round.data.roundDeletedAt='2026-10-03';assert.equal(api.calculate(job).confirmed,0);assert.equal(api.candidateDocuments(job).length,0);
+ assert.equal(api.confirmByMapReceipt({roundPath:path,id:'receipt'},{persist:false}),null);assert.equal(c.db.economicEntries.length,1);
+ round.data.roundDeletedAt=null;assert.equal(api.calculate(job).confirmed,200);assert.equal(api.candidateDocuments(job).length,1);
+});
