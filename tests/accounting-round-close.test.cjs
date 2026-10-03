@@ -73,6 +73,7 @@ test('the real management button closes the round and replaces local active rows
  const context={console,Date,Intl,Map,Set,Event,window:null,document:{getElementById:id=>elements.get(id),addEventListener(){}},setTimeout(){},db:{jobs:[{id:'j1',vcSourceId:'commesse/bo',title:'INRETE BOLOGNA',code:'BO'}],vcRecords:Object.entries(seed()).map(([sourcePath,data])=>({sourcePath,id:sourcePath.split('/').pop(),data})),vcImpianti:[]},cloudUserRole:'admin',cloudUser:{uid:'admin'},cloudStore:f.store,firebase:{firestore:{FieldValue:{serverTimestamp:()=>123,delete:()=>DEL}}},save(){},nav(){},scrollTo(){},confirm:()=>true,alert:message=>events.push(message),dispatchEvent:event=>events.push(event.type)};
  context.window=context;vm.createContext(context);
  for(const file of ['accounting-round-close.js','job-plant-management.js'])vm.runInContext(fs.readFileSync(file,'utf8'),context);
+ context.VargaRoundWorkflow={day:v=>String(v||'').slice(0,10),review:async()=>({numeroGiro:1,periodStart:'2026-09-01',periodEnd:'2026-09-30',accountingDueAt:'2026-10-07'})};
  context.VargaJobPlantManager.open('j1');
  assert.match(manager.innerHTML,/FINE GIRO — ARCHIVIA IMPIANTI/);
  await elements.get('[data-vpm-close]').onclick();
@@ -84,13 +85,34 @@ test('archived list keeps states, operators, times and Italian amounts; accounti
  const f=fake(seed()),r=await load(f)(),elements=new Map(),modals=[],timers=[];
  const element=()=>({style:{},innerHTML:'',querySelector(){return{onclick:null}},insertAdjacentElement(position,child){elements.set(child.id,child)},remove(){}});
  const section=element(),anchor=element();section.querySelector=()=>anchor;section.firstElementChild=anchor;elements.set('consuntivi',section);
- const context={console,Date,Intl,window:null,document:{getElementById:id=>elements.get(id),createElement:element,body:{appendChild:child=>modals.push(child)}},db:{jobs:[{vcSourceId:'commesse/bo',code:'BO',title:'INRETE BOLOGNA'}],vcRecords:[...r.archivedRecords,{sourcePath:r.roundPath,data:r.header}]},cloudStore:f.store,firebase:{firestore:{FieldValue:{serverTimestamp:()=>123}}},save(){},confirm:()=>true,prompt:()=> 'MAP-123',alert(message){throw Error(message)},setInterval(){},setTimeout:fn=>timers.push(fn),addEventListener(){}};
+ const context={console,Date,Intl,Event,dispatchEvent(){},cloudUserRole:'admin',window:null,document:{getElementById:id=>elements.get(id),createElement:element,body:{appendChild:child=>modals.push(child)}},db:{jobs:[{vcSourceId:'commesse/bo',code:'BO',title:'INRETE BOLOGNA'}],vcRecords:[...r.archivedRecords,{sourcePath:r.roundPath,data:r.header}]},cloudStore:f.store,firebase:{firestore:{FieldValue:{serverTimestamp:()=>123}}},save(){},confirm:()=>true,prompt:()=> 'MAP-123',alert(message){throw Error(message)},setInterval(){},setTimeout:fn=>timers.push(fn),addEventListener(){}};
  context.window=context;vm.createContext(context);
  for(const file of ['accounting-round-close.js','accounting-round-history-v2.js'])vm.runInContext(fs.readFileSync(file,'utf8'),context);
  timers.forEach(fn=>fn());const panel=elements.get('accountingRoundsPanel');
+ const sheets=[],files=[];context.XLSX={utils:{book_new:()=>({}),aoa_to_sheet:rows=>rows,book_append_sheet:(book,rows,name)=>sheets.push({name,rows})},writeFile:(book,name)=>files.push(name)};
+ context.VargaRoundWorkflow={sent:async()=>({accountingSentAt:'2026-10-01',accountingReference:'PROT-12',mapDueAt:'2026-10-09'}),map:async()=>({mapReceivedAt:'2026-10-02',mapReference:'MAP-123'})};
  assert.match(panel.innerHTML,/VEDI ELENCO ARCHIVIATO/);assert.match(panel.innerHTML,/CONTABILITÀ INVIATA/);
  const click=ra=>panel.onclick({target:{closest:()=>({dataset:{ra,path:r.roundPath},disabled:false})}});
  await click('view');assert.match(modals[0].innerHTML,/Seconda cabina/);assert.match(modals[0].innerHTML,/DA FARE/);assert.match(modals[0].innerHTML,/Cris/);assert.match(modals[0].innerHTML,/10:00/);assert.match(modals[0].innerHTML,/1\.?200,50/);
- await click('sent');assert.equal(f.data.get(r.roundPath).stato,'MAP_IN_ATTESA');assert.match(panel.innerHTML,/MAP RICEVUTO/);
- await click('map');assert.equal(f.data.get(r.roundPath).stato,'CHIUSO_DEFINITIVAMENTE');assert.equal(f.data.get(r.roundPath).mapReference,'MAP-123');
+ await click('excel');assert.equal(files.length,1);assert.equal(sheets[1].name,'Contabilita FATTO');assert.equal(sheets[1].rows.length,2);assert.equal(sheets[1].rows[1][8],1200.5);assert.equal(sheets[2].name,'Non eseguite');assert.equal(sheets[2].rows[1][1],'Seconda cabina');
+ await click('sent');assert.equal(f.data.get(r.roundPath).accountingSentAt,'2026-10-01');assert.equal(f.data.get(r.roundPath).accountingReference,'PROT-12');assert.equal(f.data.get(r.roundPath).stato,'MAP_IN_ATTESA');assert.match(panel.innerHTML,/MAP RICEVUTO/);
+ await click('map');assert.equal(f.data.get(r.roundPath).stato,'CHIUSO_DEFINITIVAMENTE');assert.equal(f.data.get(r.roundPath).mapReference,'MAP-123');assert.equal(f.data.get(r.roundPath).mapReceivedAt,'2026-10-02');
+ assert.match(panel.innerHTML,/PROT-12/);assert.match(panel.innerHTML,/CHIUSO CON MAP/);
+ context.db.vcRecords.find(x=>x.sourcePath===r.roundPath).data={...r.header,accountingSentAt:null,mapStatus:'NON_RICEVUTO'};
+ await assert.rejects(click('sent'),/già registrato/);assert.equal(f.data.get(r.roundPath).mapStatus,'RICEVUTO');
+ f.data.get(r.roundPath).clearStatus='PENDING';await assert.rejects(click('sent'),/Completa prima/);
+ context.cloudUserRole='worker';await assert.rejects(click('sent'),/amministratore/);
+});
+
+test('review assigns the real giro number and accounting period from authoritative rows',async()=>{
+ const f=fake(seed());let summary;
+ const r=await load(f)({review:async x=>{summary=x;return{numeroGiro:4,periodStart:'2026-09-01',periodEnd:'2026-09-30',accountingDueAt:'2026-10-07'}}});
+ assert.equal(summary.doneRows,1);assert.equal(summary.totalRows,2);assert.equal(summary.totalAmount,1200.5);
+ assert.equal(r.header.numeroGiro,4);assert.equal(r.header.periodStart,'2026-09-01');assert.equal(r.header.periodEnd,'2026-09-30');assert.equal(r.header.accountingDueAt,'2026-10-07');
+});
+test('cancelled review and duplicate real giro numbers never archive or clear live rows',async()=>{
+ const f=fake(seed());const cancelled=await load(f)({review:async()=>null});assert.equal(cancelled.cancelled,true);assert.equal(f.state.writes.length,0);
+ f.data.set('commesse/bo/giriContabili/old',{numeroGiro:4});
+ await assert.rejects(load(f)({review:async()=>({numeroGiro:4,periodStart:'2026-09-01',periodEnd:'2026-09-30',accountingDueAt:'2026-10-07'})}),/già presente/);
+ assert.equal(f.state.writes.length,0);assert.ok(f.data.has('commesse/bo/lavorazioni/w1'));
 });
