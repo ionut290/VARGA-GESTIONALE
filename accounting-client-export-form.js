@@ -69,8 +69,8 @@ function injectStyle(){if(document.getElementById('vg-accounting-export-style'))
 function field(label,name,value,type='text',wide=false){return `<label class="${wide?'vg-export-wide':''}">${esc(label)}<input name="${esc(name)}" type="${type}" value="${esc(value)}"></label>`}
 function textarea(label,name,value){return `<label class="vg-export-wide">${esc(label)}<textarea name="${esc(name)}">${esc(value)}</textarea></label>`}
 
-function openForm(mode){
-  const job=selectedJob();if(!job)return alert('Seleziona prima una commessa.');
+function openForm(mode,explicitJob=null){
+  const job=explicitJob||selectedJob();if(!job)return alert('Seleziona prima una commessa.');
   const rows=sourceRows(job);if(!rows.length)return alert('Nessuna riga FATTO da esportare.');
   injectStyle();const v={...defaults(job),...saved(job)};v.atexContract='2570004382';
   const atex=mode==='excel'&&window.VargaAtexReport?.isApplicable(job),atexRows=atex?window.VargaAtexReport.prepareRows(rows):[];
