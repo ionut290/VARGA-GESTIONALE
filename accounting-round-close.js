@@ -30,7 +30,7 @@ async function close(options){
   source=await read(store,base);
   if(!source.lavorazioni.length&&!source.impianti.length)throw Error('Non ci sono impianti o lavorazioni da archiviare.');
   const work=source.lavorazioni.length?source.lavorazioni:source.impianti.map(legacyWork),completed=work.filter(x=>done(x.data));
-  if(!completed.length)throw Error('Nessuna lavorazione FATTO: completa il giro prima di archiviarlo.');
+  // Allow closing an entirely DA FARE round; completed accounting then totals zero.
   const previous=await commessa.collection('giriContabili').get({source:'server'});let number=header?.numeroGiro||Math.max(0,...previous.docs.map(d=>numeric(d.data().numeroGiro)))+1;
   const total=completed.reduce((sum,x)=>sum+numeric(x.data.totale??x.data.importo),0);
   const now=new Date(),due=new Date(now);due.setDate(due.getDate()+7);
@@ -80,9 +80,9 @@ async function close(options){
  const remaining=await read(store,base),work=remaining.lavorazioni,plants=remaining.impianti;
  const counts={impiantiCount:plants.length,totalPlants:plants.length,workItemsCount:work.length,impiantiFattiCount:plants.filter(x=>done(x.data)).length,impiantiDaFareCount:plants.filter(x=>!done(x.data)).length,workItemsFattiCount:work.filter(x=>done(x.data)).length,workItemsDaFareCount:work.filter(x=>!done(x.data)).length,completedSubtotal:work.filter(x=>done(x.data)).reduce((s,x)=>s+numeric(x.data.totale),0)};
  const leftover=removable.reduce((sum,name)=>sum+remaining[name].length,0);
- header={...header,clearStatus:leftover?'COMPLETED_WITH_REMAINING':'COMPLETED',clearedAtIso:new Date().toISOString(),remainingActiveRows:leftover};
+ header={...header,clearStatus:leftover?'PENDING':'COMPLETED',stato:leftover?'ARCHIVIAZIONE_INCOMPLETA':header.stato,clearedAtIso:leftover?null:new Date().toISOString(),remainingActiveRows:leftover};
  const dates=leftover?{}:Object.fromEntries(['firstDoneAt','firstDoneDateKey','lastDoneAt','lastDoneDateKey','lastResetAt','lastResetDateKey'].map(key=>[key,removeField()]));
- const batch=store.batch();batch.set(store.doc(roundPath),header,{merge:true});batch.set(commessa,{...counts,...dates,subtotalCompleted:counts.completedSubtotal,pendingRoundClosureId:removeField(),lastClosedGiroId:roundId,lastClosedGiroNumber:header.numeroGiro,lastClosedGiroAt:stamp(),currentGiroNumber:header.numeroGiro+1,accountingRoundStatus:header.stato,operationalModelSyncedAt:stamp(),updatedAt:stamp(),updatedBy:uid},{merge:true});await batch.commit();
+ const batch=store.batch();batch.set(store.doc(roundPath),header,{merge:true});batch.set(commessa,{...counts,...dates,subtotalCompleted:counts.completedSubtotal,pendingRoundClosureId:leftover?roundId:removeField(),...(leftover?{}:{lastClosedGiroId:roundId,lastClosedGiroNumber:header.numeroGiro,lastClosedGiroAt:stamp(),currentGiroNumber:header.numeroGiro+1}),accountingRoundStatus:header.stato,operationalModelSyncedAt:stamp(),updatedAt:stamp(),updatedBy:uid},{merge:true});await batch.commit();
  return{header,roundPath,archivedRecords:records(roundPath,archive),removedPaths:removed,activeRecords:records(base,remaining),remaining:remaining,changedPaths:changed};
 }
 window.VargaRoundClose={close,number:numeric};
