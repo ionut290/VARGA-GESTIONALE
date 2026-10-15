@@ -23,8 +23,10 @@ async function refreshInretePricebook(openingJob){
  try{
   if(!cloudStore||!cloudUser)throw Error('Accedi al cloud');
   const result=await cloudStore.collection('preventiviPriceLists').get({source:'server'});
-  const matches=result.docs.map(d=>({id:d.id,...d.data()})).filter(d=>N(d.name)==='hera depurazione - gas');
-  if(matches.length!==1)throw Error('Atteso un unico listino HERA DEPURAZIONE - GAS: trovati '+matches.length);
+  const all=result.docs.map(d=>({id:d.id,...d.data()}));
+  const canonical=v=>N(v).replace(/[^a-z0-9]+/g,'');
+  const matches=all.filter(d=>canonical(d.name)==='heradepurazionegas');
+  if(matches.length!==1)throw Error(matches.length?'Trovati '+matches.length+' listini con questo nome: selezione ambigua':(!all.length?'La raccolta preventiviPriceLists è vuota su Firebase. Il listino visualizzato in Varga Cantieri potrebbe essere salvato solo sul dispositivo. Esportalo da Varga Cantieri per trasferirlo in sicurezza.':'Il listino richiesto non è nella raccolta cloud. Listini disponibili ('+all.length+'): '+all.slice(0,8).map(d=>String(d.name||'(senza nome)')).join(' | ')));
   const entries=matches[0].items||[];
   if(!Array.isArray(entries)||!entries.length)throw Error('Il listino ufficiale non contiene voci');
   const mapped=entries.map(p=>{const base=num(p.unitPrice),discount=num(p.discount);return{code:p.code,description:p.description,unit:p.unit,base,discounted:base*(1-discount/100),source:'Varga Cantieri',discount};});
