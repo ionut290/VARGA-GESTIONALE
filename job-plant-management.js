@@ -57,7 +57,22 @@ async function closeRound(){
   }else{
    alert('Giro '+result.header.numeroGiro+' archiviato e verificato.\n'+result.header.totalRows+' lavorazioni conservate ('+result.header.doneRows+' FATTO).\n\nElenco operativo svuotato. Il nuovo giro è pronto.');
   }
- }catch(e){alert('Fine giro non completato: '+(e.message||e)+'\n\nLe copie già create restano conservate. Ripremi FINE GIRO per riprendere la procedura.');}
+ }catch(e){
+  if(String(e?.message||'').includes('Non ci sono impianti o lavorazioni da archiviare.')){
+   try{
+    const base=closingJob.vcSourceId;
+    const [work,plants]=await Promise.all(['lavorazioni','impianti'].map(name=>cloudStore.doc(base).collection(name).get({source:'server'})));
+    if(work.docs.length||plants.docs.length)throw Error('Sul server sono ancora presenti '+work.docs.length+' lavorazioni e '+plants.docs.length+' impianti. Sincronizza il cloud prima di intervenire.');
+    const stale=(db.vcRecords||[]).filter(r=>['lavorazioni','impianti'].some(name=>String(r.sourcePath||'').startsWith(base+'/'+name+'/')));
+    if(stale.length&&confirm('Su Firebase non risultano lavorazioni o impianti operativi per questa commessa, ma il PC mostra '+stale.length+' record vecchi. Rimuoverli SOLO dalla memoria locale del gestionale? Il database cloud e i giri archiviati non verranno modificati.')){
+     db.vcRecords=(db.vcRecords||[]).filter(r=>!['lavorazioni','impianti'].some(name=>String(r.sourcePath||'').startsWith(base+'/'+name+'/')));
+     save({skipCloud:true});
+     window.dispatchEvent(new Event('varga-round-closed'));
+     alert('Elenco locale aggiornato: lavorazioni attive 0. Nessun nuovo giro creato e nessun archivio cancellato.');
+    }
+   }catch(syncError){alert('Verifica cloud non riuscita: '+(syncError.message||syncError));}
+  }else alert('Fine giro non completato: '+(e.message||e)+'\n\nLe copie già create restano conservate. Ripremi FINE GIRO per riprendere la procedura.');
+}
  finally{roundClosing=false;if(job===closingJob)render();if(button){button.disabled=false;button.textContent='FINE GIRO — ARCHIVIA IMPIANTI';}}
 }
 function open(id){job=(db.jobs||[]).find(j=>j.id===id);if(!job)return alert('Commessa non trovata.');if(!job.vcSourceId)return alert('Prima sincronizza la commessa con Varga Cantieri.');query='';status='';render();if(window.VargaPlantRegistry){const openingJob=job;window.VargaPlantRegistry.refresh(openingJob).then(()=>{if(job===openingJob)render()}).catch(error=>{if(job===openingJob)alert('Archivio impianti non aggiornato: '+error.message)})}nav('jobPlantManager');window.scrollTo(0,0);if(isAdmin()&&cloudStore&&cloudUser&&rows.some(r=>!r.impiantoId))setTimeout(()=>syncAll(true),0)}
