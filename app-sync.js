@@ -14,6 +14,15 @@ async function mapSnapshotRecords(records,manifest={}){
  if(window.VGCantieriArchive)await window.VGCantieriArchive.ready;
  const previousMeta={...db.meta};
  let activeRecords=(records||[]).filter(r=>r?.deleted!==true&&r?.operation!=='delete'),groups={};activeRecords.forEach(r=>(groups[r.rootCollection]??=[]).push(r));const unpack=list=>(list||[]).map(r=>({...(r.data||{}),id:(r.data&&r.data.id)||r.id,vcSourceId:r.sourcePath,vcRootCollection:r.rootCollection,vcArchived:false,vcDeletedAt:''}));let delta=mergeRawVcRecords(records),archivedMapped=archiveVcMappedRecords(records),mapped=0,newCons=0,updatedCons=0,accountingRows=0;
+ // A complete snapshot is authoritative for operational commessa rows; incremental
+ // pages are not complete and must never be used for pruning.
+ if(manifest.snapshotId && manifest.mode!=='incremental'){
+  const snapshotPaths=new Set((records||[]).filter(r=>r?.deleted!==true&&r?.operation!=='delete').map(rawRecordKey));
+  const operational=/^commesse\/[^/]+\/(lavorazioni|impianti|impiantiFisici)\/[^/]+$/;
+  const before=db.vcRecords.length;
+  db.vcRecords=db.vcRecords.filter(r=>!operational.test(rawRecordKey(r))||snapshotPaths.has(rawRecordKey(r)));
+  delta.reconciled=before-db.vcRecords.length;
+ }
  const mappings=[['impianti','vcImpianti'],['personale','vcUtenti'],['oreReports','vcOre'],['oreApprovalRequests','vcOre'],['squadre','vcSquadre'],['squadreCommesse','vcSquadre'],['squadreStorico','vcSquadre']];mappings.forEach(([root,key])=>{if(groups[root])mapped+=upsertBySource(db[key],unpack(groups[root]))});
  ['documents','posDocuments'].forEach(root=>{if(groups[root])mapped+=upsertBySource(db.documents,unpack(groups[root]).map(d=>({id:d.id||uid(),name:d.name||d.fileName||d.title||'Documento Varga Cantieri',category:d.category||d.type||root,driveUrl:d.driveUrl||d.url||d.webViewLink||'',notes:d.notes||'',clientId:'',jobId:'',addedBy:d.addedBy||d.userName||'Varga Cantieri',vcSourceId:d.vcSourceId,vcRootCollection:root}))) });Object.entries(groups).filter(([root])=>/segnal/i.test(root)).forEach(([,rows])=>{mapped+=upsertBySource(db.vcSegnalazioni,unpack(rows))});
  if(groups.commesse){let all=unpack(groups.commesse),rootCommesse=all.filter(x=>String(x.vcSourceId||'').split('/').length===2);mapped+=upsertBySource(db.vcCommesse,rootCommesse);rootCommesse.forEach(c=>{let existing=db.jobs.find(j=>j.vcSourceId===c.vcSourceId||j.sourceId===c.id),patch={title:c.title||c.name||c.nome||c.commessa||'Commessa Varga Cantieri',code:c.code||c.codice||c.codiceCommessa||'',clientId:existing?.clientId||'',site:c.site||c.cantiere||c.comune||'',start:c.start||c.dataInizio||'',end:c.end||c.dataFine||'',value:vcNumber(c.value||c.importo),status:c.status||c.stato||'Attiva',vcSourceId:c.vcSourceId,sourceId:c.id};if(existing)Object.assign(existing,patch);else{existing={id:uid(),...patch};db.jobs.push(existing)}ensureClientFromCommessa(c,existing)});all.filter(isAccountingRow).forEach(o=>{accountingRows++;let r=syncAccountingRow(o);if(r.created)newCons++;if(r.updated)updatedCons++})}
