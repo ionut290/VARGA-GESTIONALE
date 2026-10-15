@@ -52,7 +52,11 @@ async function closeRound(){
   db.vcRecords=(db.vcRecords||[]).filter(r=>!removed.has(r.sourcePath)&&!operationalPrefixes.some(prefix=>String(r.sourcePath||'').startsWith(prefix))).map(r=>{const next=updates.get(r.sourcePath);if(next){updates.delete(r.sourcePath);return next}return r});db.vcRecords.push(...updates.values());
   (db.vcImpianti||[]).forEach(p=>{if(removed.has(p.vcSourceId||p.sourcePath)){p.vcArchived=true;p.vcDeletedAt=new Date().toISOString();}});
   save({skipCloud:true});window.dispatchEvent(new Event('varga-round-closed'));
-  alert(`${result.header.remainingActiveRows?'ATTENZIONE: archiviazione completata con dati ancora attivi.':'Giro '+result.header.numeroGiro+' archiviato e verificato.'}\n${result.header.totalRows} lavorazioni conservate (${result.header.doneRows} FATTO).\n\n${result.header.remainingActiveRows?'Restano '+result.header.remainingActiveRows+' documenti operativi su Firebase: alcuni dati nuovi o modificati sono stati protetti. Controllare prima di avviare un nuovo giro.':'L’elenco attivo degli impianti è stato svuotato anche in Varga Cantieri.'}\nLa contabilità è disponibile in Consuntivi / Contabilità → Giri contabili archiviati.`);
+  if(result.header.remainingActiveRows){
+   alert('Archiviazione NON completata: '+result.header.remainingActiveRows+' documenti operativi restano su Firebase. Il giro resta in sospeso e NON è stato aperto il giro successivo. Le modifiche sopravvenute non saranno eliminate automaticamente. Verifica i record e ripremi FINE GIRO per riprendere.');
+  }else{
+   alert('Giro '+result.header.numeroGiro+' archiviato e verificato.\n'+result.header.totalRows+' lavorazioni conservate ('+result.header.doneRows+' FATTO).\n\nElenco operativo svuotato. Il nuovo giro è pronto.');
+  }
  }catch(e){alert('Fine giro non completato: '+(e.message||e)+'\n\nLe copie già create restano conservate. Ripremi FINE GIRO per riprendere la procedura.');}
  finally{roundClosing=false;if(job===closingJob)render();if(button){button.disabled=false;button.textContent='FINE GIRO — ARCHIVIA IMPIANTI';}}
 }
