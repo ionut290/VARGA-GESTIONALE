@@ -65,6 +65,7 @@ jobs:
           python -m py_compile verify_staging_import.py
           python -m py_compile diagnose_gateway.py
           python -m py_compile inspect_web_routing.py
+          python -m py_compile inspect_edge_persistence.py
           python -m py_compile patch_nginx_oracle.py
       - name: Integration test against temporary PostgreSQL
         run: python -m unittest discover -s integration_tests -v
