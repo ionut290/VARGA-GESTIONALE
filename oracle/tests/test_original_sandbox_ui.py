@@ -41,8 +41,9 @@ class SandboxUiTests(unittest.TestCase):
         for forbidden in ("firebase.", "localStorage", "indexedDB", "sessionStorage",
                           "eval(", "innerHTML=", 'fetch(', "window.location.reload",
                           'api.saveSection(ROOT,"jobs"', 'api.saveSection(ROOT,"quotes"',
-                          "api.save(", "migrationReview"):
+                          "api.save("):
             self.assertNotIn(forbidden,js)
+        self.assertIn('if(key==="migrationReview")',js)
         self.assertEqual(js.count("api.saveSection("),1)
         self.assertEqual(js.count("saveSection(ROOT"),1)
         self.assertNotIn('event.target.matches("form")',js)
