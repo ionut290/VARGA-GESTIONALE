@@ -34,9 +34,13 @@ services:
     read_only: true
     tmpfs: [/tmp]
     security_opt: ["no-new-privileges:true"]
-    networks: [internal]
+    # Keep PostgreSQL on the isolated internal network; expose only API to web.
+    networks: [internal, gestionale_edge]
 networks:
   internal:
     driver: bridge
+  gestionale_edge:
+    external: true
+    name: vg-gestionale-edge
 volumes:
   gestionale_pg:
