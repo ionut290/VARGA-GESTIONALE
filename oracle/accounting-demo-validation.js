@@ -23,10 +23,15 @@
       throw Error("Data DEMO non valida");
     return v;
   }
+  function demoClientId(v){
+    const id=String(v??"").trim();
+    if(!/^demo-cl-[a-z0-9-]{1,100}$/i.test(id))throw Error("Cliente DEMO non valido");
+    return id;
+  }
   function invoice(x){
     if(!x||typeof x!=="object")throw Error("Fattura DEMO mancante");
     const amount=money(x.amount);
-    return Object.freeze({number:required(x.number,60),clientId:required(x.clientId,120),
+    return Object.freeze({number:required(x.number,60),clientId:demoClientId(x.clientId),
       amount,date:date(x.date),due:date(x.due),status:"Da emettere"});
   }
   function consuntivo(x){
