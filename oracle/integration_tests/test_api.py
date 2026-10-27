@@ -61,7 +61,7 @@ class LivePgApi(unittest.TestCase):
              json={"expected_revision":0,"data":{"value":[]}}).status_code,401)
     def test_remembered_cookie_session_and_logout(self):
         client=TestClient(app,base_url="https://testserver")
-        response=client.post("/api/gestionale/v1/auth/login",json={"email":self.email,"password":self.password,"remember":True})
+        response=client.post("/api/gestionale/v1/auth/login",headers={"X-VG-Session-Mode":"cookie"},json={"email":self.email,"password":self.password,"remember":True})
         self.assertEqual(response.status_code,200,response.text)
         self.assertNotIn("access_token",response.json())
         cookie=response.headers.get("set-cookie","").lower()
