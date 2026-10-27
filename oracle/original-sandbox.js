@@ -131,7 +131,7 @@
     shell.addEventListener("click",event=>{
       const btn=event.target.closest("button,a,input[type=file],label.filebtn");
       if(!btn)return;
-      if(btn.matches(".nav[data-view], [data-go], #sidebarLogout, #addClient, #addJob, #addManual, #newQuote, #saveQuote, #qRows button, #recoverDemoDrafts"))return;
+      if(btn.matches(".nav[data-view], [data-go], #sidebarLogout, #addClient, #addJob, #addManual, #newQuote, #saveQuote, #qRows button, #addInvoice, #recoverDemoDrafts"))return;
       event.preventDefault();event.stopImmediatePropagation();
       if(btn.matches("a"))return;
       const context=btn.closest(".view");
@@ -147,7 +147,7 @@
     },true);
     for(const input of shell.querySelectorAll("input,select,textarea")){
       // Every input in preview is display-only; prevents browser-local changes.
-      if(input.type!=="hidden" && !["cName","jTitle","jClient","jCode","jSite","jStart","jEnd","jStatus","jValue","jNotes","qClient","qSubject","qSite","qValidity","qPayment","qDiscount","qVat"].includes(input.id))input.disabled=true;
+      if(input.type!=="hidden" && !["cName","jTitle","jClient","jCode","jSite","jStart","jEnd","jStatus","jValue","jNotes","qClient","qSubject","qSite","qValidity","qPayment","qDiscount","qVat","fNumber","fClient","fDate","fDue","fAmount","fStatus","fNotes"].includes(input.id))input.disabled=true;
     }
   }
   function status(view,msg){
@@ -271,6 +271,7 @@
       if(epoch!==model.epoch)return;
       const dataset=Object.fromEntries(result);
       if(view==="commesse"||view==="preventivo")fillDemoClientOptions(dataset.clients||[],view==="commesse"?"jClient":"qClient");
+      if(view==="fatture")fillDemoClientOptions(dataset.clients||[],"fClient");
       render(view,dataset);
       status(view,"Dati Oracle caricati. Consultazione di sola lettura.");
     }catch(err){
@@ -298,7 +299,7 @@
     return name;
   }
   async function saveDemoSection(key,newRecord,buttonId,view){
-    if(ROOT!=="gestionale_sandbox_20261027"||!model.user||!["clients","jobs","quotes"].includes(key))
+    if(ROOT!=="gestionale_sandbox_20261027"||!model.user||!["clients","jobs","quotes","invoices"].includes(key))
       throw Error("Salvataggio permesso soltanto nel laboratorio di prova.");
     const button=$(buttonId);
     if(!button||button.disabled)throw Error("Salvataggio già in corso.");
@@ -424,6 +425,26 @@
       if(ok){resetDemoQuote();alert("Preventivo DEMO salvato su Oracle.");}
     }catch(err){alert("Salvataggio preventivo DEMO non eseguito: "+err.message);}
   }
+  async function addDemoInvoice(){
+    if(ROOT!=="gestionale_sandbox_20261027"||!model.user)return;
+    try{
+      const validation=window.VGOracleAccountingDemo;
+      if(!validation)throw Error("Validazione DEMO non disponibile.");
+      const clients=list(await section("clients"));
+      const clientId=$("fClient").value;
+      if(!clients.some(x=>x.id===clientId&&/^demo-cl-/i.test(String(x.id||""))))
+        throw Error("Seleziona un cliente DEMO.");
+      const data=validation.invoice({number:$("fNumber").value,clientId,
+        amount:$("fAmount").value,date:$("fDate").value,due:$("fDue").value});
+      const record={...data,id:"demo-invoice-"+crypto.randomUUID(),
+        notes:String($("fNotes").value||"").slice(0,250)};
+      if(list(await section("invoices")).some(x=>x.number===record.number))
+        throw Error("Numero fattura DEMO già esistente.");
+      const ok=await saveDemoSection("invoices",record,"addInvoice","fatture");
+      if(ok){$("fNumber").value="";$("fAmount").value="";$("fNotes").value="";
+        alert("Documento DEMO salvato su Oracle. Non è una fattura fiscale.");}
+    }catch(err){alert("Documento DEMO non salvato: "+err.message);}
+  }
   async function addDemoClient(){
     if(ROOT!=="gestionale_sandbox_20261027"||!model.user)return;
     const input=$("cName");if(!input)return;
@@ -494,6 +515,7 @@
     }
     $("addClient")?.addEventListener("click",addDemoClient);
     $("addJob")?.addEventListener("click",addDemoJob);
+    $("addInvoice")?.addEventListener("click",addDemoInvoice);
     $("addManual")?.addEventListener("click",()=>{
       if(demoLines.length>=20)return alert("Massimo 20 voci DEMO.");
       demoLines.push({code:"VOCE",description:"DEMO Voce prova",unit:"cad",qty:1,price:10});
