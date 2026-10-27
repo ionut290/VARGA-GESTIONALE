@@ -28,8 +28,9 @@ class SandboxUiTests(unittest.TestCase):
         self.assertIn('keys:["clients","jobs","quotes","consuntivi","invoices","priceLists","entries"]',js)
         self.assertIn('const value=["clients","jobs","quotes","consuntivi","invoices","priceLists","entries"].includes(key)',js)
         self.assertIn('await bridge.load(key)',js)
-        self.assertIn('"clients,consuntivi,entries,invoices,jobs,priceLists,quotes"',js)
-        self.assertNotIn('"clients,consuntivi,jobs,quotes"',js)
+        self.assertIn('const requiredDemo=["clients","consuntivi","entries","invoices","jobs","priceLists","quotes"]',js)
+        self.assertIn('missingDemo=requiredDemo.filter(',js)
+        self.assertIn('response.workspace!==ROOT||missingDemo.length',js)
 
     def test_write_client_limited_to_demo_workspace(self):
         js=(P/"original-sandbox.js").read_text(encoding="utf-8")
