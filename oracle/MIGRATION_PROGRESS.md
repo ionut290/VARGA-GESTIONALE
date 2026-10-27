@@ -56,6 +56,12 @@ La pagina /oracle/console.html è solo un laboratorio di collaudo amministrativo
 - [x] Test Node di validazione collegati a GitHub Actions; atteso esito del commit `fd4f39b`.
 - [ ] Il database sandbox attuale contiene solo 4 sezioni: per Fatture/Prezzari servono sezioni DEMO aggiuntive predisposte e verificate prima di abilitare pulsanti o pubblicare.
 
+## Estensione isolata database DEMO (27 ottobre 2026)
+- [x] Preparata `oracle/extend_accounting_demo.sql`: inserimento **solo delle sezioni DEMO mancanti** `invoices`, `priceLists`, `entries` in un'unica transazione PostgreSQL; non modifica sezioni già esistenti grazie a `ON CONFLICT DO NOTHING`.
+- [x] Aggiunto test Python statico in `oracle/tests/test_extend_accounting_demo.py`, rilevato automaticamente dalla pipeline unittests.
+- [ ] Script SQL **NON eseguito su Oracle**: richiede collaudo e verifica prima dell'applicazione al workspace fittizio.
+- [ ] Collegare form e pulsanti ai nuovi moduli dopo la creazione verificata delle sezioni DEMO sul server.
+
 ## Prossima azione
 Prossima azione: i tre salvataggi DEMO sono confermati dall'utente nel browser reale; verificare in due sessioni il comportamento con modifiche concorrenti e che non vi siano sovrascritture. Collaudare perdita di connessione, recupero manuale IndexedDB e collisioni multi-sessione; poi implementare Fatture, Consuntivi e Prezzari in workspace DEMO separato prima delle prove sul dataset aziendale. Non trattare il componente come sincronizzazione offline di produzione. Per la produzione restano persistenza offline, autenticazione colleghi/ruoli, test moduli e cutover finale.
 
