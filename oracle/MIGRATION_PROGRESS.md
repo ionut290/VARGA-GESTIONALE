@@ -39,13 +39,13 @@ La pagina /oracle/console.html è solo un laboratorio di collaudo amministrativo
 - [x] Implementato adapter Oracle separato `oracle/section-bridge.js`: lettura per sezione, scritture limitate a workspace fittizio, versionamento, blocco conflitti HTTP 409, merge solo esplicito, gestione errori rete in memoria. Test Node superati.
 - [x] Collegato l'adapter ai tre moduli DEMO nella stessa HTML/CSS originale e aggiornato il pubblicatore (verifica SHA256 anche dell'adapter); CI completo superato.
 - [x] Pubblicato sul server l'adapter aggiornato del laboratorio con `sudo python3 oracle/publish_original_sandbox.py`: output VM commit `81c2623`, tre asset copiati e SHA256 verificati via HTTPS; dati aziendali e radio invariati. Rimane da collaudare la scrittura da browser reale.
-- [ ] Migrare lettura/scrittura e sincronizzazione **persistente/offline** a sezioni, revisioni, salvataggi locali e dati Cantieri (l'adapter attuale conserva le bozze solo in RAM)
+- [ ] Migrare lettura/scrittura e sincronizzazione **persistente/offline** a sezioni, revisioni, salvataggi locali e dati Cantieri. Preparati `demo-draft-vault.js`, adapter IndexedDB opt-in e relativi test, ma NON ancora collegati alla UI; `section-bridge.js` conserva tuttora le bozze in RAM.
 - [ ] Collaudare moduli preventivi, consuntivi, commesse, fatture, documenti, stampa PDF e Google Drive
 - [ ] Confrontare aggiornamenti inseriti dopo il backup del 27 ottobre, importare e validare la versione finale
 - [ ] Pianificare cutover e ripristino; rimuovere Firebase solo dopo verifiche complete
 
 ## Prossima azione
-Prossima azione: i tre salvataggi DEMO sono confermati dall'utente nel browser reale; verificare in due sessioni il comportamento con modifiche concorrenti e che non vi siano sovrascritture. Preparare in codice la sincronizzazione persistente/offline e i test senza modificare il workspace aziendale. Per la produzione restano persistenza offline, autenticazione colleghi/ruoli, test moduli e cutover finale.
+Prossima azione: i tre salvataggi DEMO sono confermati dall'utente nel browser reale; verificare in due sessioni il comportamento con modifiche concorrenti e che non vi siano sovrascritture. Collegare l'archivio IndexedDB opt-in al laboratorio DEMO, con recupero manuale e confronto revisioni, verificando prima i test CI aggiornati. Non distribuire il nuovo adapter da solo come se fosse già recupero offline completo. Per la produzione restano persistenza offline, autenticazione colleghi/ruoli, test moduli e cutover finale.
 
 ## Metodo di lavoro per accelerare
 Procedere in parallelo sul codice del frontend e sulle verifiche backend; usare un solo comando per blocco; segnalare a ogni aggiornamento completato/mancante/prossimo passo.
