@@ -310,14 +310,14 @@
         throw Error("Sezione dimostrativa inattesa oppure massimo 50 righe raggiunto.");
       const updated=[...before,newRecord];
       bridge.stage(key,updated);
-      if(draftVault)await draftVault.save(key,updated,bridge.state(key).revision);
+      if(draftVault && ["clients","jobs","quotes"].includes(key))await draftVault.save(key,updated,bridge.state(key).revision);
       const result=await bridge.commit(key);
       if(result.conflict){
         // Never overwrite or silently discard a competing edit.
         alert("Conflitto tra schede: bozza DEMO non inviata. Esci e rientra per ricaricare; nessun dato sovrascritto.");
         return false;
       }
-      if(draftVault)await draftVault.clear(key);
+      if(draftVault && ["clients","jobs","quotes"].includes(key))await draftVault.clear(key);
       model.cache.set(key,bridge.view(key));
       await open(view);
       return true;
