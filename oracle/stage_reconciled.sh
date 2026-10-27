@@ -16,18 +16,33 @@ for path in "$oldest" "$recent" "$live"; do
     exit 1
   fi
 done
-if [[ -e "$output" || -L "$output" ]]; then
-  echo "Snapshot riconciliato già esistente: non sovrascrivo." >&2
-  echo "Se era stato già generato, eseguire separatamente stage_backup.sh dopo averlo verificato." >&2
-  exit 1
-fi
 echo "=== VERIFICA IN SOLA LETTURA (3 FONTI) ==="
 python3 prepare_reconciled_stage.py "$recent" "$live" "$output" \
   --earliest "$oldest" --dry-run
-echo "=== GENERO COPIA DI PROVA PRIVATA ==="
-python3 prepare_reconciled_stage.py "$recent" "$live" "$output" \
-  --earliest "$oldest"
-echo "=== VERIFICA E IMPORT ATOMICO IN SOLO STAGING ==="
+if [[ -e "$output" || -L "$output" ]]; then
+  echo "=== ARCHIVIO ESISTENTE: VERIFICO IDENTITÀ, NON SOVRASCRIVO ==="
+  python3 prepare_reconciled_stage.py "$recent" "$live" "$output" \
+    --earliest "$oldest" --verify-existing
+else
+  echo "=== GENERO COPIA DI PROVA PRIVATA ==="
+  python3 prepare_reconciled_stage.py "$recent" "$live" "$output" \
+    --earliest "$oldest"
+fi
+
+echo "=== VERIFICO SE LO STAGING È GIÀ IMPORTATO ==="
+if python3 verify_staging_import.py "$output"; then
+  echo "SUCCESSO: STAGING 20261027 GIÀ IMPORTATO E VERIFICATO. Nessuna scrittura eseguita."
+  exit 0
+else
+  result=$?
+  if [[ "$result" -ne 3 ]]; then
+    echo "STOP: database esistente diverso oppure verifica non riuscita. Nessun import." >&2
+    exit "$result"
+  fi
+fi
+echo "=== IMPORTAZIONE ATOMICA SU WORKSPACE DI PROVA VUOTO ==="
 bash stage_backup.sh "$output"
-echo "RICONCILIAZIONE IMPORTATA SOLO IN staging gestionale_backup_20261027."
+echo "=== VERIFICA INTEGRITÀ DOPO L'IMPORT ==="
+python3 verify_staging_import.py "$output"
+echo "SUCCESSO: RICONCILIAZIONE IMPORTATA SOLO IN staging gestionale_backup_20261027."
 echo "Firebase, dati storici, app e servizi radio non modificati."
