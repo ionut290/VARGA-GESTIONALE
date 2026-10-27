@@ -19,6 +19,7 @@ class SandboxUiTests(unittest.TestCase):
         self.assertEqual(raw_without_js,rendered)
         self.assertIn('href="style.css?v=',result)
         self.assertIn('src="/oracle/original-sandbox.js"',result)
+        self.assertIn('src="/oracle/section-bridge.js"',result)
         self.assertNotIn("firebasejs",result)
         self.assertNotIn('src="app.js',result)
 
@@ -27,16 +28,17 @@ class SandboxUiTests(unittest.TestCase):
         self.assertIn('const ROOT="gestionale_sandbox_20261027";',js)
         self.assertNotIn("gestionale_backup_20261027",js)
         self.assertIn('if(ROOT!=="gestionale_sandbox_20261027"||!model.user)return;',js)
-        self.assertIn('await api.saveSection(ROOT,"clients",updated)',js)
-        self.assertIn("if(err.status===409)",js)
+        self.assertIn('await saveDemoSection("clients",{',js)
+        self.assertIn('await bridge.commit(key)',js)
+        self.assertIn('if(result.conflict)',js)
         self.assertIn('button.disabled=true;',js)
         self.assertIn('id="addClient"',(ROOT/"index.html").read_text(encoding="utf-8"))
         self.assertIn('"cName","jTitle","jClient"',js)
         self.assertIn('btn.matches(".nav[data-view], [data-go], #sidebarLogout, #addClient, #addJob, #addManual, #newQuote, #saveQuote, #qRows button")',js)
-        self.assertIn('if(!/^DEMO[ \\-]/i.test(name)',js)
+        self.assertIn('if(name.length>90||!/^DEMO[ \\-]/i.test(name))',js)
         self.assertIn("before.length>=50",js)
         self.assertIn('if(ROOT!=="gestionale_sandbox_20261027"||!model.user||!["clients","jobs","quotes"].includes(key))',js)
-        self.assertIn('await api.saveSection(ROOT,key,updated)',js)
+        self.assertIn('bridge.stage(key,updated)',js)
         for name in ("addDemoJob","addDemoQuote","renderDemoQuoteLines","fillDemoClientOptions"):
             self.assertIn("function "+name+"(",js)
         self.assertIn('const clients=list(await section("clients"));',js)
@@ -54,8 +56,9 @@ class SandboxUiTests(unittest.TestCase):
                           "api.save("):
             self.assertNotIn(forbidden,js)
         self.assertIn('if(key==="migrationReview")',js)
-        self.assertEqual(js.count("api.saveSection("),2)
-        self.assertEqual(js.count("saveSection(ROOT"),2)
+        self.assertEqual(js.count("api.saveSection("),0)
+        self.assertEqual(js.count("saveSection(ROOT"),0)
+        self.assertIn('const bridge=new window.VGOracleSectionBridge.SectionBridge',js)
         self.assertNotIn('event.target.matches("form")',js)
 
     def test_original_readonly_bridge_still_readonly(self):
