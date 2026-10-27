@@ -55,6 +55,7 @@ jobs:
           bash -n compare_staging.sh
           python -m py_compile verify_backup.py
           python -m py_compile compare_backups.py
+          python -m py_compile compare_backup_fields.py
       - name: Integration test against temporary PostgreSQL
         run: python -m unittest discover -s integration_tests -v
       - name: Validate schema and Compose YAML (without deployment)
