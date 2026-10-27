@@ -123,6 +123,44 @@ def build(old,live):
     current["migrationReview"]=review
     return current,conflicts,absent
 
+def add_earliest_historical(sections, earliest):
+    """Preserve rows only found in the oldest backup, without operational writes."""
+    review=sections["migrationReview"]
+    extra=Counter()
+    for sec,old_rows in earliest["data"].items():
+        if sec=="migrationReview":
+            raise ValueError("Sezione riservata presente nel backup più vecchio")
+        cur=sections.get(sec)
+        if cur is None:
+            if sec not in review["historicalSectionAbsent"]:
+                review["historicalSectionAbsent"][sec]=old_rows
+                extra[sec]=len(old_rows) if isinstance(old_rows,list) else 1
+            continue
+        old_idx=index(sec,old_rows)
+        cur_idx=index(sec,cur)
+        if old_idx is None or cur_idx is None:
+            if old_rows!=cur and sec not in review["historicalOnly"]:
+                review["historicalOnly"][sec]={
+                    "unmatchedHistorical":old_rows,
+                    "reason":"earliest_missing_or_duplicate_identifiers"}
+                extra[sec]=len(old_rows) if isinstance(old_rows,list) else 1
+            continue
+        item=review["historicalOnly"].get(sec)
+        if item is not None and "unmatchedHistorical" in item:
+            continue
+        quarantined=(item or {}).get("records",[])
+        known_ids=set()
+        for rec in quarantined:
+            ident=id_for(sec,rec)
+            if ident is not None:known_ids.add(ident)
+        extra_rows=[v for k,v in old_idx.items() if k not in cur_idx and k not in known_ids]
+        if extra_rows:
+            all_rows=quarantined+extra_rows
+            review["historicalOnly"][sec]={"records":all_rows,"count":len(all_rows)}
+            extra[sec]+=len(extra_rows)
+    review["sourceDates"]["earliest"]=date_of(earliest)
+    return extra
+
 def save_private(path,payload):
     parent=path.parent.resolve(strict=True)
     if path.is_symlink() or path.exists():
@@ -148,16 +186,23 @@ def main():
     p.add_argument("historical",type=Path)
     p.add_argument("current_export",type=Path)
     p.add_argument("output",type=Path)
+    p.add_argument("--earliest",type=Path,required=True,help="Il backup ulteriore del 15 ottobre")
     p.add_argument("--dry-run",action="store_true",help="Verifica senza creare output")
     a=p.parse_args()
     try:
         old=read_json(a.historical);live=read_json(a.current_export)
         sections,conflicts,absent=build(old,live)
+        earliest=read_json(a.earliest)
+        if date_of(earliest)>date_of(old):
+            raise ValueError("Il backup earliest non precede il backup intermedio")
+        earliest_extra=add_earliest_historical(sections,earliest)
         print("=== RICONCILIAZIONE ORACLE: NO SOVRASCRITTURE ===")
         print("Cloud+browser sezioni operative:",len(sections)-1)
         print("Sezioni riservate alla revisione:",len(sections["migrationReview"]["historicalOnly"]))
         print("Conflitti cloud/browser:",sum(conflicts.values()))
         print("Sezioni storiche assenti da entrambe le fonti:",len(sections["migrationReview"]["historicalSectionAbsent"]))
+        print("Record aggiuntivi preservati dal primo backup:",sum(earliest_extra.values()))
+        for k in sorted(earliest_extra):print(" ",k,earliest_extra[k])
         print("Record storici solo in quarantena, per sezione:")
         for k in sorted(absent):print(" ",k,absent[k])
         if conflicts:
