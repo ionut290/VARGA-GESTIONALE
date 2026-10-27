@@ -9,7 +9,7 @@
   const $=id=>document.getElementById(id);
   const model={user:null,sections:null,cache:new Map(),epoch:0};
   const routes={
-    dashboard:["quotes","clients","jobs","invoices","deadlines"],
+    dashboard:["quotes","clients","jobs","invoices","deadlines","vcRecords"],
     richieste:["requests"],preventivo:["clients","priceLists"],
     preventivi:["quotes"],clienti:["clients","priceLists"],
     commesse:["jobs","clients"],cantieriSync:["vcCommesse","vcImpianti","vcOre","vcRecords"],
@@ -125,7 +125,7 @@
     const get=k=>list(data[k]);
     if(view==="dashboard"){
       const jobs=get("jobs"),invoices=get("invoices"),deadlines=get("deadlines");
-      window.VGOraclePreviewData={jobs,clients:get("clients"),priceLists:get("priceLists"),deadlines};
+      window.VGOraclePreviewData={jobs,clients:get("clients"),priceLists:get("priceLists"),deadlines,vcRecords:get("vcRecords")};
       window.dispatchEvent(new Event("vg-oracle-preview-data"));
       stat("kPrev",get("quotes").length);
       stat("kCli",get("clients").length);
