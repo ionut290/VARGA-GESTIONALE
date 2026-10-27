@@ -54,9 +54,23 @@ class OriginalPreviewCoverage(unittest.TestCase):
         self.assertIn(".vg-job-grid",ui)
         self.assertIn("@media(min-width:1500px)",ui)
         self.assertIn("repeat(4,minmax(250px,1fr))",ui)
-        self.assertIn("function showReadonlyJob(job)",js)
+        self.assertIn('async function showReadonlyJob(job,tab="overview")',js)
         self.assertNotIn('src="/job-workspace.js"',
                          (ROOT/"oracle"/"original-preview.html").read_text(encoding="utf-8"))
+
+    def test_commessa_opens_readonly_workspace_instead_of_raw_json(self):
+        js=(ROOT/"oracle"/"original-preview.js").read_text(encoding="utf-8")
+        ui=(ROOT/"oracle"/"original-preview-ui.js").read_text(encoding="utf-8")
+        for label in ("Andamento economico della commessa","RISULTATO REALE",
+                      "Ore e valore maturato","Avanzamento lavori",
+                      "Panoramica commessa","ENTRATE E USCITE"):
+            with self.subTest(label=label):
+                self.assertIn(label,js)
+        self.assertIn("JOB_DETAIL_SECTIONS.map",js)
+        self.assertIn("[data-oracle-job-tab]",js)
+        self.assertNotIn("JSON.stringify(job,null,2)",js)
+        self.assertIn(".vg-work-head",ui)
+        self.assertIn(".vg-tabs",ui)
 
 if __name__=="__main__":
     unittest.main()
