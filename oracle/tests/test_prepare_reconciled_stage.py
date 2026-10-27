@@ -62,6 +62,27 @@ class ReconciledTest(unittest.TestCase):
         self.assertNotIn("vcSquadre",sections)
         self.assertEqual(sections["migrationReview"]["historicalSectionAbsent"]["vcSquadre"],[{"id":"s1"}])
 
+    def test_earliest_missing_rows_quarantined_without_resurrection(self):
+        old,fresh=self.fixtures()
+        sections,_,_=mod.build(old,fresh)
+        earliest={"app":"Varga Gestionale",
+                  "createdAt":"2026-10-15T16:00:00Z",
+                  "data":{"vcRecords":[{"sourcePath":"x0","stato":"very-old"},
+                                       {"sourcePath":"x2","stato":"also-old"}],
+                          "clients":[{"id":"c1"},{"id":"only-15"}],
+                          "requests":[{"id":"r1"}]}}
+        extra=mod.add_earliest_historical(sections,earliest)
+        self.assertEqual(extra["vcRecords"],1)
+        self.assertEqual(extra["clients"],1)
+        self.assertEqual(extra["requests"],1)
+        quarantine=sections["migrationReview"]["historicalOnly"]
+        self.assertEqual({r["sourcePath"] for r in quarantine["vcRecords"]["records"]},
+                         {"x0","x2"})
+        self.assertNotIn("requests",sections)
+        self.assertEqual(sections["migrationReview"]["historicalSectionAbsent"]["requests"],
+                         [{"id":"r1"}])
+        self.assertEqual(len(sections["clients"]),2)
+
     def test_never_import_different_workspace(self):
         old,fresh=self.fixtures()
         fresh["workspace"]="other"
