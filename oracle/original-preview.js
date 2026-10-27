@@ -10,15 +10,19 @@
   const model={user:null,sections:null,cache:new Map(),epoch:0};
   const routes={
     dashboard:["quotes","clients","jobs","invoices","deadlines","vcRecords"],
-    richieste:["requests"],preventivo:["clients","priceLists"],
+    richieste:["requests","dismissedRequestReceiptIds"],preventivo:["clients","priceLists","entries","company"],
     preventivi:["quotes"],clienti:["clients","priceLists"],
-    commesse:["jobs","clients"],cantieriSync:["vcCommesse","vcImpianti","vcOre","vcRecords"],
-    consuntivi:["consuntivi"],prezzari:["priceLists","entries"],
+    commesse:["jobs","clients"],cantieriSync:["vcCommesse","vcImpianti","vcOre","vcRecords","vcSquadre","vcUtenti","vcSegnalazioni","rapportini","cantieriRows","documents","cadrianoDocuments"],
+    consuntivi:["consuntivi","depurazioneConsuntivi","discaricheConsuntivi","wteModenaConsuntivi","economicEntries"],prezzari:["priceLists","entries","priceCatalog"],
     fatture:["invoices","clients"],spese:["expenses","jobs"],
-    scadenze:["deadlines"],documenti:["documents","clients","jobs"],
+    scadenze:["deadlines"],documenti:["documents","cadrianoDocuments","clients","jobs"],
     azienda:["company"],backup:[],cloud:[],
     firmaTimbro:[]
   };
+  const OPTIONAL_SECTIONS=new Set(["dismissedRequestReceiptIds","entries","company",
+    "vcSquadre","vcUtenti","vcSegnalazioni","rapportini","cantieriRows",
+    "depurazioneConsuntivi","discaricheConsuntivi","wteModenaConsuntivi",
+    "economicEntries","priceCatalog","cadrianoDocuments"]);
   const esc=value=>String(value===null||value===undefined?"":value)
     .replace(/[&<>"']/g,ch=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[ch]));
   const eur=n=>"€ "+Number(n||0).toLocaleString("it-IT",
@@ -110,6 +114,7 @@
   async function section(key){
     if(!model.user)throw Error("Sessione assente");
     if(key==="migrationReview")throw Error("Sezione storica non disponibile in anteprima");
+    if(model.sections&&!Object.prototype.hasOwnProperty.call(model.sections,key)&&OPTIONAL_SECTIONS.has(key))return [];
     if(model.cache.has(key))return model.cache.get(key);
     if(!model.sections||!Object.prototype.hasOwnProperty.call(model.sections,key)){
       throw Error("Sezione non trovata: "+key);
@@ -123,6 +128,8 @@
   }
   function render(view,data){
     const get=k=>list(data[k]);
+    const combine=keys=>keys.flatMap(key=>get(key).map(row=>
+      row&&typeof row==="object"&&!Array.isArray(row)?{...row,_oracleSource:key}:{id:key+"-"+String(row),value:row,_oracleSource:key}));
     if(view==="dashboard"){
       const jobs=get("jobs"),invoices=get("invoices"),deadlines=get("deadlines");
       window.VGOraclePreviewData={jobs,clients:get("clients"),priceLists:get("priceLists"),deadlines,vcRecords:get("vcRecords")};
@@ -166,23 +173,30 @@
         x.title,(x.date||"")+" · "+(x.type||""),x.done?"Fatta":"Aperta"]);
     } else if(view==="documenti"){
       const clients=get("clients");
-      fillList("documentsList",get("documents"),x=>[
-        x.name,(x.category||"")+" · "+clientsName(x.clientId,clients),x.driveUrl?"Documento Drive":""]);
+      fillList("documentsList",combine(["documents","cadrianoDocuments"]),x=>[
+        x.name||x.nome||"Documento",(x.category||x.categoria||"")+" · "+clientsName(x.clientId,clients),x.driveUrl?"Documento Drive":""]);
     } else if(view==="prezzari"){
       const prices=get("priceLists");
-      fillList("entriesList",get("entries").slice(-300).reverse(),x=>[
+      const entries=get("entries").length?get("entries"):get("priceCatalog");
+      fillList("entriesList",entries.slice(-300).reverse(),x=>[
         (x.code||"")+" — "+(x.description||""),
         (prices.find(p=>p.id===x.priceListId)?.name||"")+" · "+(x.unit||""),
         eur(x.price)],300);
     } else if(view==="cantieriSync"){
-      // These counts remain from the legacy sections until an audited mapping is ready.
       stat("vcCountCommesse",get("vcCommesse").length);
       stat("vcCountImpianti",get("vcImpianti").length);
-      stat("vcCountOre",get("vcOre").length);
+      stat("vcCountOre",get("vcOre").length+get("rapportini").length);
       stat("vcCountRecords",get("vcRecords").length);
       stat("vcImported",get("vcRecords").length);
+      stat("vcCountDocs",get("documents").length+get("cadrianoDocuments").length);
+      const collections=["vcCommesse","vcImpianti","vcSquadre","vcOre","rapportini","vcRecords","vcUtenti","vcSegnalazioni","cantieriRows"]
+        .filter(key=>Object.prototype.hasOwnProperty.call(model.sections,key))
+        .map(key=>({name:key,count:get(key).length}));
+      fillList("vcRowsList",collections,x=>[x.name,
+        x.name==="vcOre"||x.name==="rapportini"?"Ore lavorate e rapportini":"Raccolta Cantieri",
+        x.count+" documenti"]);
     } else if(view==="consuntivi"){
-      const rows=get("consuntivi");
+      const rows=combine(["consuntivi","depurazioneConsuntivi","discaricheConsuntivi","wteModenaConsuntivi","economicEntries"]);
       const statusValue=x=>String(x.status||"").toLowerCase();
       stat("cPending",rows.filter(x=>statusValue(x).includes("verific")).length);
       stat("cApproved",rows.filter(x=>statusValue(x).includes("approv")).length);
@@ -250,11 +264,18 @@
             "Oracle: "+current.toLocaleString("it-IT")+" documenti dalla sorgente corrente; "+
             count("commesse").toLocaleString("it-IT")+" commesse, "+
             count("impianti").toLocaleString("it-IT")+" impianti, "+
-            count("oreReports").toLocaleString("it-IT")+" rapporti ore. "+
+            count("oreReports").toLocaleString("it-IT")+" rapporti ore; "+
+            get("vcSquadre").length.toLocaleString("it-IT")+" squadre e "+
+            get("rapportini").length.toLocaleString("it-IT")+" rapportini nel workspace. "+
             historical.toLocaleString("it-IT")+" documenti storici conservati per revisione.";
-          fillList("vcRowsList",rows.map(x=>({
+          const sourceRows=[...rows.map(x=>({
             name:x.name,snapshot:x.snapshot,count:x.count
-          })),x=>[x.name,x.snapshot==="current_sync"?"Sorgente corrente":"Archivio storico "+x.snapshot,x.count+" documenti"],100);
+          })),...["vcCommesse","vcImpianti","vcSquadre","vcOre","rapportini","vcRecords","vcUtenti","vcSegnalazioni","cantieriRows"]
+            .filter(key=>Object.prototype.hasOwnProperty.call(model.sections,key))
+            .map(key=>({name:key,snapshot:"workspace",count:list(model.cache.get(key)).length}))];
+          fillList("vcRowsList",sourceRows,x=>[x.name,
+            x.snapshot==="current_sync"?"Sorgente corrente":x.snapshot==="workspace"?"Dati del Gestionale":"Archivio storico "+x.snapshot,
+            x.count+" documenti"],100);
         }catch(error){
           if($("vcSyncInfo"))$("vcSyncInfo").textContent=
             "Archivio staging non disponibile: "+error.message;

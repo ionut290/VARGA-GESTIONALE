@@ -86,7 +86,7 @@ class SandboxUiTests(unittest.TestCase):
 
     def test_original_readonly_bridge_still_readonly(self):
         js=(P/"original-preview.js").read_text(encoding="utf-8")
-        self.assertIn('const ROOT="gestionale_backup_20261027";',js)
+        self.assertIn('const ROOT="gestionale_cantieri_sync_20261027";',js)
         self.assertNotIn("saveSection(",js)
         self.assertNotIn("original-sandbox",js)
 

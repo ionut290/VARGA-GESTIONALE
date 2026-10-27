@@ -21,7 +21,7 @@ class SandboxPublisherTests(unittest.TestCase):
         publisher.validate_assets(self.js,self.bridge,self.html)
 
     def test_rejects_stale_demo_section_manifest(self):
-        expected=b'keys:["clients","jobs","quotes","consuntivi","invoices","priceLists","entries"]'
+        expected=b'keys:["clients","jobs","quotes","consuntivi","invoices","priceLists","entries","expenses","deadlines","documents","requests","vcCommesse","vcImpianti","vcOre","vcRecords","company"]'
         self.assertIn(expected,self.js)
         stale=self.js.replace(expected,b'keys:["clients","jobs","quotes"]')
         with self.assertRaisesRegex(ValueError,"Adapter"):
