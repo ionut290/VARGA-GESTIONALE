@@ -50,7 +50,9 @@ def validate_assets(js: bytes, bridge: bytes, html: bytes, vault: bytes | None =
         raise ValueError("Protezione dei dati aziendali non presente nell'adapter")
     if vault is None:
         vault=(SRC/"demo-draft-vault.js").read_bytes()
-    if b'src="/oracle/demo-draft-vault.js"' not in html or b"openBrowserStore" not in vault:\n        raise ValueError("Archivio bozze DEMO mancante")\n    if (b'src="/oracle/original-sandbox.js"' not in html or
+    if b'src="/oracle/demo-draft-vault.js"' not in html or b"openBrowserStore" not in vault:
+        raise ValueError("Archivio bozze DEMO mancante")
+    if (b'src="/oracle/original-sandbox.js"' not in html or
         b'src="/oracle/section-bridge.js"' not in html or b"firebasejs" in html):
         raise ValueError("Il loader sandbox non è isolato da Firebase")
     if b"gestionale_sandbox_20261027" not in bridge or b"varga-azienda" in bridge:
@@ -60,7 +62,8 @@ def main():
     print("=== CLIENTI, COMMESSE E PREVENTIVI ORACLE DEMO, GRAFICA ORIGINALE ===")
     pub.verify_sources()  # Ensure original CSS is identical on the public web container.
     js=(SRC/(NAME+".js")).read_bytes()
-    bridge=(SRC/"section-bridge.js").read_bytes()\n    vault=(SRC/"demo-draft-vault.js").read_bytes()
+    bridge=(SRC/"section-bridge.js").read_bytes()
+    vault=(SRC/"demo-draft-vault.js").read_bytes()
     html=pub.load_builder().transform((ROOT/"index.html").read_text(encoding="utf-8"),sandbox=True).encode("utf-8")
     validate_assets(js,bridge,html,vault)
     for name,data in (("section-bridge.js",bridge),("demo-draft-vault.js",vault),(NAME+".js",js),(NAME+".html",html)):
@@ -92,7 +95,12 @@ def main():
         served_bridge=response.read(150_001)
         if response.status!=200 or hashlib.sha256(served_bridge).hexdigest()!=hashlib.sha256(bridge).hexdigest():
             raise ValueError("Adapter Oracle HTTPS non corrisponde alla sorgente")
-    vault_url=pub.DOMAIN+"/oracle/demo-draft-vault.js?v="+hashlib.sha256(vault).hexdigest()[:16]\n    with urllib.request.urlopen(urllib.request.Request(vault_url,headers={"Cache-Control":"no-cache"}),timeout=12) as response:\n        served_vault=response.read(150_001)\n        if response.status!=200 or hashlib.sha256(served_vault).hexdigest()!=hashlib.sha256(vault).hexdigest():\n            raise ValueError("Archivio DEMO HTTPS non corrisponde alla sorgente")\n    print("HTML, JavaScript, adapter e bozze DEMO pubblici verificati via HTTPS e SHA256.")
+    vault_url=pub.DOMAIN+"/oracle/demo-draft-vault.js?v="+hashlib.sha256(vault).hexdigest()[:16]
+    with urllib.request.urlopen(urllib.request.Request(vault_url,headers={"Cache-Control":"no-cache"}),timeout=12) as response:
+        served_vault=response.read(150_001)
+        if response.status!=200 or hashlib.sha256(served_vault).hexdigest()!=hashlib.sha256(vault).hexdigest():
+            raise ValueError("Archivio DEMO HTTPS non corrisponde alla sorgente")
+    print("HTML, JavaScript, adapter e bozze DEMO pubblici verificati via HTTPS e SHA256.")
     print("SUCCESSO: LABORATORIO CLIENTI, COMMESSE E PREVENTIVI ORACLE PUBBLICATO.")
     print("URL: "+url)
     print("Scritture abilitate SOLO nel workspace gestionale_sandbox_20261027, con dati fittizi.")
