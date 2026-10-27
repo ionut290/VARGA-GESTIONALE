@@ -19,7 +19,6 @@ class SandboxUiTests(unittest.TestCase):
         self.assertEqual(raw_without_js,rendered)
         self.assertIn('href="style.css?v=',result)
         self.assertIn('src="/oracle/original-sandbox.js"',result)
-        self.assertIn('src="/oracle/business-demo-validation.js"',result)
         self.assertIn('src="/oracle/section-bridge.js"',result)
         self.assertNotIn("firebasejs",result)
         self.assertNotIn('src="app.js',result)
@@ -57,10 +56,10 @@ class SandboxUiTests(unittest.TestCase):
         self.assertIn('id="addClient"',(ROOT/"index.html").read_text(encoding="utf-8"))
         self.assertIn('"cName","jTitle","jClient"',js)
         self.assertIn('#recoverDemoDrafts',js)
-        self.assertIn('#addExpense, #addDeadline, #addDocument, #saveCompany, #exportConsCsv, #recoverDemoDrafts")',js)
+        self.assertIn('#saveQuote, #qRows button, #addInvoice, #addPriceList, #addEntry, #exportConsCsv, #recoverDemoDrafts")',js)
         self.assertIn('if(name.length>90||!/^DEMO[ \\-]/i.test(name))',js)
         self.assertIn("before.length>=50",js)
-        self.assertIn('if(ROOT!=="gestionale_sandbox_20261027"||!model.user||!DEMO_WRITE_KEYS.includes(key))',js)
+        self.assertIn('if(ROOT!=="gestionale_sandbox_20261027"||!model.user||!["clients","jobs","quotes","invoices","priceLists","entries"].includes(key))',js)
         self.assertIn('bridge.stage(key,updated)',js)
         for name in ("addDemoJob","addDemoQuote","renderDemoQuoteLines","fillDemoClientOptions"):
             self.assertIn("function "+name+"(",js)
@@ -70,21 +69,6 @@ class SandboxUiTests(unittest.TestCase):
         self.assertIn('row.description=demoName(row.description);',js)
         self.assertIn('await saveDemoSection("jobs",job,"addJob","commesse")',js)
         self.assertIn('await saveDemoSection("quotes",quote,"saveQuote","preventivi")',js)
-        for call in ('addDemoExpense','addDemoDeadline','addDemoDocument','saveDemoCompany'):
-            self.assertIn('addEventListener("click",'+call+')',js)
-        for key in ('expenses','deadlines','documents','company'):
-            self.assertIn('saveDemoSection("'+key+'"',js)
-
-    def test_new_business_modules_reject_real_values_and_external_integrations(self):
-        validator=(P/"business-demo-validation.js").read_text(encoding="utf-8")
-        for fn in ("expense","deadline","documentRecord","company"):
-            self.assertIn("function "+fn+"(x)",validator)
-        self.assertIn('x.calendarEnabled===true',validator) if 'x.calendarEnabled===true' in validator else self.assertIn('calendarEnabled:false',validator)
-        self.assertIn('driveUrl:""',validator)
-        js=(P/"original-sandbox.js").read_text(encoding="utf-8")
-        self.assertIn('calendarEnabled:false',js)
-        self.assertIn('driveUrl:""',js)
-        self.assertIn('addedBy:"DEMO Utente"',js)
 
     def test_no_other_storage_or_write_routes(self):
         js=(P/"original-sandbox.js").read_text(encoding="utf-8")

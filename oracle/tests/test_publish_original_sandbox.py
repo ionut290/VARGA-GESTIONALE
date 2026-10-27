@@ -13,32 +13,31 @@ class SandboxPublisherTests(unittest.TestCase):
     def setUpClass(cls):
         cls.js=(ROOT/"original-sandbox.js").read_bytes()
         cls.bridge=(ROOT/"section-bridge.js").read_bytes()
-        cls.business=(ROOT/"business-demo-validation.js").read_bytes()
         cls.html=publisher.pub.load_builder().transform(
             (ROOT.parent/"index.html").read_text(encoding="utf-8"),sandbox=True
         ).encode("utf-8")
 
     def test_current_source_can_be_published(self):
-        publisher.validate_assets(self.js,self.bridge,self.html,business_validation=self.business)
+        publisher.validate_assets(self.js,self.bridge,self.html)
 
     def test_rejects_stale_demo_section_manifest(self):
         expected=b'keys:["clients","jobs","quotes","consuntivi","invoices","priceLists","entries","expenses","deadlines","documents","requests","vcCommesse","vcImpianti","vcOre","vcRecords","company"]'
         self.assertIn(expected,self.js)
         stale=self.js.replace(expected,b'keys:["clients","jobs","quotes"]')
         with self.assertRaisesRegex(ValueError,"Adapter"):
-            publisher.validate_assets(stale,self.bridge,self.html,business_validation=self.business)
+            publisher.validate_assets(stale,self.bridge,self.html)
 
     def test_rejects_direct_api_save(self):
         with self.assertRaisesRegex(ValueError,"diretti"):
             publisher.validate_assets(
-                self.js+b'\\napi.saveSection(',self.bridge,self.html,business_validation=self.business)
+                self.js+b'\\napi.saveSection(',self.bridge,self.html)
 
     def test_rejects_real_data_target(self):
         with self.assertRaises(ValueError):
             publisher.validate_assets(
                 self.js.replace(b'gestionale_sandbox_20261027',
                                 b'gestionale_backup_20261027'),
-                self.bridge,self.html,business_validation=self.business)
+                self.bridge,self.html)
 
     def test_rejects_incomplete_bridge(self):
         with self.assertRaisesRegex(ValueError,"Protezione"):
@@ -46,25 +45,20 @@ class SandboxPublisherTests(unittest.TestCase):
                 self.js,
                 self.bridge.replace(b'if(writable && this.workspace!==SANDBOX)',
                                     b'if(false)'),
-                self.html,business_validation=self.business)
+                self.html)
 
     def test_rejects_missing_bridge_loader(self):
         with self.assertRaisesRegex(ValueError,"loader"):
             publisher.validate_assets(
                 self.js,self.bridge,
                 self.html.replace(b'/oracle/section-bridge.js',
-                                  b'/oracle/missing-bridge.js'),business_validation=self.business)
+                                  b'/oracle/missing-bridge.js'))
 
     def test_rejects_stale_direct_save_implementation(self):
         old=self.js.replace(b'await bridge.commit(key)',
                             b'await api.saveSection(ROOT,"clients",updated)')
         with self.assertRaises(ValueError):
-            publisher.validate_assets(old,self.bridge,self.html,business_validation=self.business)
-
-    def test_rejects_missing_business_validation(self):
-        with self.assertRaisesRegex(ValueError,"Validatore dei nuovi moduli"):
-            publisher.validate_assets(self.js,self.bridge,self.html,
-                                      business_validation=b"module.exports={};")
+            publisher.validate_assets(old,self.bridge,self.html)
 
     def test_never_overwrites_production_web_assets(self):
         source=(ROOT/"publish_original_sandbox.py").read_text(encoding="utf-8")
