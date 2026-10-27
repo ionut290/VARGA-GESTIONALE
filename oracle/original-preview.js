@@ -333,7 +333,7 @@
       if(!model.user){
         const panel=$("loginScreen");
         if(panel){panel.hidden=false;panel.setAttribute("aria-hidden","false");}
-        explain("Accedi prima con le credenziali Oracle; la sezione Cantieri non è accessibile senza login.",true);
+        explain("Accedi con le credenziali Oracle per aprire la sezione.",true);
         return;
       }
       const requestedView=link.dataset.oracleView || "cantieriSync";
