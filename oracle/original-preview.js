@@ -254,6 +254,16 @@
   }
   function setup(){
     locks();
+    // Same structure and styling; clarify that preview authentication is Oracle,
+    // not the still-running Varga Cantieri/Firebase account.
+    const title=document.querySelector(".login-brand-copy h1");
+    if(title)title.textContent="Accesso Oracle di prova.";
+    const explanation=document.querySelector(".login-brand-copy p:not(.login-kicker)");
+    if(explanation)explanation.textContent="Usa le credenziali Oracle create per il collaudo. La grafica originale è mantenuta; le modifiche sono disabilitate.";
+    const intro=document.querySelector(".login-intro");
+    if(intro)intro.textContent="Usa l'account di prova Oracle.";
+    const help=document.querySelector(".login-help");
+    if(help)help.textContent="In questo ambiente di prova sono disponibili solo accesso Oracle e consultazione dati. Per lavorare normalmente utilizza il Gestionale attuale.";
     const form=$("loginForm");
     form.addEventListener("submit",login);
     for(const button of document.querySelectorAll(".nav[data-view]")){
