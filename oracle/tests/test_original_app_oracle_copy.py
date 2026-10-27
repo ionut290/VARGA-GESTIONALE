@@ -39,9 +39,11 @@ class OriginalAppOracleCopyTest(unittest.TestCase):
     def test_deployment_bundles_the_oracle_api_client_with_the_adapter(self):
         publisher=(ROOT/"oracle"/"publish_original_app_preview.py").read_text(encoding="utf-8")
         self.assertIn('files["client.js"]=SRC/"client.js"',publisher)
-        self.assertIn("/oracle/original-app-'+digest+'/client.js",publisher)
+        self.assertIn("/oracle/original-app-'+digest+'-client.js",publisher)
         self.assertIn("public reverse proxy too",publisher)
         self.assertIn("asset_response.status!=200",publisher)
+        bootstrap=(ROOT/"oracle"/"original-app-bootstrap.js").read_text(encoding="utf-8")
+        self.assertIn('src.replaceAll("/","__")',bootstrap)
 
     def test_auth_screen_cannot_remain_on_the_loading_spinner(self):
         adapter=(ROOT/"oracle"/"original-app-adapter.js").read_text(encoding="utf-8")
