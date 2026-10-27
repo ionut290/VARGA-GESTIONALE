@@ -12,10 +12,10 @@ pre{white-space:pre-wrap;overflow-wrap:anywhere;font:13px ui-monospace,monospace
 small{color:#bbcede}#status{font-weight:600}label{display:block;margin-top:10px}
 </style></head><body><main>
 <h1>Varga Gestionale · Collaudo Oracle</h1>
-<p>Ambiente di prova: <strong>solo lettura</strong>. Nessuna modifica a Varga Cantieri, Firebase o dati aziendali.</p>
+<p>Ambiente di prova: <strong>solo lettura</strong> dell’archivio riconciliato del 27 ottobre 2026, separato dal Gestionale in uso.</p>
 <section><button id="health">Controlla API Oracle</button><p id="healthStatus"></p></section>
 <section><form id="login"><label>Email<input id="email" type="email" autocomplete="username" required></label>
-<label>Password Oracle<input id="password" type="password" autocomplete="current-password" required></label>
+<label>Password Oracle (distinta da Firebase)<input id="password" type="password" autocomplete="current-password" required></label>
 <button type="submit">Accedi al backend di prova</button></form><p id="status">Non autenticato</p>
 <button id="inspect" disabled>Verifica archivio (solo conteggi)</button>
 <button id="logout" disabled>Esci</button>
@@ -29,8 +29,8 @@ $("login").onsubmit=async e=>{e.preventDefault();const password=$("password").va
 try{const user=await client.login($("email").value,password);$("password").value="";report("status","Accesso di prova: "+user.email+" / "+user.role);$("inspect").disabled=false;$("logout").disabled=false}
 catch(err){$("password").value="";report("status","Accesso non riuscito: "+err.message)}};
 $("inspect").onclick=async()=>{
-  try{const x=await client.manifest("varga-azienda");const counts={};
-    for(const [key,value] of Object.entries(x.sections||{})){counts[key]={items:value.count,revision:value.revision}}
+  try{const x=await client.manifest("gestionale_backup_20261027");const counts={};
+    for(const [key,value] of Object.entries(x.sections||{})){if(key==="migrationReview")continue;counts[key]={items:value.count,revision:value.revision}}
     report("summary",JSON.stringify({workspace:x.workspace,sections:counts},null,2));
   }catch(e){report("summary","Impossibile leggere archivio: "+e.message)}
 };
