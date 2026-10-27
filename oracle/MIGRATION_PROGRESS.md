@@ -11,9 +11,10 @@
 - [x] API HTTPS del Gestionale e pagina di collaudo: raggiungibili e testate
 
 ## Mancante, in ordine di priorità
-- [ ] Rendere permanenti la rete vg-gestionale-edge e i file Nginx nel Compose: script pronto in repository, esecuzione ancora da confermare
+- [x] Preparazione persistenza rete vg-gestionale-edge e asset Nginx: web Compose aggiornato sulla VM, API Compose aggiornato nel repository; container non ricreati
 - [ ] Verificare che il successivo deploy dei container Varga conservi rete, file e configurazione senza interferire con AzuraCast
-- [ ] Sviluppare e collaudare il nuovo frontend Oracle-only, lasciando intatto il sito Firebase attuale
+- [x] Prima interfaccia Oracle-only di consultazione sviluppata in oracle/console.html e oracle/console.js, test automatizzati superati; NON ancora pubblicata sul server
+- [ ] Pubblicare e collaudare la console Oracle read-only con oracle/publish_oracle_console.py; il frontend completo è ancora da migrare
 - [ ] Migrare autenticazione, utenti, ruoli, recupero password e autorizzazioni collegate a Varga Cantieri
 - [ ] Migrare lettura/scrittura e sincronizzazione a sezioni, revisioni, salvataggi locali e dati Cantieri
 - [ ] Collaudare moduli preventivi, consuntivi, commesse, fatture, documenti, stampa PDF e Google Drive
@@ -21,8 +22,7 @@
 - [ ] Pianificare cutover e ripristino; rimuovere Firebase solo dopo verifiche complete
 
 ## Prossima azione
-Da Windows PowerShell, nel server Oracle eseguire il file oracle/prepare_edge_persistence.py dopo git pull --ff-only.
-Comando già fornito nella conversazione: non modifica i container attivi, ma prepara i Compose e gli asset persistenti.
+Da Windows PowerShell eseguire git pull --ff-only e sudo python3 oracle/publish_oracle_console.py sulla VM. Pubblica soltanto nuovi asset della console Oracle, senza toccare il frontend Firebase in uso, la radio o il database. Aprire poi https://gestionale.radio-romanii-italia.duckdns.org/oracle/console.html per il collaudo.
 
 ## Metodo di lavoro per accelerare
 Procedere in parallelo sul codice del frontend e sulle verifiche backend; usare un solo comando per blocco; segnalare a ogni aggiornamento completato/mancante/prossimo passo.
