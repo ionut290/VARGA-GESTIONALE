@@ -12,6 +12,8 @@
     "vcSegnalazioni","vcUtenti","vcRecords","company"];
   const revisions=new Map(),baseline=new Map();
   let busy=false,timer=0;
+  if(typeof window.updateBackupInfo!=="function")window.updateBackupInfo=()=>{};
+  if(typeof window.autoFolderBackup!=="function")window.autoFolderBackup=()=>{};
   const defaults={priceLists:[],entries:[],clients:[],quotes:[],jobs:[],invoices:[],expenses:[],
     economicEntries:[],deadlines:[],documents:[],requests:[],dismissedRequestReceiptIds:[],
     cantieriRows:[],consuntivi:[],meta:{},
@@ -34,6 +36,7 @@
     document.querySelector(".app-shell")?.setAttribute("aria-hidden",String(!user));
     if($("loginScreen"))$("loginScreen").setAttribute("aria-hidden",String(!!user));
     if($("loginForm"))$("loginForm").hidden=!!user;
+    if($("loginLoading"))$("loginLoading").hidden=true;
     if(user){
       const name=user.display_name||user.displayName||user.email?.split("@")[0]||"Utente";
       if($("sidebarUserName"))$("sidebarUserName").textContent=name;
@@ -55,6 +58,7 @@
       baseline.set(key,JSON.stringify(value));
     }
     if(typeof window.companyToForm==="function")window.companyToForm();
+    if(typeof window.clearQuote==="function")window.clearQuote();
     if(typeof window.refresh==="function")window.refresh();
       if(typeof window.refreshVcCounts==="function")window.refreshVcCounts();
     if($("cloudInfo"))$("cloudInfo").textContent="Dati caricati dal workspace Oracle di prova. Firebase del Gestionale originale resta separato.";
@@ -107,5 +111,7 @@
   $("sidebarLogout")?.addEventListener("click",logout);$("logoutCloud")?.addEventListener("click",logout);
   for(const id of ["loginGoogleButton","loginGoogleCloud","createLoginAccount","registerCloud","forgotPassword"]){const node=$(id);if(node){node.hidden=true;node.disabled=true}}
   if($("cloudInfo"))$("cloudInfo").textContent="Accedi per lavorare sulla copia Oracle. I dati Firebase del Gestionale originale non vengono modificati.";
+  if(typeof window.__vgOracleBootReady==="function")window.__vgOracleBootReady();
+  else window.VG_ORACLE_UI_READY=true;
   refreshAuth(null);
 })();
