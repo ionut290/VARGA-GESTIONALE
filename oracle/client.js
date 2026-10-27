@@ -48,6 +48,14 @@
       return encodeURIComponent(name);
     }
     manifest(name){return this.request("workspaces/"+this.validWorkspace(name)+"/manifest")}
+    cantieriStageSummary(name){
+      return this.request("workspaces/"+this.validWorkspace(name)+"/cantieri-stage/summary");
+    }
+    cantieriStageDocuments(name,collection,offset=0,limit=100){
+      if(!/^[A-Za-z][A-Za-z0-9_]{0,63}$/.test(collection))throw Error("Raccolta non valida");
+      if(!Number.isInteger(offset)||offset<0||!Number.isInteger(limit)||limit<1||limit>200)throw Error("Paginazione non valida");
+      return this.request("workspaces/"+this.validWorkspace(name)+"/cantieri-stage/documents?collection="+encodeURIComponent(collection)+"&offset="+offset+"&limit="+limit);
+    }
     async readSection(name,section){
       this.validWorkspace(section);
       const data=await this.request("workspaces/"+this.validWorkspace(name)+"/sections/"+encodeURIComponent(section));
