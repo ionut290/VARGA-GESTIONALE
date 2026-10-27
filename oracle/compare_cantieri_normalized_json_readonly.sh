@@ -10,6 +10,8 @@ sudo docker exec -i db-postgres-1 psql -X -q -v ON_ERROR_STOP=1 -U varga -d varg
 sudo docker compose -f oracle/compose.yaml -p vg-gestionale-oracle exec -T db psql -X -q -v ON_ERROR_STOP=1 -U varga_gestionale -d varga_gestionale -c "COPY (SELECT path,data::text FROM vg.cantieri_source_stage ORDER BY path) TO STDOUT WITH (FORMAT csv)" > "$tmp/stage.csv"
 python3 - "$tmp/live.csv" "$tmp/stage.csv" <<'PY'
 import csv,sys,json,collections
+# PostgreSQL exports can contain JSON fields larger than Python's 128 KiB CSV default.
+csv.field_size_limit(64 * 1024 * 1024)
 def decode(x):
     if isinstance(x,dict):
         if set(x)=={'v'}: return decode(x['v'])
