@@ -39,8 +39,9 @@ Ultima verifica read-only dopo la decodifica dei tag storici `{t,v}`:
 ## Workspace Gestionale sincronizzato (27 ottobre 2026)
 
 - [x] Creato `gestionale_cantieri_sync_20261027` come copia isolata del candidato precedente; i membri sono stati copiati con accesso in sola lettura.
-- [x] Mappati i dati `current_sync` nelle sezioni Cantieri tramite le regole già usate da `app-sync.js`; conteggi verificati: `vcCommesse` 20, `vcImpianti` 67, `vcOre` 419, `vcRecords` 5.103, `vcSquadre` 420, `vcUtenti` 149, `vcSegnalazioni` 0.
+- [x] Mappati i dati `current_sync` nelle sezioni Cantieri: `vcCommesse` 20, `vcImpianti` 67, `vcOre` 419, `vcRecords` 5.103, `vcSquadre` 420, `vcUtenti` 149, `vcSegnalazioni` 0.
+- [ ] Il controllo schermate ha rilevato che i payload `current_sync` possono usare involucri Firestore `{t,v}` e che i record grezzi non bastano per riempire le sezioni operative. Il nuovo mapper decodifica i tag standard, proietta le commesse radice nelle sezioni `jobs` e `clients` e stampa i conteggi di controllo; la sua esecuzione sul server deve ancora essere verificata.
 - [x] Anteprima originale pubblicata con il workspace sincronizzato; CSS originale identico verificato e endpoint staging protetto.
 - [x] Preparati ciclo ripetibile e timer systemd ogni 5 minuti, con lock, timeout e script di rimozione reversibile.
-- [ ] Il timer non è ancora installato. La sincronizzazione ricorrente partirà quando verrà eseguito `sudo bash oracle/install_cantieri_sync_timer.sh`.
+- [x] Timer systemd installato e verificato attivo ogni cinque minuti; l'ultimo ciclo osservato è terminato con codice 0.
 - [ ] Rimangono esclusi dal cutover produzione e dallo spegnimento Firebase; il workspace di sincronizzazione è una preview isolata e in sola lettura.
