@@ -211,7 +211,10 @@ def main():
         if a.dry_run:
             print("DRY RUN: nessun file creato, nessun database modificato")
             return 0
-        wrapper={"app":"Varga Gestionale","workspace":live["workspace"],
+        # Do not emit the workspace selector: the already-deployed importer
+        # must be able to place this PRIVATE snapshot into a dated staging ID.
+        # The authenticated source workspace was strictly verified above.
+        wrapper={"app":"Varga Gestionale","sourceWorkspace":live["workspace"],
           "createdAt":live.get("exported_at") or live.get("createdAt"),
           "purpose":"private Oracle staging / reconciled cloud and browser",
           "data":sections}
