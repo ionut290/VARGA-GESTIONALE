@@ -1,0 +1,42 @@
+# An isolated stack; does not change radio or Varga Cantieri.
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    shm_size: 128mb
+    environment:
+      POSTGRES_DB: varga_gestionale
+      POSTGRES_USER: varga_gestionale
+      POSTGRES_PASSWORD: ${VG_DB_PASSWORD:?Set the private VG_DB_PASSWORD}
+    volumes:
+      - gestionale_pg:/var/lib/postgresql/data
+      - ./schema.sql:/docker-entrypoint-initdb.d/00-schema.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U varga_gestionale -d varga_gestionale"]
+      interval: 15s
+      retries: 5
+    mem_limit: 640m
+    pids_limit: 120
+    networks: [internal]
+  api:
+    build: .
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: ${VG_DATABASE_URL:?Set the private VG_DATABASE_URL}
+      VG_ALLOWED_ORIGINS: ${VG_ALLOWED_ORIGINS:?Set origin allow-list}
+      VG_SESSION_HOURS: ${VG_SESSION_HOURS:-12}
+    depends_on:
+      db:
+        condition: service_healthy
+    ports: ["127.0.0.1:18098:8098"]
+    mem_limit: 320m
+    pids_limit: 80
+    read_only: true
+    tmpfs: [/tmp]
+    security_opt: ["no-new-privileges:true"]
+    networks: [internal]
+networks:
+  internal:
+    driver: bridge
+volumes:
+  gestionale_pg:
