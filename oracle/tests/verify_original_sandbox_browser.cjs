@@ -8,6 +8,7 @@ const fs=require("node:fs");
 const vm=require("node:vm");
 const path=require("node:path");
 const script=fs.readFileSync(path.join(__dirname,"..","original-sandbox.js"),"utf8");
+const SectionModule=require("../section-bridge.js");
 const demo="gestionale_sandbox_20261027";
 const clone=x=>structuredClone(x);
 class Elem{
@@ -118,7 +119,7 @@ const API=class{
   }
   async logout(){this.token=null;}
 };
-const ctx={window:{VGOraclePilot:API},document:fakeDoc,crypto:{randomUUID:(()=>{let n=0;return()=>String(++n)})()},
+const ctx={window:{VGOraclePilot:API,VGOracleSectionBridge:SectionModule},document:fakeDoc,crypto:{randomUUID:(()=>{let n=0;return()=>String(++n)})()},
   alert:msg=>alerts.push(String(msg)),console,
   Date,Number,Map,Array,Object,String,Math,RegExp,Promise,
 };
