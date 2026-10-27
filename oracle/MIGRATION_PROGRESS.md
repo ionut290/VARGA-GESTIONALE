@@ -24,6 +24,8 @@ La pagina /oracle/console.html è solo un laboratorio di collaudo amministrativo
 - [ ] Verificare che il successivo deploy dei container Varga conservi rete, file e configurazione senza interferire con AzuraCast
 - [x] Console diagnostica Oracle separata sviluppata e pubblicata, senza sostituire il Gestionale originale
 - [x] Console Oracle read-only pubblicata sulla VM e disponibile via HTTPS
+- [x] Anteprima read-only creata **dalla stessa index.html originale**, con CSS originale, loader Oracle separato, senza eseguire script Firebase o scrivere sullo storage del browser; test di parità HTML e sicurezza implementati
+- [ ] Pubblicare /oracle/original-preview.html dopo verifica del CSS già pubblicato, senza aggiornare il Gestionale in uso
 - [ ] Portare il codice del Gestionale ORIGINALE su backend Oracle mantenendo index.html, style.css, menu e interfaccia identici
 - [ ] Migrare autenticazione, utenti, ruoli, recupero password e autorizzazioni collegate a Varga Cantieri
 - [ ] Migrare lettura/scrittura e sincronizzazione a sezioni, revisioni, salvataggi locali e dati Cantieri
@@ -32,7 +34,7 @@ La pagina /oracle/console.html è solo un laboratorio di collaudo amministrativo
 - [ ] Pianificare cutover e ripristino; rimuovere Firebase solo dopo verifiche complete
 
 ## Prossima azione
-Prossimo sviluppo: adapter API Oracle e autenticazione nel bootstrap della versione ORIGINALE, in un ambiente di prova separato. Niente modifica dei file grafici finché non è pronta la migrazione funzionale. Backend già online e copia dati validata.
+Prossima azione: dopo git pull --ff-only eseguire sudo python3 oracle/publish_original_ui_preview.py sul server. Pubblica SOLO /oracle/original-preview.html e il bridge Oracle, a partire da HTML/CSS originali. Accesso con account Oracle già creato; i moduli sono inizialmente solo in lettura. Se CSS live e originale differiscono, lo script interrompe tutto.
 
 ## Metodo di lavoro per accelerare
 Procedere in parallelo sul codice del frontend e sulle verifiche backend; usare un solo comando per blocco; segnalare a ogni aggiornamento completato/mancante/prossimo passo.
