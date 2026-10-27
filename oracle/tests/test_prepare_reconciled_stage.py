@@ -2,8 +2,6 @@
 import importlib.util
 from pathlib import Path
 import unittest
-from unittest.mock import patch
-from datetime import date
 
 HERE=Path(__file__).resolve().parents[1]
 spec=importlib.util.spec_from_file_location("prepare_reconciled_stage",HERE/"prepare_reconciled_stage.py")
@@ -34,8 +32,7 @@ class ReconciledTest(unittest.TestCase):
 
     def test_latest_data_preserved_historical_only_quarantined(self):
         old,fresh=self.fixtures()
-        with patch.object(mod.date,"today",return_value=date(2026,10,27)):
-            sections,conflicts,absent=mod.build(old,fresh)
+        sections,conflicts,absent=mod.build(old,fresh)
         self.assertEqual(sections["clients"][0]["name"],"new")
         self.assertEqual(len(sections["clients"]),2)
         self.assertEqual(len(sections["vcRecords"]),2)
@@ -52,8 +49,7 @@ class ReconciledTest(unittest.TestCase):
     def test_browser_cloud_conflict_stays_in_review(self):
         old,fresh=self.fixtures()
         fresh["local_browser_archive"]["company"]={"name":"different browser"}
-        with patch.object(mod.date,"today",return_value=date(2026,10,27)):
-            sections,conflicts,_=mod.build(old,fresh)
+        sections,conflicts,_=mod.build(old,fresh)
         self.assertEqual(sections["company"]["name"],"current")
         self.assertEqual(sections["migrationReview"]["cloudBrowserConflict"]["company"]["browserCopy"]["name"],
                          "different browser")
@@ -62,8 +58,7 @@ class ReconciledTest(unittest.TestCase):
     def test_unavailable_historical_section_preserved(self):
         old,fresh=self.fixtures()
         del fresh["local_browser_archive"]["vcSquadre"]
-        with patch.object(mod.date,"today",return_value=date(2026,10,27)):
-            sections,_,_=mod.build(old,fresh)
+        sections,_,_=mod.build(old,fresh)
         self.assertNotIn("vcSquadre",sections)
         self.assertEqual(sections["migrationReview"]["historicalSectionAbsent"]["vcSquadre"],[{"id":"s1"}])
 
