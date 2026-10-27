@@ -14,7 +14,7 @@
     if($('vgOraclePreviewUiStyle'))return;
     const style=document.createElement('style');style.id='vgOraclePreviewUiStyle';style.textContent=`
       :root{--vg-sidebar:245px}.main{max-width:none;min-width:0}.sidebar{scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.22) transparent}.sidebar-nav{padding-bottom:12px}
-      .vg-nav-label{width:100%;display:flex;align-items:center;justify-content:space-between;border:0;background:transparent;color:#8fa99c;padding:14px 9px 5px;font-size:10px;font-weight:900;letter-spacing:.12em;text-transform:uppercase;cursor:default}
+      .vg-nav-label{width:100%;display:flex;align-items:center;justify-content:space-between;border:0;background:transparent;color:#8fa99c;padding:14px 9px 5px;font-size:10px;font-weight:900;letter-spacing:.12em;text-transform:uppercase;cursor:pointer}.vg-menu-item-collapsed{display:none!important}.vg-welcome{margin:0 0 16px}.vg-welcome-grid{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}.vg-welcome-grid p{margin:6px 0 0}.vg-welcome-actions{display:flex;gap:8px;flex-wrap:wrap}
       .vg-oracle-quick{background:linear-gradient(135deg,#f7fcf9,#eef8f3);border-color:#bedccc}.vg-oracle-quick-head{display:flex;justify-content:space-between;gap:16px;align-items:flex-start}.vg-oracle-quick-head h2{margin-bottom:4px}.vg-oracle-quick-head p{margin:0}.vg-oracle-quick-grid{display:grid;grid-template-columns:repeat(4,minmax(150px,1fr));gap:10px;margin-top:14px}
       .vg-oracle-quick-step{display:grid;grid-template-columns:auto 1fr;gap:9px;align-items:start;border:1px solid #d4e5dc;border-radius:12px;background:#fff;padding:12px;text-align:left;color:#173f30;cursor:pointer}.vg-oracle-quick-step:hover{border-color:#66a987;background:#fbfffd}.vg-oracle-quick-step>span{display:grid;place-items:center;width:26px;height:26px;border-radius:50%;background:#dff3e7;color:#08723d;font-size:14px}.vg-oracle-quick-step strong{font-size:14px}.vg-oracle-quick-step small{display:block;margin-top:3px;color:#68766e;font-weight:500;line-height:1.35}
       .vg-oracle-dashboard-jobs{margin-top:18px}.vg-oracle-dashboard-jobs .vg-oracle-job-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-top:12px}.vg-oracle-job-card{min-height:168px;border:1px solid #dce5df;border-radius:15px;background:#fff;padding:17px;display:flex;flex-direction:column;gap:7px}.vg-oracle-job-card.package{border:2px solid #287756;background:linear-gradient(180deg,#f3fbf7,#fff)}.vg-oracle-job-code{font-size:11px;font-weight:900;color:#176b48;letter-spacing:.06em}.vg-oracle-job-card h3{margin:0;color:#153d2e;font-size:18px}.vg-oracle-job-meta{color:#667085;font-size:12px;line-height:1.5}.vg-oracle-job-bottom{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:auto}.vg-oracle-job-bottom span{font-size:11px;font-weight:800;color:#176b48}.vg-oracle-job-card button{border:0;background:transparent;color:#16814f;font-weight:900;cursor:pointer;padding:5px 0}
@@ -23,13 +23,49 @@
     `;document.head.appendChild(style);
   }
 
+  // Mirror the original ui-overhaul.js group structure; never persist UI state.
   function organizeMenu(){
-    const nav=document.querySelector('.sidebar-nav');if(!nav||nav.dataset.oracleGrouped==='1')return;
-    const labels={dashboard:'Home',richieste:'Attività da email',preventivo:'Nuovo preventivo',preventivi:'Preventivi',clienti:'Clienti',commesse:'Commesse',cantieriSync:'Varga Cantieri',consuntivi:'Consuntivi e contabilità',prezzari:'Prezzari',fatture:'Fatture e incassi',spese:'Spese',scadenze:'Scadenze e attività',documenti:'Documenti',firmaTimbro:'Firma e timbro'};
-    for(const [key,label] of Object.entries(labels)){const b=nav.querySelector(`.nav[data-view="${key}"]`);if(b)b.textContent=label}
-    const groups=[['Lavoro',['dashboard','richieste','commesse','scadenze']],['Gestione',['clienti','preventivi','prezzari','documenti']],['Economia',['consuntivi','fatture','spese']],['Strumenti',['cantieriSync','openVargaCantieriDesktop']]];
-    for(const [title,keys] of groups){const nodes=keys.map(key=>nav.querySelector(`.nav[data-view="${key}"]`)||$(key)).filter(Boolean).filter(node=>!node.hidden);if(!nodes.length)continue;const heading=document.createElement('div');heading.className='vg-nav-label';heading.textContent=title;nav.append(heading,...nodes)}
-    nav.dataset.oracleGrouped='1';
+    const nav=document.querySelector('.sidebar-nav');if(!nav||nav.dataset.oracleGrouped==='2')return;
+    const labels={dashboard:'Home',richieste:'Attività da email',preventivo:'Nuovo preventivo',
+      preventivi:'Preventivi',clienti:'Clienti',commesse:'Commesse',cantieriSync:'Sincronizza Varga Cantieri',
+      consuntivi:'Consuntivi e contabilità',prezzari:'Prezzari',fatture:'Fatture e incassi',
+      spese:'Spese',scadenze:'Scadenze e attività',documenti:'Documenti',
+      firmaTimbro:'Firma e timbro',cloud:'Cloud e utenti',azienda:'Dati azienda',backup:'Backup'};
+    for(const [key,label] of Object.entries(labels)){
+      const b=nav.querySelector(`.nav[data-view="${key}"]`);if(b)b.textContent=label;
+    }
+    nav.querySelectorAll('.vg-nav-label').forEach(node=>node.remove());
+    const entries=[
+      ['Lavoro',['dashboard','richieste','commesse','scadenze']],
+      ['Gestione',['clienti','preventivi','prezzari','documenti']],
+      ['Economia',['consuntivi','fatture','spese']],
+      ['Strumenti',['openVargaCantieriDesktop','cantieriSync']],
+      ['Impostazioni',['firmaTimbro','cloud','azienda','backup','preventivo']]
+    ];
+    for(const [label,keys] of entries){
+      const nodes=keys.map(key=>nav.querySelector(`.nav[data-view="${key}"]`)||$(key))
+        .filter(Boolean).filter(node=>!node.hidden);
+      if(!nodes.length)continue;
+      const heading=document.createElement('button');heading.type='button';
+      heading.className='vg-nav-label';heading.textContent=label;
+      heading.setAttribute('aria-expanded','true');
+      heading.addEventListener('click',()=>{
+        const collapsed=heading.getAttribute('aria-expanded')==='true';
+        heading.setAttribute('aria-expanded',String(!collapsed));
+        nodes.forEach(node=>node.classList.toggle('vg-menu-item-collapsed',collapsed));
+      });
+      nav.append(heading,...nodes);
+    }
+    nav.dataset.oracleGrouped='2';
+  }
+  let welcomeDismissed=false;
+  function welcomePanel(){
+    const dashboard=$('dashboard'),top=dashboard?.querySelector('.topline');
+    if(!top||welcomeDismissed||$('vgWelcome'))return;
+    const panel=document.createElement('section');panel.id='vgWelcome';panel.className='panel vg-welcome';
+    panel.innerHTML='<div class="vg-welcome-grid"><div><h2>Benvenuto in Varga Gestionale</h2><p><strong>1.</strong> Controlla scadenze e attività dalla Home. <strong>2.</strong> Apri una commessa per trovare tutto il lavoro collegato. <strong>3.</strong> Usa le altre sezioni solo quando ti servono.</p></div><div class="vg-welcome-actions"><button type="button" data-oracle-view="commesse" class="primary">APRI COMMESSE</button><button type="button" class="ghost" data-oracle-dismiss-welcome>HO CAPITO</button></div></div>';
+    top.insertAdjacentElement('afterend',panel);
+    panel.querySelector('[data-oracle-dismiss-welcome]').addEventListener('click',()=>{welcomeDismissed=true;panel.remove()});
   }
 
   function quickPanel(){
@@ -60,7 +96,7 @@
     panel.innerHTML=`<div class="vg-section-head"><div><h2>Commesse</h2><div class="muted">Le 4 commesse più recenti.</div></div><button class="ghost" type="button" data-oracle-view="commesse">TUTTE LE COMMESSE</button></div><div class="vg-oracle-job-grid">${cards.length?cards.join(''):'<div class="empty">Nessuna commessa attiva.</div>'}</div>`;
     panel.querySelectorAll('[data-oracle-view]').forEach(button=>button.onclick=()=>document.querySelector(`.nav[data-view="${button.dataset.oracleView}"]`)?.click());
   }
-  function render(){styles();organizeMenu();quickPanel();jobPanel()}
+  function render(){styles();organizeMenu();welcomePanel();quickPanel();jobPanel()}
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>setTimeout(render,0),{once:true});else render();
   const observer=new MutationObserver(()=>{clearTimeout(observer._timer);observer._timer=setTimeout(render,50)});
   observer.observe(document.documentElement,{childList:true,subtree:true});

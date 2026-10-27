@@ -84,7 +84,7 @@
     shell.addEventListener("click",event=>{
       const btn=event.target.closest("button,a,input[type=file],label.filebtn");
       if(!btn)return;
-      if(btn.matches(".nav[data-view], [data-go], #sidebarLogout, #openVargaCantieriDesktop"))return;
+      if(btn.matches(".nav[data-view], [data-go], [data-oracle-view], [data-oracle-dismiss-welcome], .vg-nav-label, #sidebarLogout, #openVargaCantieriDesktop"))return;
       event.preventDefault();event.stopImmediatePropagation();
       if(btn.matches("a"))return;
       const context=btn.closest(".view");
