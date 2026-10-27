@@ -55,6 +55,8 @@ jobs:
           node tests/verify_section_bridge.cjs
           node --check demo-draft-vault.js
           node tests/verify_demo_draft_vault.cjs
+          node --check accounting-demo-validation.js
+          node tests/verify_accounting_demo_validation.cjs
           bash -n install_on_vm.sh
           bash -n preflight.sh
           bash -n diagnose_vm.sh
