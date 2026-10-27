@@ -34,7 +34,8 @@ class SandboxUiTests(unittest.TestCase):
         self.assertIn('button.disabled=true;',js)
         self.assertIn('id="addClient"',(ROOT/"index.html").read_text(encoding="utf-8"))
         self.assertIn('"cName","jTitle","jClient"',js)
-        self.assertIn('btn.matches(".nav[data-view], [data-go], #sidebarLogout, #addClient, #addJob, #addManual, #newQuote, #saveQuote, #qRows button")',js)
+        self.assertIn('#recoverDemoDrafts',js)
+        self.assertIn('#saveQuote, #qRows button, #recoverDemoDrafts")',js)
         self.assertIn('if(name.length>90||!/^DEMO[ \\-]/i.test(name))',js)
         self.assertIn("before.length>=50",js)
         self.assertIn('if(ROOT!=="gestionale_sandbox_20261027"||!model.user||!["clients","jobs","quotes"].includes(key))',js)
@@ -50,7 +51,7 @@ class SandboxUiTests(unittest.TestCase):
 
     def test_no_other_storage_or_write_routes(self):
         js=(P/"original-sandbox.js").read_text(encoding="utf-8")
-        for forbidden in ("firebase.", "localStorage", "indexedDB", "sessionStorage",
+        for forbidden in ("firebase.", "localStorage", "sessionStorage",
                           "eval(", "innerHTML=", 'fetch(', "window.location.reload",
                           'api.saveSection(ROOT,"jobs"', 'api.saveSection(ROOT,"quotes"',
                           "api.save("):
@@ -59,6 +60,7 @@ class SandboxUiTests(unittest.TestCase):
         self.assertEqual(js.count("api.saveSection("),0)
         self.assertEqual(js.count("saveSection(ROOT"),0)
         self.assertIn('const bridge=new window.VGOracleSectionBridge.SectionBridge',js)
+        self.assertIn('window.VGOracleDemoDraftVault.openBrowserStore(window.indexedDB)',js)
         self.assertNotIn('event.target.matches("form")',js)
 
     def test_original_readonly_bridge_still_readonly(self):
