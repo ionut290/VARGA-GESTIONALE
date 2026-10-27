@@ -23,8 +23,9 @@ except ImportError:
 DATABASE_URL = os.getenv("DATABASE_URL", "")
 ALLOWED_ORIGINS = [x.strip() for x in os.getenv("VG_ALLOWED_ORIGINS", "").split(",") if x.strip()]
 SESSION_HOURS = max(1, min(24, int(os.getenv("VG_SESSION_HOURS", "12"))))
-MAX_BODY = 8 * 1024 * 1024
+MAX_BODY = 16 * 1024 * 1024
 WORKSPACE_PATTERN = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
+SECTION_PATTERN = re.compile(r"^[A-Za-z][A-Za-z0-9_]{0,63}$")
 PH = PasswordHasher(time_cost=3, memory_cost=65536, parallelism=2)
 app = FastAPI(title="Varga Gestionale Oracle API", version="0.1.0", docs_url=None, redoc_url=None)
 app.add_middleware(CORSMiddleware, allow_origins=ALLOWED_ORIGINS, allow_credentials=False,
@@ -155,6 +156,9 @@ def put_workspace(workspace: str, body: WorkspaceIn, user=Depends(bearer_user)):
         assert_workspace(con,user,workspace,writable=True)
         con.execute("INSERT INTO vg.workspaces(id,revision,snapshot) VALUES(%s,0,%s::jsonb) ON CONFLICT DO NOTHING",
                     (workspace,"{}"))
+        if con.execute("SELECT 1 FROM vg.workspace_sections WHERE workspace_id=%s LIMIT 1",(workspace,)).fetchone():
+            con.rollback()
+            raise HTTPException(409, "Archivio a sezioni: usare gli endpoint /sections")
         current=con.execute("SELECT revision FROM vg.workspaces WHERE id=%s FOR UPDATE",(workspace,)).fetchone()["revision"]
         if current!=body.expected_revision:
             con.rollback()
@@ -166,3 +170,62 @@ def put_workspace(workspace: str, body: WorkspaceIn, user=Depends(bearer_user)):
                     (workspace,user["id"],new["revision"],hashlib.sha256(raw.encode()).hexdigest()))
         con.commit()
     return {"workspace":workspace,"revision":new["revision"],"updated_at":new["updated_at"].isoformat()}
+
+# Modern sectional endpoints: avoid moving the full 19 MB archive on each edit.
+@app.get("/api/gestionale/v1/workspaces/{workspace}/manifest")
+def sections_manifest(workspace: str, user=Depends(bearer_user)):
+    with db() as con:
+        assert_workspace(con,user,workspace)
+        rows=con.execute("""SELECT section,revision,updated_at,
+                 CASE WHEN jsonb_typeof(data)='array' THEN jsonb_array_length(data) ELSE NULL END AS item_count
+                 FROM vg.workspace_sections WHERE workspace_id=%s ORDER BY section""",(workspace,)).fetchall()
+    return {"workspace":workspace,"sections":{row["section"]:{"revision":row["revision"],
+              "count":row["item_count"],"updated_at":row["updated_at"].isoformat()} for row in rows}}
+
+@app.get("/api/gestionale/v1/workspaces/{workspace}/sections/{section}")
+def get_section(workspace: str, section: str, user=Depends(bearer_user)):
+    if not SECTION_PATTERN.fullmatch(section):raise HTTPException(400,"Sezione non valida")
+    with db() as con:
+        assert_workspace(con,user,workspace)
+        row=con.execute("SELECT revision,data,updated_at FROM vg.workspace_sections WHERE workspace_id=%s AND section=%s",
+                        (workspace,section)).fetchone()
+        if not row:
+            # Legacy monolithic snapshot available only if sections have not been imported.
+            old=con.execute("SELECT snapshot FROM vg.workspaces WHERE id=%s",(workspace,)).fetchone()
+            if old and section in old["snapshot"]:
+                return {"workspace":workspace,"section":section,"revision":0,"data":old["snapshot"][section],"updated_at":None}
+            return {"workspace":workspace,"section":section,"revision":0,"data":None,"updated_at":None}
+    return {"workspace":workspace,"section":section,"revision":row["revision"],
+            "data":row["data"],"updated_at":row["updated_at"].isoformat()}
+
+@app.put("/api/gestionale/v1/workspaces/{workspace}/sections/{section}")
+def put_section(workspace: str, section: str, body: WorkspaceIn, user=Depends(bearer_user)):
+    if not SECTION_PATTERN.fullmatch(section):raise HTTPException(400,"Sezione non valida")
+    raw=json.dumps(body.data,ensure_ascii=False,separators=(",",":"),allow_nan=False)
+    # The route accepts a single section wrapped in {"value":...} to retain a
+    # stable Pydantic body shape without accepting an entire workspace.
+    if set(body.data)!={"value"}:raise HTTPException(422,"Inviare solamente il campo value")
+    serialized=json.dumps(body.data["value"],ensure_ascii=False,separators=(",",":"),allow_nan=False)
+    if len(serialized.encode("utf-8"))>MAX_BODY:raise HTTPException(413,"Sezione troppo grande")
+    with db() as con:
+        assert_workspace(con,user,workspace,writable=True)
+        con.execute("INSERT INTO vg.workspaces(id,revision,snapshot) VALUES(%s,0,'{}'::jsonb) ON CONFLICT DO NOTHING",(workspace,))
+        existing=con.execute("""SELECT revision FROM vg.workspace_sections
+                                   WHERE workspace_id=%s AND section=%s FOR UPDATE""",(workspace,section)).fetchone()
+        current=existing["revision"] if existing else 0
+        if current!=body.expected_revision:
+            con.rollback()
+            raise HTTPException(409,{"reason":"revision_conflict","current_revision":current})
+        if existing:
+            next_revision=current+1
+            con.execute("""UPDATE vg.workspace_sections SET revision=%s,data=%s::jsonb,updated_at=now(),updated_by=%s
+                           WHERE workspace_id=%s AND section=%s""",(next_revision,serialized,user["id"],workspace,section))
+        else:
+            next_revision=1
+            con.execute("""INSERT INTO vg.workspace_sections(workspace_id,section,revision,data,updated_by)
+                           VALUES(%s,%s,%s,%s::jsonb,%s)""",(workspace,section,next_revision,serialized,user["id"]))
+        con.execute("""INSERT INTO vg.workspace_section_audit(workspace_id,section,user_id,revision,sha256)
+                       VALUES(%s,%s,%s,%s,%s)""",
+                    (workspace,section,user["id"],next_revision,hashlib.sha256(serialized.encode()).hexdigest()))
+        con.commit()
+    return {"workspace":workspace,"section":section,"revision":next_revision}
