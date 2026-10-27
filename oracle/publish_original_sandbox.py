@@ -20,6 +20,10 @@ pub=importlib.util.module_from_spec(spec)
 spec.loader.exec_module(pub)
 NAME="original-sandbox"
 
+
+def validate_assets(js: bytes, bridge: bytes, html: bytes) -> None:
+    validate_assets(js,bridge,html)
+
 def main():
     print("=== CLIENTI, COMMESSE E PREVENTIVI ORACLE DEMO, GRAFICA ORIGINALE ===")
     pub.verify_sources()  # Ensure original CSS is identical on the public web container.
