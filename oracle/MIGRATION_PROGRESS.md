@@ -28,14 +28,16 @@ La pagina /oracle/console.html è solo un laboratorio di collaudo amministrativo
 - [x] Pubblicazione di /oracle/original-preview.html completata: CSS SHA256 originale verificato, entrambi gli asset pubblicati e pagina pubblica HTTPS confermata
 - [ ] Portare il codice del Gestionale ORIGINALE su backend Oracle mantenendo index.html, style.css, menu e interfaccia identici
 - [ ] Migrare autenticazione, utenti, ruoli, recupero password e autorizzazioni collegate a Varga Cantieri
-- [x] Preparati sandbox Oracle con sole 4 sezioni dimostrative e collaudo scritture/revisioni 409; esecuzione isolata sulla VM ancora da verificare
+- [x] Sandbox Oracle creato e collaudato sulla VM (4 sezioni fittizie); API scrittura OK, conflitto revisione HTTP 409 OK e ripristino record OK; workspace aziendale di 30 sezioni invariato
+- [x] Preparata la schermata Clienti della grafica originale per salvare **soltanto clienti DEMO** nel workspace sintetico, con gestione conflitti; test automatici superati
+- [ ] Pubblicare /oracle/original-sandbox.html (HTML/CSS identici all'originale), collaudare un cliente DEMO sul sito
 - [ ] Migrare lettura/scrittura e sincronizzazione a sezioni, revisioni, salvataggi locali e dati Cantieri
 - [ ] Collaudare moduli preventivi, consuntivi, commesse, fatture, documenti, stampa PDF e Google Drive
 - [ ] Confrontare aggiornamenti inseriti dopo il backup del 27 ottobre, importare e validare la versione finale
 - [ ] Pianificare cutover e ripristino; rimuovere Firebase solo dopo verifiche complete
 
 ## Prossima azione
-Prossima azione: dopo git pull --ff-only, eseguire sudo bash oracle/create_oracle_sandbox.sh ionut29019@gmail.com sul server Oracle, seguito da sudo python3 oracle/verify_oracle_sandbox.py --email ionut29019@gmail.com. Il secondo script chiede in modo interattivo la password Oracle (non mostrarla in chat). Entrambi agiscono solo su dati fittizi in gestionale_sandbox_20261027; l'archivio reale gestionale_backup_20261027 resta di sola lettura. In caso di esito non previsto non eseguire altri interventi.
+Prossima azione: da Windows PowerShell effettuare git pull --ff-only e sudo python3 oracle/publish_original_sandbox.py. Lo script controlla che lo stile attivo sia identico all'originale e pubblica SOLTANTO /oracle/original-sandbox.html e /oracle/original-sandbox.js. Il Gestionale principale, l'anteprima di sola lettura, il database reale, Firebase e la radio non vengono modificati. Aprire la nuova pagina, autenticarsi Oracle, selezionare Clienti e inserire un nome che inizi con DEMO. I salvataggi saranno limitati a gestionale_sandbox_20261027.
 
 ## Metodo di lavoro per accelerare
 Procedere in parallelo sul codice del frontend e sulle verifiche backend; usare un solo comando per blocco; segnalare a ogni aggiornamento completato/mancante/prossimo passo.
