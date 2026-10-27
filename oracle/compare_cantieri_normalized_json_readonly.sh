@@ -39,6 +39,19 @@ def unwrap(x):
         return {'t':tag,'v':unwrap(value)}
     return {k:unwrap(v) for k,v in x.items()}
 
+def shape(x):
+    if x is None: return 'null'
+    if isinstance(x,bool): return 'boolean'
+    if isinstance(x,(int,float)): return 'number'
+    if isinstance(x,str):
+        # Report only whether a value resembles an ISO timestamp; never print it.
+        return 'iso_datetime_string' if 'T' in x and len(x)>=19 else 'string'
+    if isinstance(x,list): return 'array'
+    if isinstance(x,dict):
+        keys=','.join(sorted(k for k in x if isinstance(k,str) and len(k)<=40)[:8])
+        return 'object['+keys+']'
+    return type(x).__name__
+
 def load(path):
     with open(path,newline='') as f:
         return {key:json.loads(payload) for key,payload in csv.reader(f)}
@@ -47,6 +60,7 @@ live=load(sys.argv[1]);stage=load(sys.argv[2])
 matched=live.keys() & stage.keys()
 stats=collections.defaultdict(lambda:[0,0,0])
 different_fields=collections.Counter()
+field_shapes=collections.Counter()
 for key in matched:
     previous=unwrap(stage[key])
     current=unwrap(live[key])
@@ -60,6 +74,7 @@ for key in matched:
             for field in previous.keys()|current.keys():
                 if previous.get(field)!=current.get(field):
                     different_fields[(group,field)]+=1
+                    field_shapes[(group,field,shape(previous.get(field)),shape(current.get(field)))]+=1
 print('Raccolta | Comuni | Uguali normalizzati | Differenti normalizzati')
 for group,nums in sorted(stats.items()):
     print(f'{group} | {nums[0]} | {nums[1]} | {nums[2]}')
@@ -71,5 +86,9 @@ for tag,count in sorted(tag_counts.items()):
 print('Campi con differenze frequenti (nomi, non valori):')
 for (group,field),count in different_fields.most_common(25):
     print(group,field,count,sep=' | ')
+print('Forme valori discordanti (solo schema, nessun valore):')
+for (group,field,old_shape,new_shape),count in field_shapes.most_common(40):
+    if different_fields[(group,field)] >= 10:
+        print(group,field,old_shape,new_shape,count,sep=' | ')
 print('CONFRONTO IN SOLA LETTURA. Nessuna acquisizione o sovrascrittura effettuata.')
 PY
