@@ -52,6 +52,7 @@ jobs:
           bash -n diagnose_vm.sh
           bash -n verify_deployment.sh
           bash -n stage_backup.sh
+          bash -n compare_staging.sh
           python -m py_compile verify_backup.py
       - name: Integration test against temporary PostgreSQL
         run: python -m unittest discover -s integration_tests -v
