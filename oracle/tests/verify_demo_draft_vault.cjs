@@ -1,0 +1,26 @@
+"use strict";
+const assert=require("node:assert/strict");
+const {DemoDraftVault,WORKSPACE}=require("../demo-draft-vault.js");
+(async()=>{
+ const entries=new Map();
+ const store={async get(k){return entries.get(k)},async put(k,v){entries.set(k,v)},async delete(k){entries.delete(k)}};
+ assert.throws(()=>new DemoDraftVault({store,userId:"tester@example.com",workspace:"varga-azienda"}),/non ammesso/);
+ assert.throws(()=>new DemoDraftVault({store,userId:"tester@example.com",workspace:"gestionale_backup_20261027"}),/non ammesso/);
+ const a=new DemoDraftVault({store,userId:"tester@example.com",workspace:WORKSPACE});
+ const values=[{id:"demo-1",name:"DEMO Primo"}];
+ await a.save("clients",values,4);
+ values[0].name="changed";
+ const b=new DemoDraftVault({store,userId:"tester@example.com",workspace:WORKSPACE});
+ const saved=await b.inspect("clients");
+ assert.equal(saved.data[0].name,"DEMO Primo");
+ assert.equal(saved.revision,4);
+ saved.data[0].name="changed again";
+ assert.equal((await b.inspect("clients")).data[0].name,"DEMO Primo");
+ assert.equal(await new DemoDraftVault({store,userId:"other@example.com",workspace:WORKSPACE}).inspect("clients"),null);
+ await assert.rejects(()=>a.save("company",[],1),/non consentita/);
+ await assert.rejects(()=>a.save("clients",[], -1),/Revisione/);
+ await assert.rejects(()=>a.save("clients",{}, 1),/Bozza/);
+ await b.clear("clients");
+ assert.equal(await a.inspect("clients"),null);
+ console.log("OK: demo drafts isolated, persisted, scoped, manually cleared; no automatic cloud writes.");
+})().catch(e=>{console.error(e);process.exitCode=1});
