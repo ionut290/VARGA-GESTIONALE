@@ -173,6 +173,7 @@
         (prices.find(p=>p.id===x.priceListId)?.name||"")+" · "+(x.unit||""),
         eur(x.price)],300);
     } else if(view==="cantieriSync"){
+      // These counts remain from the legacy sections until an audited mapping is ready.
       stat("vcCountCommesse",get("vcCommesse").length);
       stat("vcCountImpianti",get("vcImpianti").length);
       stat("vcCountOre",get("vcOre").length);
@@ -221,6 +222,29 @@
       const result=await Promise.all(needed.map(async k=>[k,await section(k)]));
       if(epoch!==model.epoch)return;
       render(view,Object.fromEntries(result));
+      if(view==="cantieriSync"){
+        try{
+          const summary=await api.cantieriStageSummary(ROOT);
+          if(epoch!==model.epoch)return;
+          const rows=summary.collections||[];
+          const count=name=>rows.filter(x=>x.name===name).reduce((n,x)=>n+Number(x.count||0),0);
+          const total=rows.reduce((n,x)=>n+Number(x.count||0),0);
+          stat("vcPending",total);
+          stat("vcLastSync","Fotografie Oracle: 26/10/2026");
+          if($("vcSyncInfo"))$("vcSyncInfo").textContent=
+            "Oracle: "+total.toLocaleString("it-IT")+" documenti operativi in staging; "+
+            count("commesse").toLocaleString("it-IT")+" commesse, "+
+            count("impianti").toLocaleString("it-IT")+" impianti, "+
+            count("oreReports").toLocaleString("it-IT")+" rapporti ore. "+
+            "Da verificare prima dell'integrazione; aggiornamento automatico non attivo.";
+          fillList("vcRowsList",rows.map(x=>({
+            name:x.name,snapshot:x.snapshot,count:x.count
+          })),x=>[x.name,"Fotografia Oracle "+x.snapshot,x.count+" documenti"],100);
+        }catch(error){
+          if($("vcSyncInfo"))$("vcSyncInfo").textContent=
+            "Archivio staging non disponibile: "+error.message;
+        }
+      }
       status(view,"Dati Oracle caricati. Consultazione di sola lettura.");
     }catch(err){
       if(epoch!==model.epoch)return;
