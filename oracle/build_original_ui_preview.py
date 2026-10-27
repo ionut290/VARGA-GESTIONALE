@@ -20,7 +20,7 @@ HTML_END="</body></html>"
 EXPECTED_SCRIPT_COUNT=10
 HEAD_MARK='<head>'
 BASE='<base href="/">'
-PREVIEW_SCRIPTS='<script src="/oracle/client.js"></script><script src="/oracle/original-preview.js"></script>'
+PREVIEW_SCRIPTS='<script src="/view-scenes.js?v=20261027-oracle-parity"></script><script src="/oracle/client.js"></script><script src="/oracle/original-preview-ui.js"></script><script src="/oracle/original-preview.js"></script>'
 SANDBOX_SCRIPTS='<script src="/oracle/client.js"></script><script src="/oracle/section-bridge.js"></script><script src="/oracle/demo-draft-vault.js"></script><script src="/oracle/accounting-demo-validation.js"></script><script src="/oracle/original-sandbox.js"></script>'
 
 def transform(raw, *, sandbox=False):
@@ -50,6 +50,11 @@ def transform(raw, *, sandbox=False):
         raise ValueError("Stylesheet originale non trovato")
     if result.count(scripts_to_load)!=1:
         raise ValueError("Bridge Oracle non inserito correttamente")
+    if not sandbox:
+        ui=(ROOT/"oracle"/"original-preview-ui.js").read_text(encoding="utf-8")
+        for forbidden in ("localStorage", "sessionStorage", "indexedDB", "firebase", ".saveSection("):
+            if forbidden.lower() in ui.lower():
+                raise ValueError("Layer grafico Oracle non sicuro: "+forbidden)
     return result
 
 def main():
