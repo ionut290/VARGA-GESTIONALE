@@ -14,6 +14,22 @@ permissions:
 jobs:
   unit-tests:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: vg_test
+          POSTGRES_PASSWORD: local_ci_test_only
+          POSTGRES_DB: vg_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U vg_test -d vg_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgresql://vg_test:local_ci_test_only@127.0.0.1:5432/vg_test
     defaults:
       run:
         working-directory: oracle
@@ -33,6 +49,8 @@ jobs:
           node --check browser-export.js
           bash -n install_on_vm.sh
           bash -n preflight.sh
+      - name: Integration test against temporary PostgreSQL
+        run: python -m unittest discover -s integration_tests -v
       - name: Validate schema and Compose YAML (without deployment)
         run: |
           python - <<'PY'
