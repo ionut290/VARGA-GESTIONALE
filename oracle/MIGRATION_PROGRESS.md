@@ -30,14 +30,16 @@ La pagina /oracle/console.html è solo un laboratorio di collaudo amministrativo
 - [ ] Migrare autenticazione, utenti, ruoli, recupero password e autorizzazioni collegate a Varga Cantieri
 - [x] Sandbox Oracle creato e collaudato sulla VM (4 sezioni fittizie); API scrittura OK, conflitto revisione HTTP 409 OK e ripristino record OK; workspace aziendale di 30 sezioni invariato
 - [x] Preparata la schermata Clienti della grafica originale per salvare **soltanto clienti DEMO** nel workspace sintetico, con gestione conflitti; test automatici superati
-- [ ] Pubblicare /oracle/original-sandbox.html (HTML/CSS identici all'originale), collaudare un cliente DEMO sul sito
+- [x] Pubblicato /oracle/original-sandbox.html con HTML e CSS originali; asset verificati e confermati tramite HTTPS esterno, primo pulsante Clienti DEMO disponibile
+- [x] Preparati anche i pulsanti originali Commesse e Preventivi per scrivere soltanto nel workspace DEMO, con revisioni PostgreSQL e gestione HTTP 409; test automatici superati
+- [ ] Ripubblicare il JavaScript aggiornato nel laboratorio e collaudare Cliente → Commessa → Preventivo sul sito
 - [ ] Migrare lettura/scrittura e sincronizzazione a sezioni, revisioni, salvataggi locali e dati Cantieri
 - [ ] Collaudare moduli preventivi, consuntivi, commesse, fatture, documenti, stampa PDF e Google Drive
 - [ ] Confrontare aggiornamenti inseriti dopo il backup del 27 ottobre, importare e validare la versione finale
 - [ ] Pianificare cutover e ripristino; rimuovere Firebase solo dopo verifiche complete
 
 ## Prossima azione
-Prossima azione: da Windows PowerShell effettuare git pull --ff-only e sudo python3 oracle/publish_original_sandbox.py. Lo script controlla che lo stile attivo sia identico all'originale e pubblica SOLTANTO /oracle/original-sandbox.html e /oracle/original-sandbox.js. Il Gestionale principale, l'anteprima di sola lettura, il database reale, Firebase e la radio non vengono modificati. Aprire la nuova pagina, autenticarsi Oracle, selezionare Clienti e inserire un nome che inizi con DEMO. I salvataggi saranno limitati a gestionale_sandbox_20261027.
+Prossima azione: rieseguire da PowerShell git pull --ff-only e sudo python3 oracle/publish_original_sandbox.py per aggiornare SOLO il laboratorio /oracle/original-sandbox.html. Fare refresh forzato Ctrl+F5, autenticarsi in Oracle, creare Cliente DEMO, Commessa DEMO associata e Preventivo DEMO con voce manuale (descrizione inizia con DEMO). Confermare che gli elementi compaiano negli elenchi originali. Nessuna modifica ai servizi della radio, a Firebase, ai dati aziendali o alla grafica.
 
 ## Metodo di lavoro per accelerare
 Procedere in parallelo sul codice del frontend e sulle verifiche backend; usare un solo comando per blocco; segnalare a ogni aggiornamento completato/mancante/prossimo passo.
