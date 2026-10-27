@@ -8,6 +8,46 @@
   const bridge=new window.VGOracleSectionBridge.SectionBridge({
     client:api,workspace:ROOT,keys:["clients","jobs","quotes"],writable:true
   });
+  // Optional DEMO draft vault. Never write business workspaces or auto-retry.
+  let draftVault=null;
+  async function initDraftVault(user){
+    draftVault=null;
+    if(!window.VGOracleDemoDraftVault||!window.indexedDB)return;
+    try{
+      draftVault=new window.VGOracleDemoDraftVault.DemoDraftVault({
+        store:window.VGOracleDemoDraftVault.openBrowserStore(window.indexedDB),
+        userId:String(user.email||"").toLowerCase(),
+        workspace:ROOT
+      });
+      const pending=[];
+      for(const key of ["clients","jobs","quotes"]){
+        if(await draftVault.inspect(key))pending.push(key);
+      }
+      if(pending.length)status("cloud","Bozze DEMO locali da verificare: "+pending.join(", ")+". Usa Recupera bozze DEMO nel Cloud.");
+    }catch(_){draftVault=null;status("cloud","Archivio locale DEMO non disponibile.");}
+  }
+  async function recoverDemoDrafts(){
+    if(!draftVault||!model.user)return alert("Nessuna memoria DEMO locale disponibile.");
+    for(const key of ["clients","jobs","quotes"]){
+      try{
+        const pending=await draftVault.inspect(key);
+        if(!pending)continue;
+        await bridge.load(key,{fresh:true});
+        if(bridge.state(key).revision!==pending.revision){
+          alert("Bozza "+key+" conservata. Oracle è cambiato: recupero bloccato per evitare sovrascritture.");
+          continue;
+        }
+        if(!window.confirm("Recuperare e INVIARE su Oracle la bozza DEMO "+key+"? Verifica che non contenga duplicati."))continue;
+        bridge.stage(key,pending.data);
+        const saved=await bridge.commit(key);
+        if(!saved.ok){alert("Conflitto "+key+": bozza locale conservata.");continue;}
+        await draftVault.clear(key);
+        model.cache.set(key,bridge.view(key));
+        alert("Bozza DEMO "+key+" recuperata su Oracle.");
+      }catch(err){alert("Recupero "+key+" non completato: "+err.message);}
+    }
+    await open("dashboard");
+  }
   const $=id=>document.getElementById(id);
   const model={user:null,sections:null,cache:new Map(),epoch:0};
   const routes={
@@ -264,12 +304,14 @@
         throw Error("Sezione dimostrativa inattesa oppure massimo 50 righe raggiunto.");
       const updated=[...before,newRecord];
       bridge.stage(key,updated);
+      if(draftVault)await draftVault.save(key,updated,bridge.state(key).revision);
       const result=await bridge.commit(key);
       if(result.conflict){
         // Never overwrite or silently discard a competing edit.
         alert("Conflitto tra schede: bozza DEMO non inviata. Esci e rientra per ricaricare; nessun dato sovrascritto.");
         return false;
       }
+      if(draftVault)await draftVault.clear(key);
       model.cache.set(key,bridge.view(key));
       await open(view);
       return true;
@@ -408,6 +450,7 @@
       model.user=user;model.sections=response.sections;
       model.cache.clear();
       authView(true);explain("");
+      await initDraftVault(user);
       open("dashboard");
     }catch(err){
       try{await api.logout();}catch(_){}
@@ -417,7 +460,7 @@
   }
   async function logout(){
     model.epoch+=1;model.user=null;model.sections=null;model.cache.clear();
-    bridge.clear();
+    bridge.clear();draftVault=null;
     try{await api.logout();}catch(_){}
     authView(false);explain("");
   }
@@ -434,6 +477,14 @@
     const help=document.querySelector(".login-help");
     if(help)help.textContent="Archivio fittizio: puoi salvare Clienti, Commesse e Preventivi DEMO. Le altre funzioni restano disabilitate.";
     const form=$("loginForm");
+    const cloud=$("cloudInfo");
+    if(cloud){
+      const recover=document.createElement("button");
+      recover.type="button";recover.id="recoverDemoDrafts";
+      recover.textContent="RECUPERA BOZZE DEMO";
+      recover.addEventListener("click",recoverDemoDrafts);
+      cloud.parentNode?.append(recover);
+    }
     $("addClient")?.addEventListener("click",addDemoClient);
     $("addJob")?.addEventListener("click",addDemoJob);
     $("addManual")?.addEventListener("click",()=>{
