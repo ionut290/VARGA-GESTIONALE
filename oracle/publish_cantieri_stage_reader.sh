@@ -2,7 +2,9 @@
 # Publish Cantieri staging reader to isolated Varga Gestionale API and original preview.
 # Never touch Cantieri database, AzuraCast or production Firebase.
 set -euo pipefail
-cd "$(dirname "$0")/.."\nCOMPOSE_FILE="oracle/compose.yaml"\nif [ ! -f "$COMPOSE_FILE" ]; then echo "STOP: compose Gestionale non trovato";exit 2; fi
+cd "$(dirname "$0")/.."
+COMPOSE_FILE="oracle/compose.yaml"
+if [ ! -f "$COMPOSE_FILE" ]; then echo "STOP: compose Gestionale non trovato";exit 2; fi
 echo "=== CONTROLLI ==="
 services="$(sudo docker compose -f "$COMPOSE_FILE" -p vg-gestionale-oracle config --services)"
 printf '%s\n' "$services"
