@@ -21,6 +21,8 @@ class InreteModenaSandboxSyncTest(unittest.TestCase):
         self.assertIn("inrete-modena-backup-", SQL)
         self.assertIn("NOT EXISTS (", SQL)
         self.assertIn("section IN ('jobs','clients','vcCommesse','vcImpianti','vcOre','vcSquadre','vcRecords')", SQL)
+        self.assertIn("SUM(lavorazioni)", SQL)
+        self.assertIn("COUNT(*) FILTER (WHERE tutte_fatte)", SQL)
 
     def test_syncs_source_before_scoped_import_under_shared_lock(self):
         self.assertIn("flock -x -w 180 /run/lock/varga-cantieri-sync.lock", SCRIPT)
