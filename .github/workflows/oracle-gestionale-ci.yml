@@ -49,6 +49,7 @@ jobs:
           node --check browser-export.js
           node --check console.js
           node --check original-preview.js
+          node --check original-sandbox.js
           bash -n install_on_vm.sh
           bash -n preflight.sh
           bash -n diagnose_vm.sh
@@ -73,6 +74,7 @@ jobs:
           python -m py_compile publish_oracle_console.py
           python -m py_compile build_original_ui_preview.py
           python -m py_compile publish_original_ui_preview.py
+          python -m py_compile publish_original_sandbox.py
           python -m py_compile verify_oracle_sandbox.py
           python -m py_compile patch_nginx_oracle.py
       - name: Integration test against temporary PostgreSQL
