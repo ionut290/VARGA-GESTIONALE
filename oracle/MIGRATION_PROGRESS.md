@@ -34,14 +34,15 @@ La pagina /oracle/console.html è solo un laboratorio di collaudo amministrativo
 - [x] Preparati anche i pulsanti originali Commesse e Preventivi per scrivere soltanto nel workspace DEMO, con revisioni PostgreSQL e gestione HTTP 409; test automatici superati
 - [x] Aggiunto test funzionale Node che simula un browser e salva Cliente → Commessa → Preventivo sul backend Oracle fittizio; ultimo test GitHub CI superato
 - [x] Pubblicatore rafforzato: verifica via HTTPS anche il checksum della nuova versione JavaScript
-- [ ] Ripubblicare il JavaScript aggiornato nel laboratorio e collaudare Cliente → Commessa → Preventivo sul sito
+- [x] Ripubblicato il JavaScript per Clienti, Commesse e Preventivi DEMO; server ha verificato HTML, JavaScript HTTPS e SHA256; test simulato intero Clienti → Commessa → Preventivo superato
+- [ ] Verificare con account Oracle l'intero flusso anche dal browser reale e da una seconda sessione
 - [ ] Migrare lettura/scrittura e sincronizzazione a sezioni, revisioni, salvataggi locali e dati Cantieri
 - [ ] Collaudare moduli preventivi, consuntivi, commesse, fatture, documenti, stampa PDF e Google Drive
 - [ ] Confrontare aggiornamenti inseriti dopo il backup del 27 ottobre, importare e validare la versione finale
 - [ ] Pianificare cutover e ripristino; rimuovere Firebase solo dopo verifiche complete
 
 ## Prossima azione
-Prossima azione: rieseguire da PowerShell git pull --ff-only e sudo python3 oracle/publish_original_sandbox.py per aggiornare SOLO il laboratorio /oracle/original-sandbox.html. Fare refresh forzato Ctrl+F5, autenticarsi in Oracle, creare Cliente DEMO, Commessa DEMO associata e Preventivo DEMO con voce manuale (descrizione inizia con DEMO). Confermare che gli elementi compaiano negli elenchi originali. Nessuna modifica ai servizi della radio, a Firebase, ai dati aziendali o alla grafica.
+Prossimo collaudo: aprire /oracle/original-sandbox.html, Ctrl+F5, fare login Oracle e verificare da browser reale Cliente DEMO → Commessa DEMO → Preventivo DEMO, poi riaprire la pagina e confrontare i record. Nel frattempo implementare adapter di sincronizzazione sezionale revisionata separato dal frontend originale (grafica intatta). Nessuna modifica ai servizi della radio, a Firebase e ai dati aziendali.
 
 ## Metodo di lavoro per accelerare
 Procedere in parallelo sul codice del frontend e sulle verifiche backend; usare un solo comando per blocco; segnalare a ogni aggiornamento completato/mancante/prossimo passo.
