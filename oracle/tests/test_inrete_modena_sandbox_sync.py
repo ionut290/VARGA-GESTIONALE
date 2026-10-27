@@ -23,6 +23,16 @@ class InreteModenaSandboxSyncTest(unittest.TestCase):
         self.assertIn("section IN ('jobs','clients','vcCommesse','vcImpianti','vcOre','vcSquadre','vcRecords')", SQL)
         self.assertIn("SUM(lavorazioni)", SQL)
         self.assertIn("COUNT(*) FILTER (WHERE tutte_fatte)", SQL)
+        self.assertIn("source_snapshot='previous_sync'", SQL)
+        self.assertIn("'vcArchived',true,'deleted',true,'operation','delete'", SQL)
+
+    def test_refresh_rotates_complete_snapshot_without_physical_deletes(self):
+        refresh = (ROOT / "sync_cantieri_current_to_stage.sh").read_text(encoding="utf-8")
+        rotate = refresh.index("SET source_snapshot='previous_sync'")
+        upsert = refresh.index("INSERT INTO vg.cantieri_source_stage")
+        self.assertLess(rotate, upsert)
+        self.assertIn("WHERE source_snapshot='current_sync'", refresh)
+        self.assertNotIn("DELETE FROM vg.cantieri_source_stage", refresh.upper())
 
     def test_syncs_source_before_scoped_import_under_shared_lock(self):
         self.assertIn("flock -x -w 180 /run/lock/varga-cantieri-sync.lock", SCRIPT)
