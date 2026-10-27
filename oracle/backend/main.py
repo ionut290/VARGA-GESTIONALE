@@ -89,7 +89,8 @@ def bearer_user(authorization: Annotated[str | None, Header()] = None,
     return user
 
 @app.post("/api/gestionale/v1/auth/login")
-def login(body: LoginIn, response: Response):
+def login(body: LoginIn, response: Response,
+          x_vg_session_mode: Annotated[str | None, Header()] = None):
     email = body.email.strip().casefold()
     if "@" not in email:
         raise HTTPException(401, "Credenziali non valide")
@@ -119,8 +120,11 @@ def login(body: LoginIn, response: Response):
     response.set_cookie(key="vg_session",value=token,
         max_age=SESSION_HOURS*3600 if body.remember else None,
         httponly=True,secure=True,samesite="strict",path="/api/gestionale/v1/")
-    return {"token_type":"cookie","expires_in":SESSION_HOURS*3600,
+    result={"token_type":"cookie","expires_in":SESSION_HOURS*3600,
             "user":{"id":str(user["id"]),"email":user["email"],"display_name":user["display_name"],"role":user["role"]}}
+    if x_vg_session_mode!="cookie":
+        result.update(access_token=token,token_type="bearer")
+    return result
 
 @app.get("/api/gestionale/v1/auth/me")
 def me(user=Depends(bearer_user)):
