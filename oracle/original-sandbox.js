@@ -6,7 +6,7 @@
   const ROOT="gestionale_sandbox_20261027";
   const api=new window.VGOraclePilot();
   const bridge=new window.VGOracleSectionBridge.SectionBridge({
-    client:api,workspace:ROOT,keys:["clients","jobs","quotes"],writable:true
+    client:api,workspace:ROOT,keys:["clients","jobs","quotes","consuntivi","invoices","priceLists","entries"],writable:true
   });
   // Optional DEMO draft vault. Never write business workspaces or auto-retry.
   let draftVault=null;
@@ -161,7 +161,7 @@
     if(!model.sections||!Object.prototype.hasOwnProperty.call(model.sections,key)){
       return key==="company"?{}:[];
     }
-    const value=["clients","jobs","quotes"].includes(key)
+    const value=["clients","jobs","quotes","consuntivi","invoices","priceLists","entries"].includes(key)
       ?await bridge.load(key)
       :(await api.readSection(ROOT,key)).data;
     model.cache.set(key,value);
