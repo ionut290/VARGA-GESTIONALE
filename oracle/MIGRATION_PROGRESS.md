@@ -39,19 +39,19 @@ La pagina /oracle/console.html è solo un laboratorio di collaudo amministrativo
 - [x] Implementato adapter Oracle separato `oracle/section-bridge.js`: lettura per sezione, scritture limitate a workspace fittizio, versionamento, blocco conflitti HTTP 409, merge solo esplicito, gestione errori rete in memoria. Test Node superati.
 - [x] Collegato l'adapter ai tre moduli DEMO nella stessa HTML/CSS originale e aggiornato il pubblicatore (verifica SHA256 anche dell'adapter); CI completo superato.
 - [x] Pubblicato sul server l'adapter aggiornato del laboratorio con `sudo python3 oracle/publish_original_sandbox.py`: output VM commit `81c2623`, tre asset copiati e SHA256 verificati via HTTPS; dati aziendali e radio invariati. Rimane da collaudare la scrittura da browser reale.
-- [ ] Migrare lettura/scrittura e sincronizzazione **persistente/offline** a sezioni, revisioni, salvataggi locali e dati Cantieri. Preparati `demo-draft-vault.js`, adapter IndexedDB opt-in e relativi test, ma NON ancora collegati alla UI; `section-bridge.js` conserva tuttora le bozze in RAM.
+- [ ] Migrare lettura/scrittura e sincronizzazione **persistente/offline** a sezioni, revisioni, salvataggi locali e dati Cantieri. Preparati `demo-draft-vault.js`, adapter IndexedDB e collegamento alla UI DEMO; pulsante di recupero confermato dal browser, ma persistenza/recovery dopo perdita di connessione ancora da collaudare e `section-bridge.js` conserva bozze in RAM durante la sessione.
 - [ ] Collaudare moduli preventivi, consuntivi, commesse, fatture, documenti, stampa PDF e Google Drive
 - [ ] Confrontare aggiornamenti inseriti dopo il backup del 27 ottobre, importare e validare la versione finale
 - [ ] Pianificare cutover e ripristino; rimuovere Firebase solo dopo verifiche complete
 
 ## Verifica del passaggio definitivo (27 ottobre 2026)
 - [x] Creato `oracle/audit_production_cutover.py`: controllo statico in sola lettura, che termina con codice 2 se il passaggio alla produzione non è sicuro.
-- [x] Aggiornata GitHub Actions per confermare esplicitamente che l'archivio DEMO resta isolato e che la produzione è bloccata; esito della nuova pipeline da verificare.
+- [x] Aggiornata GitHub Actions per confermare esplicitamente che l'archivio DEMO resta isolato e che la produzione è bloccata; pipeline dichiarata verde dall'utente il 27 ottobre 2026.
 - [ ] Abilitare moduli reali soltanto dopo autorizzazioni server, prove in due sessioni, dati aggiornati, backup/ripristino e verifica separazione dalla radio.
 - [ ] Firebase resta attivo: non esiste ancora evidenza sufficiente per rimuoverlo o convertire il workspace reale in scrittura.
 
 ## Prossima azione
-Prossima azione: i tre salvataggi DEMO sono confermati dall'utente nel browser reale; verificare in due sessioni il comportamento con modifiche concorrenti e che non vi siano sovrascritture. Collegare l'archivio IndexedDB opt-in al laboratorio DEMO, con recupero manuale e confronto revisioni, verificando prima i test CI aggiornati. Non distribuire il nuovo adapter da solo come se fosse già recupero offline completo. Per la produzione restano persistenza offline, autenticazione colleghi/ruoli, test moduli e cutover finale.
+Prossima azione: i tre salvataggi DEMO sono confermati dall'utente nel browser reale; verificare in due sessioni il comportamento con modifiche concorrenti e che non vi siano sovrascritture. Collaudare perdita di connessione, recupero manuale IndexedDB e collisioni multi-sessione; poi implementare Fatture, Consuntivi e Prezzari in workspace DEMO separato prima delle prove sul dataset aziendale. Non trattare il componente come sincronizzazione offline di produzione. Per la produzione restano persistenza offline, autenticazione colleghi/ruoli, test moduli e cutover finale.
 
 ## Metodo di lavoro per accelerare
 Procedere in parallelo sul codice del frontend e sulle verifiche backend; usare un solo comando per blocco; segnalare a ogni aggiornamento completato/mancante/prossimo passo.
