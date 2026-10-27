@@ -62,6 +62,15 @@ La pagina /oracle/console.html è solo un laboratorio di collaudo amministrativo
 - [ ] Script SQL **NON eseguito su Oracle**: richiede collaudo e verifica prima dell'applicazione al workspace fittizio.
 - [ ] Collegare form e pulsanti ai nuovi moduli dopo la creazione verificata delle sezioni DEMO sul server.
 
+## Lotto Oracle DEMO completo — 27 ottobre 2026
+- [x] Collegata la lettura delle 16 sezioni nel laboratorio originale (non produzione).
+- [x] Preparata estensione additiva delle 9 sezioni aggiuntive via `extend_remaining_demo.sql`.
+- [x] Creato `deploy_demo_batch.sh` per aggiornare schema e pagina DEMO nello stesso intervento, con interruzione automatica se fallisce SQL.
+- [x] Aggiunti controlli statici di sicurezza `tests/test_deploy_demo_batch.py`.
+- [ ] La pipeline CI aggiornata deve essere verificata prima del deploy.
+- [ ] **Non completati**: backend di scrittura per tutti i moduli, permessi definitivi, documenti binari, integrazioni Google, sincronizzazione online/offline, riconciliazione finale da Firebase, backup/ripristino e release produzione.
+- [ ] Solo dopo queste verifiche autorizzare lo spegnimento di Firebase. La pagina DEMO non è la nuova produzione.
+
 ## Prossima azione
 Prossima azione: i tre salvataggi DEMO sono confermati dall'utente nel browser reale; verificare in due sessioni il comportamento con modifiche concorrenti e che non vi siano sovrascritture. Collaudare perdita di connessione, recupero manuale IndexedDB e collisioni multi-sessione; poi implementare Fatture, Consuntivi e Prezzari in workspace DEMO separato prima delle prove sul dataset aziendale. Non trattare il componente come sincronizzazione offline di produzione. Per la produzione restano persistenza offline, autenticazione colleghi/ruoli, test moduli e cutover finale.
 
