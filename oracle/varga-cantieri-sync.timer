@@ -1,0 +1,12 @@
+[Unit]
+Description=Refresh Varga Cantieri staging every five minutes
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=5min
+AccuracySec=30s
+Persistent=true
+Unit=varga-cantieri-sync.service
+
+[Install]
+WantedBy=timers.target
