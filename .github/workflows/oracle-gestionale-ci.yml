@@ -59,6 +59,7 @@ jobs:
           python -m py_compile compare_backup_fields.py
           python -m py_compile audit_live_export.py
           python -m py_compile audit_three_way.py
+          python -m py_compile prepare_reconciled_stage.py
       - name: Integration test against temporary PostgreSQL
         run: python -m unittest discover -s integration_tests -v
       - name: Validate schema and Compose YAML (without deployment)
