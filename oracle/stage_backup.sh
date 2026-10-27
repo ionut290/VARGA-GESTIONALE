@@ -25,7 +25,7 @@ printf '\n'
 echo "=== PREVENZIONE SOVRASCRITTURA ==="
 old="$(docker compose -p vg-gestionale-oracle exec -T db \
   psql -X -U varga_gestionale -d varga_gestionale -Atqc \
-  "SELECT count(*) FROM vg.workspace_sections WHERE workspace_id='gestionale_backup_20261015'" | tr -d '\\r\\n')"
+  "SELECT count(*) FROM vg.workspace_sections WHERE workspace_id='gestionale_backup_20261015'")"
 if [[ "$old" != 0 ]]; then
   echo "Esiste gia un archivio nella destinazione di prova: non importo." >&2
   exit 1
