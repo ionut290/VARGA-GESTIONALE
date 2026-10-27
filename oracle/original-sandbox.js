@@ -28,10 +28,12 @@
   }
   async function recoverDemoDrafts(){
     if(!draftVault||!model.user)return alert("Nessuna memoria DEMO locale disponibile.");
+    let found=0,restored=0;
     for(const key of ["clients","jobs","quotes"]){
       try{
         const pending=await draftVault.inspect(key);
         if(!pending)continue;
+        found++;
         await bridge.load(key,{fresh:true});
         if(bridge.state(key).revision!==pending.revision){
           alert("Bozza "+key+" conservata. Oracle è cambiato: recupero bloccato per evitare sovrascritture.");
@@ -43,10 +45,13 @@
         if(!saved.ok){alert("Conflitto "+key+": bozza locale conservata.");continue;}
         await draftVault.clear(key);
         model.cache.set(key,bridge.view(key));
+        restored++;
         alert("Bozza DEMO "+key+" recuperata su Oracle.");
       }catch(err){alert("Recupero "+key+" non completato: "+err.message);}
     }
-    await open("dashboard");
+    if(!found)alert("Nessuna bozza DEMO da recuperare. I dati salvati sono già su Oracle.");
+    else if(restored)status("cloud","Recuperate "+restored+" bozze DEMO. Apri la sezione interessata per vedere i dati.");
+    // Stay in Cloud: recovery must not navigate away unexpectedly.
   }
   const $=id=>document.getElementById(id);
   const model={user:null,sections:null,cache:new Map(),epoch:0};
