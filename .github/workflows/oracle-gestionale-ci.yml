@@ -55,6 +55,7 @@ jobs:
           bash -n compare_staging.sh
           bash -n repair_web_export.sh
           bash -n stage_reconciled.sh
+          bash -n connect_oracle_web.sh
           python -m py_compile verify_backup.py
           python -m py_compile compare_backups.py
           python -m py_compile compare_backup_fields.py
@@ -64,6 +65,7 @@ jobs:
           python -m py_compile verify_staging_import.py
           python -m py_compile diagnose_gateway.py
           python -m py_compile inspect_web_routing.py
+          python -m py_compile patch_nginx_oracle.py
       - name: Integration test against temporary PostgreSQL
         run: python -m unittest discover -s integration_tests -v
       - name: Validate schema and Compose YAML (without deployment)
