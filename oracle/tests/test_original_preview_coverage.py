@@ -31,5 +31,16 @@ class OriginalPreviewCoverage(unittest.TestCase):
         self.assertNotIn("firebase.",js)
         self.assertIn('const ROOT="gestionale_cantieri_sync_20261027";',js)
 
+    def test_cantieri_record_explorer_is_read_only_and_searchable(self):
+        js=(ROOT/"oracle"/"original-preview.js").read_text(encoding="utf-8")
+        for collection in ("vcCommesse","vcImpianti","vcOre","rapportini",
+                           "vcSquadre","vcUtenti","vcSegnalazioni","vcRecords"):
+            with self.subTest(collection=collection):
+                self.assertIn('["'+collection+'"',js)
+        self.assertIn('id="vcRecordSearch"',js)
+        self.assertIn('id="vcRecordResults"',js)
+        self.assertIn("body.textContent=",js)
+        self.assertIn("model.cache.get(key)",js)
+
 if __name__=="__main__":
     unittest.main()
