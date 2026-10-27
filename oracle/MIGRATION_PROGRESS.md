@@ -35,7 +35,7 @@ La pagina /oracle/console.html è solo un laboratorio di collaudo amministrativo
 - [x] Aggiunto test funzionale Node che simula un browser e salva Cliente → Commessa → Preventivo sul backend Oracle fittizio; ultimo test GitHub CI superato
 - [x] Pubblicatore rafforzato: verifica via HTTPS anche il checksum della nuova versione JavaScript
 - [x] Ripubblicato il JavaScript per Clienti, Commesse e Preventivi DEMO; server ha verificato HTML, JavaScript HTTPS e SHA256; test simulato intero Clienti → Commessa → Preventivo superato
-- [ ] Verificare con account Oracle l'intero flusso anche dal browser reale e da una seconda sessione (utente conferma il 27 ottobre che il test Clienti DEMO funziona; ancora da verificare Commesse, Preventivi e conflitti su due sessioni)
+- [ ] Verificare con account Oracle l'intero flusso anche dal browser reale e da una seconda sessione (utente conferma il 27 ottobre funzionamento di Clienti, Commesse e Preventivi DEMO; ancora da verificare conflitti su due sessioni e persistenza dopo refresh per ogni modulo)
 - [x] Implementato adapter Oracle separato `oracle/section-bridge.js`: lettura per sezione, scritture limitate a workspace fittizio, versionamento, blocco conflitti HTTP 409, merge solo esplicito, gestione errori rete in memoria. Test Node superati.
 - [x] Collegato l'adapter ai tre moduli DEMO nella stessa HTML/CSS originale e aggiornato il pubblicatore (verifica SHA256 anche dell'adapter); CI completo superato.
 - [x] Pubblicato sul server l'adapter aggiornato del laboratorio con `sudo python3 oracle/publish_original_sandbox.py`: output VM commit `81c2623`, tre asset copiati e SHA256 verificati via HTTPS; dati aziendali e radio invariati. Rimane da collaudare la scrittura da browser reale.
@@ -45,7 +45,7 @@ La pagina /oracle/console.html è solo un laboratorio di collaudo amministrativo
 - [ ] Pianificare cutover e ripristino; rimuovere Firebase solo dopo verifiche complete
 
 ## Prossima azione
-Prossima azione: con browser reale aprire /oracle/original-sandbox.html, fare Ctrl+F5, accedere con account Oracle di prova e salvare Cliente DEMO → Commessa DEMO → Preventivo DEMO. Ricaricare la pagina per verificare persistenza e controllare il conflitto da due schede senza sovrascritture. La lettura della scheda aperta mostra la UI e dati fittizi caricati, ma NON prova ancora scritture reali. Per la produzione restano persistenza offline, autenticazione colleghi/ruoli, test moduli e cutover finale.
+Prossima azione: i tre salvataggi DEMO sono confermati dall'utente nel browser reale; verificare in due sessioni il comportamento con modifiche concorrenti e che non vi siano sovrascritture. Preparare in codice la sincronizzazione persistente/offline e i test senza modificare il workspace aziendale. Per la produzione restano persistenza offline, autenticazione colleghi/ruoli, test moduli e cutover finale.
 
 ## Metodo di lavoro per accelerare
 Procedere in parallelo sul codice del frontend e sulle verifiche backend; usare un solo comando per blocco; segnalare a ogni aggiornamento completato/mancante/prossimo passo.
