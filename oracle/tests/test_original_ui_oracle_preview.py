@@ -44,8 +44,11 @@ class PixelParityPreviewTest(unittest.TestCase):
         source=(ROOT/"oracle"/"original-preview.js").read_text(encoding="utf-8")
         self.assertIn('gestionale_cantieri_sync_20261027',source)
         for bad in ("firebase.", "indexedDB", "localStorage", "sessionStorage",
-                    ".saveSection(", ".save(", "innerHTML=","eval(", "function noteView("):
+                    ".saveSection(", ".save(", "eval(", "function noteView("):
             self.assertNotIn(bad,source)
+        self.assertIn('view.innerHTML=readonlyJobPane(fresh,tab,data)',source)
+        self.assertIn('function detailList(rows,mapper,emptyText)',source)
+        self.assertIn('esc(x[0])',source)
         self.assertIn("api.readSection(ROOT,key)",source)
         self.assertIn('document.querySelectorAll(".nav[data-view]")',source)
         self.assertIn("document.body.classList.toggle",source)
