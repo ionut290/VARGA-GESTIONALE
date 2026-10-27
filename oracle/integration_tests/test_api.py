@@ -22,7 +22,7 @@ class LivePgApi(unittest.TestCase):
             connection.execute("""INSERT INTO vg.workspace_members(workspace_id,user_id,can_write)
                     VALUES (%s,%s,TRUE)""",(cls.workspace,cls.user_id))
             connection.commit()
-        cls.client=TestClient(app)
+        cls.client=TestClient(app,base_url="https://testserver")
     def token(self):
         response=self.client.post("/api/gestionale/v1/auth/login",json={"email":self.email,"password":self.password})
         self.assertEqual(response.status_code,200,response.text)
@@ -59,5 +59,16 @@ class LivePgApi(unittest.TestCase):
         self.assertEqual(self.client.get("/api/gestionale/v1/workspaces/a/manifest").status_code,401)
         self.assertEqual(self.client.put("/api/gestionale/v1/workspaces/a/sections/clients",
              json={"expected_revision":0,"data":{"value":[]}}).status_code,401)
+    def test_remembered_cookie_session_and_logout(self):
+        client=TestClient(app,base_url="https://testserver")
+        response=client.post("/api/gestionale/v1/auth/login",json={"email":self.email,"password":self.password,"remember":True})
+        self.assertEqual(response.status_code,200,response.text)
+        self.assertNotIn("access_token",response.json())
+        cookie=response.headers.get("set-cookie","").lower()
+        for marker in ("httponly","secure","samesite=strict","max-age="):
+            self.assertIn(marker,cookie)
+        self.assertEqual(client.get("/api/gestionale/v1/auth/me").status_code,200)
+        self.assertEqual(client.post("/api/gestionale/v1/auth/logout").status_code,200)
+        self.assertEqual(client.get("/api/gestionale/v1/auth/me").status_code,401)
 
 if __name__=="__main__":unittest.main()
