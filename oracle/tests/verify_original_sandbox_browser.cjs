@@ -28,8 +28,8 @@ class Elem{
   click(){const f=this.listeners.get("click");assert.ok(f,"missing click listener: "+this.id);return f({preventDefault(){}})}
   setAttribute(k,v){this.attrs.set(k,String(v))}
   getAttribute(k){return this.attrs.get(k)}
-  append(...x){this.childNodes.push(...x);this.options=this.childNodes}
-  replaceChildren(...x){this.childNodes=x.slice();this.options=this.childNodes}
+  append(...x){this.childNodes.push(...x.flatMap(a=>a.id==="fragment"?a.childNodes:[a]));this.options=this.childNodes}
+  replaceChildren(...x){this.childNodes=x.flatMap(a=>a.id==="fragment"?a.childNodes:[a]);this.options=this.childNodes}
   querySelector(){return null}
   querySelectorAll(){return []}
   insertAdjacentElement(){}
