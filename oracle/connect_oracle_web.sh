@@ -52,42 +52,7 @@ if [[ ! -d "$PRIVATE" ]]; then
   exit 2
 fi
 docker cp "$WEB:$CONF" "$temp/original.conf"
-python3 - "$temp/original.conf" "$temp/patched.conf" <<'PY'
-from pathlib import Path
-import re
-import sys
-src=Path(sys.argv[1]).read_text(encoding="utf-8")
-if "location" not in src or "try_files" not in src:
-    raise SystemExit("STOP: non sembra la configurazione statica del Gestionale.")
-if re.search(r"(?m)^\s*proxy_pass\s+",src):
-    raise SystemExit("STOP: esiste già un proxy, evitare modifiche automatiche.")
-if re.search(r"(?m)^\s*location\s+.*?/api/gestionale",src):
-    raise SystemExit("STOP: route Oracle già configurata; verificare prima manualmente.")
-server=list(re.finditer(r"(?m)^\s*server\s*\{",src))
-if len(server)!=1:
-    raise SystemExit("STOP: numero di blocchi server inatteso.")
-if "/usr/share/nginx/html" not in src and "root html" not in src:
-    raise SystemExit("STOP: document root non riconosciuta.")
-block="""
-    # VG_ORACLE_EDGE_20261027: route per API Gestionale esclusivamente.
-    location ^~ /api/gestionale/v1/ {
-        proxy_pass http://vg-gestionale-oracle-api-1:8098;
-        proxy_http_version 1.1;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto https;
-        proxy_connect_timeout 5s;
-        proxy_read_timeout 30s;
-        client_max_body_size 17m;
-        add_header Cache-Control "no-store" always;
-    }
-"""
-end=server[0].end()
-patched=src[:end]+"\n"+block+src[end:]
-Path(sys.argv[2]).write_text(patched,encoding="utf-8")
-print("Configurazione statica individuata; patch isolata preparata.")
-PY
+python3 patch_nginx_oracle.py "$temp/original.conf" "$temp/patched.conf"
 
 echo "=== BACKUP PERSISTENTE DELLA CONFIGURAZIONE WEB ==="
 backupdir="$PRIVATE/nginx-web-backups"
