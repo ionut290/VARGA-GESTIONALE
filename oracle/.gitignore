@@ -1,0 +1,7 @@
+.env
+*.json.bak
+**/__pycache__/
+**/.pytest_cache/
+backups/
+exports/
+service-account*.json
