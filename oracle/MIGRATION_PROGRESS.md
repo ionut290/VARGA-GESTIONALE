@@ -1,5 +1,14 @@
 # Varga Gestionale → Oracle | Avanzamento operativo
 
+## REQUISITO VINCOLANTE: INTERFACCIA IDENTICA
+
+La versione finale deve essere graficamente e funzionalmente **identica** a https://ionut290.github.io/VARGA-GESTIONALE/: stessi menu, dashboard, schermate, campi, pulsanti, CSS e flussi di lavoro. Il lavoro Oracle riguarda **solo backend, autenticazione, autorizzazioni, API, salvataggio e sincronizzazione** dell'originale. **Non sostituire index.html con oracle/console.html**, non trasferire il design della console separata al prodotto finale.
+
+Guardrail CI: oracle/tests/test_ui_parity_guard.py verifica l'identità dei file originali index.html, style.css, view-scenes.js, ui-overhaul.js e desktop-varga-navigation.js; qualsiasi modifica richiede revisione esplicita dell'identità grafica. Le modifiche al backend devono essere fatte in adapter/moduli distinti, preferibilmente tramite il bootstrap esistente app.js senza toccare il markup.
+
+La pagina /oracle/console.html è solo un laboratorio di collaudo amministrativo, NON è il nuovo aspetto di Varga Gestionale.
+
+
 **Aggiornato al 27 ottobre 2026.** Evidenza: output delle verifiche sulla VM, API HTTPS e collaudo Oracle. Aggiornare dopo ogni nuova milestone; non è un monitoraggio in tempo reale.
 
 ## Completato
@@ -13,8 +22,9 @@
 ## Mancante, in ordine di priorità
 - [x] Preparazione persistenza rete vg-gestionale-edge e asset Nginx: web Compose aggiornato sulla VM, API Compose aggiornato nel repository; container non ricreati
 - [ ] Verificare che il successivo deploy dei container Varga conservi rete, file e configurazione senza interferire con AzuraCast
-- [x] Prima interfaccia Oracle-only di consultazione sviluppata in oracle/console.html e oracle/console.js, test automatizzati superati; NON ancora pubblicata sul server
-- [ ] Pubblicare e collaudare la console Oracle read-only con oracle/publish_oracle_console.py; il frontend completo è ancora da migrare
+- [x] Console diagnostica Oracle separata sviluppata e pubblicata, senza sostituire il Gestionale originale
+- [x] Console Oracle read-only pubblicata sulla VM e disponibile via HTTPS
+- [ ] Portare il codice del Gestionale ORIGINALE su backend Oracle mantenendo index.html, style.css, menu e interfaccia identici
 - [ ] Migrare autenticazione, utenti, ruoli, recupero password e autorizzazioni collegate a Varga Cantieri
 - [ ] Migrare lettura/scrittura e sincronizzazione a sezioni, revisioni, salvataggi locali e dati Cantieri
 - [ ] Collaudare moduli preventivi, consuntivi, commesse, fatture, documenti, stampa PDF e Google Drive
@@ -22,7 +32,7 @@
 - [ ] Pianificare cutover e ripristino; rimuovere Firebase solo dopo verifiche complete
 
 ## Prossima azione
-Da Windows PowerShell eseguire git pull --ff-only e sudo python3 oracle/publish_oracle_console.py sulla VM. Pubblica soltanto nuovi asset della console Oracle, senza toccare il frontend Firebase in uso, la radio o il database. Aprire poi https://gestionale.radio-romanii-italia.duckdns.org/oracle/console.html per il collaudo.
+Prossimo sviluppo: adapter API Oracle e autenticazione nel bootstrap della versione ORIGINALE, in un ambiente di prova separato. Niente modifica dei file grafici finché non è pronta la migrazione funzionale. Backend già online e copia dati validata.
 
 ## Metodo di lavoro per accelerare
 Procedere in parallelo sul codice del frontend e sulle verifiche backend; usare un solo comando per blocco; segnalare a ogni aggiornamento completato/mancante/prossimo passo.
