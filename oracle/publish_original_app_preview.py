@@ -24,7 +24,7 @@ PERSIST=Path("/home/ubuntu/gestionale-private/oracle-edge-static/oracle")
 WEB="varga-gestionale-oracle-varga-gestionale-web-1"
 WEB_ROOT="/usr/share/nginx/html"
 DOMAIN="https://gestionale.radio-romanii-italia.duckdns.org"
-WORKSPACE="gestionale_cantieri_sync_20261027"
+WORKSPACE="gestionale_varga_ui_sandbox_20261027"
 SKIP={"app-sync.js","shared-auth-policy.js","cloud-users.js","password-recovery-code.js",
       "app-cloud.js","job-management-sync.js","cloud-incremental-sync.js",
       "job-plant-management.js","squadre-management-sync.js","map-mail-bridge.js",
