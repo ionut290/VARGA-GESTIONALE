@@ -13,6 +13,7 @@ import csv,sys,json,collections,math
 # PostgreSQL exports can contain JSON fields larger than Python's 128 KiB CSV default.
 csv.field_size_limit(64 * 1024 * 1024)
 wrapped_values=collections.Counter()
+tagged_envelopes=collections.Counter()
 
 def decode(x, origin):
     """Decode only unambiguous Firestore/legacy value envelopes.
@@ -69,6 +70,22 @@ def decode(x, origin):
             wrapped_values[(origin,'mapValue')]+=1
             return {k:decode(v,origin) for k,v in inner.get('fields',{}).items()}
     return {k:decode(v,origin) for k,v in x.items()}
+
+def decode_tagged_probe(x, origin):
+    """Diagnostic only: remove exact {t,v} envelopes without trusting them.
+
+    The result is never used to authorise an import. It lets the report show
+    whether a legacy serialiser, rather than business data, explains a whole
+    class of mismatches.
+    """
+    if isinstance(x,list):
+        return [decode_tagged_probe(v,origin) for v in x]
+    if not isinstance(x,dict):
+        return x
+    if set(x)=={'t','v'}:
+        tagged_envelopes[(origin,type(x['t']).__name__)]+=1
+        return decode_tagged_probe(x['v'],origin)
+    return {k:decode_tagged_probe(v,origin) for k,v in x.items()}
 def load(path):
     with open(path,newline='') as f:
         return {key:json.loads(payload) for key,payload in csv.reader(f)}
@@ -76,6 +93,7 @@ live=load(sys.argv[1]);stage=load(sys.argv[2])
 matched=live.keys() & stage.keys()
 stats=collections.defaultdict(lambda:[0,0,0])
 different_fields=collections.Counter()
+probe_matches=0
 for key in matched:
     wrapped=stage[key]
     previous=decode(wrapped,'storico')
@@ -90,11 +108,18 @@ for key in matched:
             for field in previous.keys()|current.keys():
                 if previous.get(field)!=current.get(field):
                     different_fields[(group,field)]+=1
+    if decode_tagged_probe(wrapped,'storico')==decode_tagged_probe(live[key],'sorgente'):
+        probe_matches+=1
 print('Raccolta | Comuni | Uguali normalizzati | Differenti normalizzati')
 for group,nums in sorted(stats.items()):
     print(f'{group} | {nums[0]} | {nums[1]} | {nums[2]}')
 print('TOTALE',len(matched),'uguali',sum(v[1] for v in stats.values()),'differenti',sum(v[2] for v in stats.values()))
 print('SOLO SORGENTE',len(live.keys()-stage.keys()),'SOLO STORICO',len(stage.keys()-live.keys()))
+print('SONDA {t,v} (diagnostica, non autorizza import):',probe_matches,'equivalenti su',len(matched))
+if tagged_envelopes:
+    print('Involucri {t,v} rilevati (solo tipo del tag e conteggio):')
+    for (origin,kind),count in sorted(tagged_envelopes.items()):
+        print(origin,kind,count,sep=' | ')
 print('Campi con differenze frequenti (nomi, non valori):')
 for (group,field),count in different_fields.most_common(25):
     print(group,field,count,sep=' | ')
