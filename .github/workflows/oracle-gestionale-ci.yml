@@ -48,6 +48,7 @@ jobs:
           node --check client.js
           node --check browser-export.js
           node --check console.js
+          node --check original-preview.js
           bash -n install_on_vm.sh
           bash -n preflight.sh
           bash -n diagnose_vm.sh
@@ -69,6 +70,8 @@ jobs:
           python -m py_compile inspect_edge_persistence.py
           python -m py_compile prepare_edge_persistence.py
           python -m py_compile publish_oracle_console.py
+          python -m py_compile build_original_ui_preview.py
+          python -m py_compile publish_original_ui_preview.py
           python -m py_compile patch_nginx_oracle.py
       - name: Integration test against temporary PostgreSQL
         run: python -m unittest discover -s integration_tests -v
