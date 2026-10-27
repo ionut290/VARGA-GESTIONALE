@@ -38,6 +38,7 @@ def validate_assets(js: bytes, bridge: bytes, html: bytes, vault: bytes | None =
         b'await saveDemoSection("clients",{',
         b'await saveDemoSection("jobs",job,"addJob","commesse")',
         b'await saveDemoSection("quotes",quote,"saveQuote","preventivi")',
+        b'await saveDemoSection("invoices",record,"addInvoice","fatture")',
     )):
         raise ValueError("Adapter e salvataggi DEMO non corrispondono al codice previsto")
     if b'api.saveSection(' in js or b'fetch(' in js:
@@ -52,7 +53,8 @@ def validate_assets(js: bytes, bridge: bytes, html: bytes, vault: bytes | None =
         vault=(SRC/"demo-draft-vault.js").read_bytes()
     if b'src="/oracle/demo-draft-vault.js"' not in html or b"openBrowserStore" not in vault:
         raise ValueError("Archivio bozze DEMO mancante")
-    if (b'src="/oracle/original-sandbox.js"' not in html or
+    if (b'src="/oracle/accounting-demo-validation.js"' not in html or
+        b'src="/oracle/original-sandbox.js"' not in html or
         b'src="/oracle/section-bridge.js"' not in html or b"firebasejs" in html):
         raise ValueError("Il loader sandbox non è isolato da Firebase")
     if b"gestionale_sandbox_20261027" not in bridge or b"varga-azienda" in bridge:
@@ -66,7 +68,10 @@ def main():
     vault=(SRC/"demo-draft-vault.js").read_bytes()
     html=pub.load_builder().transform((ROOT/"index.html").read_text(encoding="utf-8"),sandbox=True).encode("utf-8")
     validate_assets(js,bridge,html,vault)
-    for name,data in (("section-bridge.js",bridge),("demo-draft-vault.js",vault),(NAME+".js",js),(NAME+".html",html)):
+    accounting=(SRC/"accounting-demo-validation.js").read_bytes()
+    if b"demoClientId" not in accounting or b"function invoice(" not in accounting:
+        raise ValueError("Validatore fatture DEMO non valido")
+    for name,data in (("section-bridge.js",bridge),("demo-draft-vault.js",vault),("accounting-demo-validation.js",accounting),(NAME+".js",js),(NAME+".html",html)):
         destination=pub.PERSIST/name
         pub.save_atomic(destination,data)
         digest=hashlib.sha256(data).hexdigest()
