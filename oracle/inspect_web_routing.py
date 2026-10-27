@@ -83,7 +83,7 @@ def nginx_summary():
     # Detect routing controls without disclosing any configuration lines.
     print("web_nginx_config=leggibile")
     print("web_nginx_has_api_location="+str(bool(re.search(
-        r"(?m)^\s*location\s+(?:=|~\*?|\\^~)?\s*/api/gestionale(?:/v1)?(?:/|\s|$)",raw))).lower())
+        r"(?m)^\s*location\s+(?:=|~\*?|\^~)?\s*/api/gestionale(?:/v1)?(?:/|\s|$)",raw))).lower())
     print("web_nginx_has_spa_fallback="+str(bool(re.search(
         r"try_files\s+[^;]*/index\.html",raw))).lower())
     print("web_nginx_has_proxy_pass="+str(bool(re.search(r"\bproxy_pass\s+",raw))).lower())
@@ -95,8 +95,7 @@ def static_assets():
         ("oracle_client","/usr/share/nginx/html/oracle/client.js"),
         ("export","/usr/share/nginx/html/oracle/browser-export.js"),
     ]:
-        result=command(["docker","exec",WEB,"test","-s",filename])
-        # test -s returns empty stdout for both pass and fail, use an echo.
+        # Check only existence; never print file content.
         result=command(["docker","exec",WEB,"sh","-c",
                        'if test -s "$1"; then echo yes; else echo no; fi',"sh",filename])
         print("web_asset_"+key+"="+("yes" if result and result.strip()=="yes" else "no"))
