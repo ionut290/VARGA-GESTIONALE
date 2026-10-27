@@ -23,8 +23,14 @@ SELECT table_schema,table_name
 FROM information_schema.tables
 WHERE table_schema='public' AND table_type='BASE TABLE'
 ORDER BY table_name;
-SELECT collection_name,COUNT(*) AS documenti
-FROM public.pu GROUP BY collection_name ORDER BY collection_name;
+SELECT table_name,column_name,data_type
+FROM information_schema.columns
+WHERE table_schema='public'
+  AND table_name IN ('firestore_documents','varga_gestionale_shadow',
+  'varga_sync_conflicts','varga_sync_cursors','varga_sync_outbox','varga_sync_state')
+ORDER BY table_name,ordinal_position;
+SELECT 'firestore_documents' AS tabella, COUNT(*) AS righe
+FROM public.firestore_documents;
 COMMIT;
 SQL
 echo "CONFRONTO PRELIMINARE TERMINATO: nessun dato copiato, modificato o cancellato."
