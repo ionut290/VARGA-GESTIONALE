@@ -17,11 +17,12 @@ fi
 if ! sudo docker compose -f oracle/compose.yaml -p "$target_project" ps --status running --services | grep -qx db; then
   echo "STOP: database Gestionale non disponibile"; exit 2
 fi
-sudo docker exec "$source_db" psql -X -q -v ON_ERROR_STOP=1 -U varga -d varga_cantieri -c \
+sudo docker exec "$source_db" psql -X -qAt -v ON_ERROR_STOP=1 -U varga -d varga_cantieri -c \
   "SELECT 1 FROM public.varga_sync_state WHERE source='firebase' LIMIT 1" >/dev/null
-sudo docker compose -f oracle/compose.yaml -p "$target_project" exec -T db psql -X -q -v ON_ERROR_STOP=1 -U varga_gestionale -d varga_gestionale -c \
+sudo docker compose -f oracle/compose.yaml -p "$target_project" exec -T db psql -X -qAt -v ON_ERROR_STOP=1 -U varga_gestionale -d varga_gestionale -c \
   "SELECT 1 FROM information_schema.tables WHERE table_schema='vg' AND table_name='cantieri_source_stage'" | grep -qx 1
 
+echo "Preflight OK: sorgente, tabella corrente e staging disponibili."
 echo "=== ESPORTAZIONE CORRENTE (payload in area temporanea privata) ==="
 sudo docker exec -i "$source_db" psql -X -q -v ON_ERROR_STOP=1 -U varga -d varga_cantieri -c "
 COPY (
