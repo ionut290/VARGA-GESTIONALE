@@ -231,3 +231,43 @@ def put_section(workspace: str, section: str, body: WorkspaceIn, user=Depends(be
                     (workspace,section,user["id"],next_revision,hashlib.sha256(serialized.encode()).hexdigest()))
         con.commit()
     return {"workspace":workspace,"section":section,"revision":next_revision}
+
+# Isolated, authenticated Cantieri staging read API. It never edits existing
+# Varga Gestionale sections and intentionally exposes only business collections.
+CANTIERI_STAGE_COLLECTIONS = frozenset({
+    "impianti","impiantiFisici","commesse","globalCommesse","personale",
+    "oreReports","lavorazioni","prezziario","mezzi","squadreStorico",
+    "squadreCommesse","operatorCommessaHistory","commessaResources",
+    "contabilita","noteCommessa","ferieColleghi","calendarEvents",
+    "verdeLevatoRecords","verdeLevatoCommesse"
+})
+
+@app.get("/api/gestionale/v1/workspaces/{workspace}/cantieri-stage/summary")
+def cantieri_stage_summary(workspace: str, user=Depends(bearer_user)):
+    with db() as con:
+        assert_workspace(con,user,workspace)
+        rows=con.execute("""SELECT collection_name, source_snapshot, count(*) AS records
+            FROM vg.cantieri_source_stage
+            WHERE collection_name = ANY(%s)
+            GROUP BY collection_name,source_snapshot
+            ORDER BY collection_name,source_snapshot""",
+            (list(CANTIERI_STAGE_COLLECTIONS),)).fetchall()
+    return {"workspace":workspace,"source":"oracle_staging","read_only":True,
+            "collections":[{"name":r["collection_name"],"snapshot":r["source_snapshot"],
+                            "count":r["records"]} for r in rows]}
+
+@app.get("/api/gestionale/v1/workspaces/{workspace}/cantieri-stage/documents")
+def cantieri_stage_documents(workspace: str, collection: str, offset: int=0, limit: int=100,
+                             user=Depends(bearer_user)):
+    if collection not in CANTIERI_STAGE_COLLECTIONS:
+        raise HTTPException(400, "Raccolta non autorizzata")
+    if offset<0 or offset>1000000 or limit<1 or limit>200:
+        raise HTTPException(400, "Paginazione non valida")
+    with db() as con:
+        assert_workspace(con,user,workspace)
+        rows=con.execute("""SELECT path,source_snapshot,update_time,data
+            FROM vg.cantieri_source_stage WHERE collection_name=%s
+            ORDER BY path LIMIT %s OFFSET %s""",(collection,limit,offset)).fetchall()
+    return {"workspace":workspace,"collection":collection,"offset":offset,
+            "read_only":True,"documents":[{"path":r["path"],"source_snapshot":r["source_snapshot"],
+                "update_time":r["update_time"],"data":r["data"]} for r in rows]}
