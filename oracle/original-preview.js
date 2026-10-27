@@ -4,7 +4,7 @@
  * This preview deliberately stays separate from the production app.
  */
 (function(){
-  const ROOT="gestionale_backup_20261027";
+  const ROOT="gestionale_backup_20261027_refresh";
   const api=new window.VGOraclePilot();
   const $=id=>document.getElementById(id);
   const model={user:null,sections:null,cache:new Map(),epoch:0};
@@ -74,7 +74,7 @@
       stat("cloudUser",model.user?.email||"");
       stat("cloudStatus","Oracle (collaudo)");
       stat("cloudWorkspaceLabel",ROOT);
-      stat("cloudInfo","Archivio Oracle del 27 ottobre. Modifiche disabilitate durante il collaudo.");
+      stat("cloudInfo","Archivio Oracle aggiornato del 27 ottobre. SOLA LETTURA, nessuna modifica consentita.");
     } else if($("loginForm")) $("loginForm").hidden=false;
   }
   function locks(){
