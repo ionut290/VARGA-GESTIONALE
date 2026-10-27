@@ -2,18 +2,18 @@
 # Publish Cantieri staging reader to isolated Varga Gestionale API and original preview.
 # Never touch Cantieri database, AzuraCast or production Firebase.
 set -euo pipefail
-cd "$(dirname "$0")/.."
+cd "$(dirname "$0")/.."\nCOMPOSE_FILE="oracle/compose.yaml"\nif [ ! -f "$COMPOSE_FILE" ]; then echo "STOP: compose Gestionale non trovato";exit 2; fi
 echo "=== CONTROLLI ==="
-services="$(sudo docker compose -p vg-gestionale-oracle config --services)"
+services="$(sudo docker compose -f "$COMPOSE_FILE" -p vg-gestionale-oracle config --services)"
 printf '%s\n' "$services"
 if ! printf '%s\n' "$services" | grep -qx 'api'; then
  echo "STOP: servizio 'api' non riconosciuto, nessun riavvio";exit 2
 fi
-if ! sudo docker compose -p vg-gestionale-oracle ps --status running --services | grep -qx 'api'; then
+if ! sudo docker compose -f "$COMPOSE_FILE" -p vg-gestionale-oracle ps --status running --services | grep -qx 'api'; then
  echo "STOP: API gestionale non già attiva; nessuna modifica";exit 2
 fi
 echo "=== SOLO API GESTIONALE (NESSUN ALTRO SERVIZIO) ==="
-sudo docker compose -p vg-gestionale-oracle up -d --no-deps --build api
+sudo docker compose -f "$COMPOSE_FILE" -p vg-gestionale-oracle up -d --no-deps --build api
 echo "=== PUBBLICAZIONE INTERFACCIA ORIGINALE ==="
 sudo python3 oracle/publish_original_ui_preview.py
 echo "=== ENDPOINT RISERVATO (senza credenziali, risposta 401/403 attesa) ==="
