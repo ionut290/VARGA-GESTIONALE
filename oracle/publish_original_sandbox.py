@@ -21,7 +21,7 @@ spec.loader.exec_module(pub)
 NAME="original-sandbox"
 
 
-def validate_assets(js: bytes, bridge: bytes, html: bytes, vault: bytes = b"") -> None:
+def validate_assets(js: bytes, bridge: bytes, html: bytes, vault: bytes | None = None) -> None:
     if len(js)>150_000 or len(bridge)>150_000 or len(html)>150_000:
         raise ValueError("Asset oltre limite")
     if b'gestionale_sandbox_20261027' not in js or b'gestionale_backup_20261027' in js:
@@ -48,6 +48,8 @@ def validate_assets(js: bytes, bridge: bytes, html: bytes, vault: bytes = b"") -
         b'this.client.saveSection(this.workspace,key,staged)',
     )):
         raise ValueError("Protezione dei dati aziendali non presente nell'adapter")
+    if vault is None:
+        vault=(SRC/"demo-draft-vault.js").read_bytes()
     if b'src="/oracle/demo-draft-vault.js"' not in html or b"openBrowserStore" not in vault:\n        raise ValueError("Archivio bozze DEMO mancante")\n    if (b'src="/oracle/original-sandbox.js"' not in html or
         b'src="/oracle/section-bridge.js"' not in html or b"firebasejs" in html):
         raise ValueError("Il loader sandbox non è isolato da Firebase")
