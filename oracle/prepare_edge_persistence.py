@@ -221,13 +221,14 @@ def prepare_assets():
             target.write_bytes(source.read_bytes())
         os.chmod(target,0o644)
     nginx=ASSETS/"nginx.conf"
-    if nginx.exists() or nginx.is_symlink():
-        raise ValueError("Configurazione Nginx persistente esiste già: esaminare prima")
-    # Capture the live, already proven-to-work config. Never display its contents.
-    data=subprocess.run(["docker","cp",WEB+":"+CONF_TARGET,str(nginx)],
-                        check=False,capture_output=True,timeout=15)
-    if data.returncode!=0:
-        raise ValueError("Backup Nginx persistente non riuscito")
+    if nginx.is_symlink():
+        raise ValueError("Configurazione Nginx persistente è symlink")
+    if not nginx.exists():
+        # Capture the live, already proven-to-work config; never display contents.
+        data=subprocess.run(["docker","cp",WEB+":"+CONF_TARGET,str(nginx)],
+                            check=False,capture_output=True,timeout=15)
+        if data.returncode!=0:
+            raise ValueError("Backup Nginx persistente non riuscito")
     conf=nginx.read_text(encoding="utf-8")
     if not all(x in conf for x in ("VG_ORACLE_EDGE_20261027",
         "location ^~ /api/gestionale/v1/",
