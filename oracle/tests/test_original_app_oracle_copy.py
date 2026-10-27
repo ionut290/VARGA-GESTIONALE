@@ -40,6 +40,8 @@ class OriginalAppOracleCopyTest(unittest.TestCase):
         publisher=(ROOT/"oracle"/"publish_original_app_preview.py").read_text(encoding="utf-8")
         self.assertIn('files["client.js"]=SRC/"client.js"',publisher)
         self.assertIn("/oracle/original-app-'+digest+'/client.js",publisher)
+        self.assertIn("public reverse proxy too",publisher)
+        self.assertIn("asset_response.status!=200",publisher)
 
     def test_auth_screen_cannot_remain_on_the_loading_spinner(self):
         adapter=(ROOT/"oracle"/"original-app-adapter.js").read_text(encoding="utf-8")
@@ -47,5 +49,10 @@ class OriginalAppOracleCopyTest(unittest.TestCase):
         self.assertIn("window.VG_ORACLE_UI_READY=true",adapter)
         self.assertIn("window.updateBackupInfo=()=>{}",adapter)
         self.assertIn("window.autoFolderBackup=()=>{}",adapter)
+        self.assertIn("restoreSavedSession()",adapter)
+        self.assertIn('api.login(email,password,$("loginRemember")?.checked!==false)',adapter)
+        client=(ROOT/"oracle"/"client.js").read_text(encoding="utf-8")
+        self.assertIn('credentials:"same-origin"',client)
+        self.assertNotIn("access_token",client)
 
 if __name__=="__main__":unittest.main()
