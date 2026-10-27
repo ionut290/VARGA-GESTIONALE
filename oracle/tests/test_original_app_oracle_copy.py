@@ -13,6 +13,7 @@ class OriginalAppOracleCopyTest(unittest.TestCase):
         page=transform(source)
         self.assertIn('href="style.css?',page)
         self.assertIn("original-app-bootstrap.js",page)
+        self.assertIn("__vgOracleBootFail",page)
         self.assertIn('id="commesse"',page)
         self.assertNotIn("firebasejs",page.lower())
         self.assertNotIn('src="app.js',page)
@@ -39,5 +40,12 @@ class OriginalAppOracleCopyTest(unittest.TestCase):
         publisher=(ROOT/"oracle"/"publish_original_app_preview.py").read_text(encoding="utf-8")
         self.assertIn('files["client.js"]=SRC/"client.js"',publisher)
         self.assertIn("/oracle/original-app-'+digest+'/client.js",publisher)
+
+    def test_auth_screen_cannot_remain_on_the_loading_spinner(self):
+        adapter=(ROOT/"oracle"/"original-app-adapter.js").read_text(encoding="utf-8")
+        self.assertIn('$("loginLoading").hidden=true',adapter)
+        self.assertIn("window.VG_ORACLE_UI_READY=true",adapter)
+        self.assertIn("window.updateBackupInfo=()=>{}",adapter)
+        self.assertIn("window.autoFolderBackup=()=>{}",adapter)
 
 if __name__=="__main__":unittest.main()
