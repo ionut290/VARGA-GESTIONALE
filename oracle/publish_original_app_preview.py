@@ -119,20 +119,25 @@ def prepare_bundle(files,digest):
     return target
 
 def publish_bundle(bundle,digest,files):
-    name="original-app-"+digest;dest=WEB_ROOT+"/oracle/"+name
+    name="original-app-"+digest
     run(["docker","exec",WEB,"mkdir","-p",WEB_ROOT+"/oracle"])
-    exists=subprocess.run(["docker","exec",WEB,"test","-d",dest],check=False,capture_output=True).returncode==0
-    if not exists:
-        run(["docker","cp",str(bundle),WEB+":"+WEB_ROOT+"/oracle/"],timeout=120)
+    public_names={rel:name+"-"+rel.replace("/","__") for rel in files}
     for rel,path in files.items():
-        got=run(["docker","exec",WEB,"sha256sum",dest+"/"+rel]).split()[0]
-        if got!=checksum(path):raise ValueError("Verifica bundle in container fallita: "+rel)
+        dest=WEB_ROOT+"/oracle/"+public_names[rel]
+        exists=subprocess.run(["docker","exec",WEB,"test","-f",dest],check=False,capture_output=True).returncode==0
+        if exists:
+            got=run(["docker","exec",WEB,"sha256sum",dest]).split()[0]
+            if got!=checksum(path):raise ValueError("Asset versionato già presente ma diverso: "+rel)
+        else:
+            run(["docker","cp",str(path),WEB+":"+dest],timeout=120)
+            got=run(["docker","exec",WEB,"sha256sum",dest]).split()[0]
+            if got!=checksum(path):raise ValueError("Verifica asset nel container fallita: "+rel)
     print("Bundle originale isolato: "+str(len(files))+" asset, SHA256 verificati.")
 
 def publish_page(digest):
     generated=load_builder().transform((ROOT/"index.html").read_text(encoding="utf-8"))
-    generated=generated.replace('/oracle/original-app-bootstrap.js','/oracle/original-app-'+digest+'/original-app-bootstrap.js')
-    generated=generated.replace('/oracle/client.js','/oracle/original-app-'+digest+'/client.js')
+    generated=generated.replace('/oracle/original-app-bootstrap.js','/oracle/original-app-'+digest+'-original-app-bootstrap.js')
+    generated=generated.replace('/oracle/client.js','/oracle/original-app-'+digest+'-client.js')
     if "firebasejs" in generated.lower() or "connect-src 'self'" not in generated:raise ValueError("HTML Oracle non isolato")
     data=generated.encode("utf-8");path=PERSIST/"original-app.html";save_atomic(path,data)
     run(["docker","cp",str(path),WEB+":"+WEB_ROOT+"/oracle/original-app.html"])
@@ -140,19 +145,20 @@ def publish_page(digest):
     url=DOMAIN+"/oracle/original-app.html"
     with urllib.request.urlopen(urllib.request.Request(url,headers={"Cache-Control":"no-cache"}),timeout=15) as response:
         page=response.read(150_000).decode("utf-8","strict")
-        expected='/oracle/original-app-'+digest+'/original-app-bootstrap.js'
+        expected='/oracle/original-app-'+digest+'-original-app-bootstrap.js'
         if response.status!=200 or expected not in page or "firebasejs" in page.lower() or 'href="style.css?' not in page:
             raise ValueError("Pagina Oracle pubblica diversa dalla copia verificata")
     # Verify the versioned browser assets through the public reverse proxy too.
     # A file present inside nginx's container can still be inaccessible if the
     # persistent mount or /oracle routing is stale; never report publish success
     # based on docker-internal checks alone.
-    for rel in ("client.js","original-app-bootstrap.js"):
-        asset_url=DOMAIN+"/oracle/original-app-"+digest+"/"+rel
+    for rel in ("client.js","original-app-bootstrap.js","app-core.js","original-app-adapter.js"):
+        asset_url=DOMAIN+"/oracle/original-app-"+digest+"-"+rel.replace("/","__")
         request=urllib.request.Request(asset_url,headers={"Cache-Control":"no-cache"})
         with urllib.request.urlopen(request,timeout=15) as asset_response:
             body=asset_response.read(2_000_001)
-            if asset_response.status!=200 or len(body)>2_000_000 or hashlib.sha256(body).hexdigest()!=checksum(SRC/rel):
+            source=SRC/rel if (SRC/rel).is_file() else ROOT/rel
+            if asset_response.status!=200 or len(body)>2_000_000 or hashlib.sha256(body).hexdigest()!=checksum(source):
                 raise ValueError("Asset Oracle non raggiungibile o diverso attraverso il proxy: "+rel)
     print("COPIA ORIGINALE ONLINE: "+url)
 
