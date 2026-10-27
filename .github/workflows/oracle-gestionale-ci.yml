@@ -1,0 +1,38 @@
+name: Varga Gestionale Oracle pilot — test only
+on:
+  pull_request:
+    paths:
+      - 'oracle/**'
+      - '.github/workflows/oracle-gestionale-ci.yml'
+  push:
+    paths:
+      - 'oracle/**'
+      - '.github/workflows/oracle-gestionale-ci.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  unit-tests:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: oracle
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install test dependencies
+        run: python -m pip install -r requirements.txt
+      - name: Test Oracle API and snapshot export
+        run: python -m unittest discover -s tests -v
+      - name: Validate schema and Compose YAML (without deployment)
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          assert Path("schema.sql").exists()
+          assert Path("compose.yaml").exists()
+          assert Path("backend/main.py").exists()
+          assert Path("export_firestore.py").exists()
+          print("Static source checks passed. NO SERVER DEPLOYMENT.")
+          PY
