@@ -21,6 +21,8 @@ class PixelParityPreviewTest(unittest.TestCase):
         self.assertIn('<base href="/">',result)
         self.assertIn('href="style.css?v=',result)
         self.assertIn('src="/oracle/original-preview.js"',result)
+        self.assertIn('src="/oracle/original-preview-ui.js"',result)
+        self.assertIn('src="/view-scenes.js?',result)
         self.assertIn('src="/oracle/client.js"',result)
         self.assertNotIn("firebasejs",result.lower())
         self.assertNotIn('src="app.js',result)
@@ -40,13 +42,20 @@ class PixelParityPreviewTest(unittest.TestCase):
 
     def test_original_preview_bridge_is_safe(self):
         source=(ROOT/"oracle"/"original-preview.js").read_text(encoding="utf-8")
-        self.assertIn("gestionale_backup_20261027",source)
+        self.assertIn('gestionale_cantieri_sync_20261027',source)
         for bad in ("firebase.", "indexedDB", "localStorage", "sessionStorage",
                     ".saveSection(", ".save(", "innerHTML=","eval(", "function noteView("):
             self.assertNotIn(bad,source)
         self.assertIn("api.readSection(ROOT,key)",source)
         self.assertIn('document.querySelectorAll(".nav[data-view]")',source)
         self.assertIn("document.body.classList.toggle",source)
+
+    def test_oracle_visual_layer_is_presentation_only(self):
+        source=(ROOT/"oracle"/"original-preview-ui.js").read_text(encoding="utf-8")
+        for forbidden in ("localStorage", "sessionStorage", "indexedDB", "firebase", ".saveSection("):
+            self.assertNotIn(forbidden.lower(),source.lower())
+        for required in ("vg-nav-label", "Azioni rapide", "PANORAMICA AZIENDALE", "vg-oracle-dashboard-jobs"):
+            self.assertTrue(required in source or required in (ROOT/"view-scenes.js").read_text(encoding="utf-8"))
 
 if __name__=="__main__":
     unittest.main()
