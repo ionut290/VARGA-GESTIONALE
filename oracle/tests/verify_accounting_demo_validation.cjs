@@ -1,0 +1,12 @@
+"use strict";
+const assert=require("node:assert/strict");
+const {invoice,consuntivo,priceEntry}=require("../accounting-demo-validation.js");
+assert.equal(invoice({number:"DEMO F-01",clientId:"DEMO Cliente",amount:120.25,date:"2026-10-27",due:"2026-11-27"}).amount,120.25);
+assert.equal(consuntivo({title:"DEMO Sfalcio",code:"DEMO A01",quantity:3,unitPrice:12.5}).total,37.5);
+assert.equal(priceEntry({code:"DEMO P01",description:"DEMO Potatura",unit:"DEMO ora",price:10}).price,10);
+assert.throws(()=>invoice({number:"F-01",clientId:"DEMO X",amount:12,date:"2026-10-27",due:"2026-11-27"}),/DEMO/);
+assert.throws(()=>invoice({number:"DEMO F",clientId:"DEMO X",amount:-1,date:"2026-10-27",due:"2026-11-27"}),/Importo/);
+assert.throws(()=>invoice({number:"DEMO F",clientId:"DEMO X",amount:12,date:"2026-02-30",due:"2026-11-27"}),/Data/);
+assert.throws(()=>consuntivo({title:"DEMO A",code:"DEMO B",quantity:0,unitPrice:10}),/Quantità/);
+assert.throws(()=>priceEntry({code:"REAL-1",description:"DEMO A",unit:"DEMO ora",price:10}),/DEMO/);
+console.log("OK: invoicing, accounting, price entries validated as synthetic-only; no writes.");
