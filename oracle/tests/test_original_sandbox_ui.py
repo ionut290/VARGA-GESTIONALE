@@ -31,10 +31,20 @@ class SandboxUiTests(unittest.TestCase):
         self.assertIn("if(err.status===409)",js)
         self.assertIn('button.disabled=true;',js)
         self.assertIn('id="addClient"',(ROOT/"index.html").read_text(encoding="utf-8"))
-        self.assertIn('input.id!=="cName"',js)
-        self.assertIn('btn.matches(".nav[data-view], [data-go], #sidebarLogout, #addClient")',js)
+        self.assertIn('"cName","jTitle","jClient"',js)
+        self.assertIn('btn.matches(".nav[data-view], [data-go], #sidebarLogout, #addClient, #addJob, #addManual, #newQuote, #saveQuote, #qRows button")',js)
         self.assertIn('if(!/^DEMO[ \\-]/i.test(name)',js)
         self.assertIn("before.length>=50",js)
+        self.assertIn('if(ROOT!=="gestionale_sandbox_20261027"||!model.user||!["clients","jobs","quotes"].includes(key))',js)
+        self.assertIn('await api.saveSection(ROOT,key,updated)',js)
+        for name in ("addDemoJob","addDemoQuote","renderDemoQuoteLines","fillDemoClientOptions"):
+            self.assertIn("function "+name+"(",js)
+        self.assertIn('const clients=list(await section("clients"));',js)
+        self.assertIn('const title=demoName($("jTitle").value);',js)
+        self.assertIn('const subject=demoName($("qSubject").value);',js)
+        self.assertIn('row.description=demoName(row.description);',js)
+        self.assertIn('await saveDemoSection("jobs",job,"addJob","commesse")',js)
+        self.assertIn('await saveDemoSection("quotes",quote,"saveQuote","preventivi")',js)
 
     def test_no_other_storage_or_write_routes(self):
         js=(P/"original-sandbox.js").read_text(encoding="utf-8")
@@ -44,8 +54,8 @@ class SandboxUiTests(unittest.TestCase):
                           "api.save("):
             self.assertNotIn(forbidden,js)
         self.assertIn('if(key==="migrationReview")',js)
-        self.assertEqual(js.count("api.saveSection("),1)
-        self.assertEqual(js.count("saveSection(ROOT"),1)
+        self.assertEqual(js.count("api.saveSection("),2)
+        self.assertEqual(js.count("saveSection(ROOT"),2)
         self.assertNotIn('event.target.matches("form")',js)
 
     def test_original_readonly_bridge_still_readonly(self):
