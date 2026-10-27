@@ -1,3 +1,13 @@
+## Confronto Firebase del 27 ottobre 2026 (audit sola lettura)
+- [x] Archivio Oracle preesistente: 30 sezioni e 34.403 elementi in array; identità JSON con snapshot privato verificata.
+- [x] Nuovo export autenticato: 17 sezioni Firebase e 29 sezioni locali del browser.
+- [x] Nuove righe rispetto alla fotografia precedente: 2 `consuntivi`, 1 `depurazioneConsuntivi`, 1 `economicEntries`, 5 `vcRecords` (nel browser). Inoltre 25 consuntivi condivisi hanno contenuto modificato.
+- [x] Nessuna differenza materiale rilevata tra le liste Firebase e browser confrontabili; gli oggetti `company` e `priceCatalog` richiedono confronto strutturale separato.
+- [ ] La sezione `migrationReview` è metadato dello staging precedente, non cancellarla.
+- [ ] Realizzare nuova fotografia immutabile con identificatore diverso dallo staging 20261027; NON tentare di riutilizzare `stage_reconciled.sh` contro lo stesso workspace.
+- [ ] Verificare integrità della nuova fotografia, blocchi documentali e ripristino prima di cutover. Nessuna abilitazione produzione ora.
+
+
 # Varga Gestionale → Oracle | Avanzamento operativo
 
 ## REQUISITO VINCOLANTE: INTERFACCIA IDENTICA
