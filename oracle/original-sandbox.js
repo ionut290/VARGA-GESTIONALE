@@ -5,6 +5,9 @@
 (function(){
   const ROOT="gestionale_sandbox_20261027";
   const api=new window.VGOraclePilot();
+  const bridge=new window.VGOracleSectionBridge.SectionBridge({
+    client:api,workspace:ROOT,keys:["clients","jobs","quotes"],writable:true
+  });
   const $=id=>document.getElementById(id);
   const model={user:null,sections:null,cache:new Map(),epoch:0};
   const routes={
@@ -68,12 +71,12 @@
     if(loggedIn){
       const name=model.user?.display_name||model.user?.email?.split("@")[0]||"Utente";
       stat("sidebarUserName",name);
-      stat("sidebarUserRole","Oracle · test clienti");
+      stat("sidebarUserRole","Oracle · test moduli");
       stat("sidebarAvatar",name.charAt(0).toUpperCase());
       stat("cloudUser",model.user?.email||"");
       stat("cloudStatus","Oracle (dati demo)");
       stat("cloudWorkspaceLabel",ROOT);
-      stat("cloudInfo","Archivio esclusivamente dimostrativo. Attivo soltanto il salvataggio clienti DEMO.");
+      stat("cloudInfo","Archivio dimostrativo: Clienti, Commesse e Preventivi DEMO.");
     } else if($("loginForm")) $("loginForm").hidden=false;
   }
   function locks(){
@@ -113,9 +116,11 @@
     if(!model.sections||!Object.prototype.hasOwnProperty.call(model.sections,key)){
       return key==="company"?{}:[];
     }
-    const raw=await api.readSection(ROOT,key);
-    model.cache.set(key,raw.data);
-    return raw.data;
+    const value=["clients","jobs","quotes"].includes(key)
+      ?await bridge.load(key)
+      :(await api.readSection(ROOT,key)).data;
+    model.cache.set(key,value);
+    return value;
   }
   function clientsName(id,clients){
     return clients.find(row=>row.id===id)?.name||"";
@@ -258,19 +263,16 @@
       if(!Array.isArray(before)||before.length>=50)
         throw Error("Sezione dimostrativa inattesa oppure massimo 50 righe raggiunto.");
       const updated=[...before,newRecord];
-      await api.saveSection(ROOT,key,updated);
-      model.cache.set(key,updated);
-      await open(view);
-      return true;
-    }catch(err){
-      if(err.status===409){
-        model.cache.delete(key);
-        await api.readSection(ROOT,key).then(x=>model.cache.set(key,x.data)).catch(()=>{});
-        await open(view);
-        alert("Dati DEMO aggiornati da un'altra scheda. Nessuna sovrascrittura: riprova il salvataggio.");
+      bridge.stage(key,updated);
+      const result=await bridge.commit(key);
+      if(result.conflict){
+        // Never overwrite or silently discard a competing edit.
+        alert("Conflitto tra schede: bozza DEMO non inviata. Esci e rientra per ricaricare; nessun dato sovrascritto.");
         return false;
       }
-      throw err;
+      model.cache.set(key,bridge.view(key));
+      await open(view);
+      return true;
     }finally{button.disabled=false;}
   }
   async function addDemoJob(){
@@ -376,41 +378,19 @@
     }catch(err){alert("Salvataggio preventivo DEMO non eseguito: "+err.message);}
   }
   async function addDemoClient(){
-    // Only the exact synthetic Oracle workspace may ever receive a PUT.
     if(ROOT!=="gestionale_sandbox_20261027"||!model.user)return;
-    const nameField=$("cName"),button=$("addClient");
-    if(!nameField||!button)return;
-    const name=nameField.value.trim().replace(/\s+/g," ");
-    if(!/^DEMO[ \-]/i.test(name)||name.length>90){
-      alert("Inserisci un nome fittizio che inizi con DEMO, ad esempio DEMO Cliente test.");
-      return;
-    }
-    button.disabled=true;
+    const input=$("cName");if(!input)return;
     try{
-      // The client SDK retains the revision read on this page. Do not refresh
-      // before writing: a stale tab MUST yield HTTP 409 instead of overwriting.
+      const name=demoName(input.value);
       const before=await section("clients");
-      if(!Array.isArray(before)||before.length>=50)
-        throw Error("Archivio dimostrativo non valido o limite di prova raggiunto.");
       if(before.some(x=>String(x.name||"").trim().toLowerCase()===name.toLowerCase()))
         throw Error("Questo cliente DEMO esiste già.");
-      const id="demo-cl-"+crypto.randomUUID();
-      const updated=[...before,{id,name,note:"Solo dati fittizi - laboratorio Oracle"}];
-      await api.saveSection(ROOT,"clients",updated);
-      model.cache.set("clients",updated);
-      nameField.value="";
-      await open("clienti");
-      alert("Cliente DEMO salvato su Oracle. Per controllare, apri la pagina in un altro browser ed effettua nuovamente l'accesso.");
-    }catch(err){
-      if(err.status===409){
-        model.cache.delete("clients");
-        await api.readSection(ROOT,"clients").then(x=>model.cache.set("clients",x.data)).catch(()=>{});
-        await open("clienti");
-        alert("Un'altra scheda ha modificato i clienti di prova. Elenco aggiornato, nessun dato sovrascritto. Riprova.");
-      }else{
-        alert("Salvataggio DEMO non eseguito: "+err.message);
-      }
-    }finally{button.disabled=false;}
+      const ok=await saveDemoSection("clients",{
+        id:"demo-cl-"+crypto.randomUUID(),name,
+        note:"Solo dati fittizi - laboratorio Oracle"
+      },"addClient","clienti");
+      if(ok){input.value="";alert("Cliente DEMO salvato su Oracle.");}
+    }catch(err){alert("Salvataggio cliente DEMO non eseguito: "+err.message);}
   }
   async function login(event){
     event.preventDefault();
@@ -424,6 +404,7 @@
       if(Object.keys(response.sections||{}).sort().join(",")!=="clients,consuntivi,jobs,quotes")
         throw Error("Questo ambiente non contiene soltanto le quattro sezioni demo previste.");
       if(!response.sections?.clients)throw Error("Archivio di prova non autorizzato");
+      await bridge.initialize();
       model.user=user;model.sections=response.sections;
       model.cache.clear();
       authView(true);explain("");
@@ -436,6 +417,7 @@
   }
   async function logout(){
     model.epoch+=1;model.user=null;model.sections=null;model.cache.clear();
+    bridge.clear();
     try{await api.logout();}catch(_){}
     authView(false);explain("");
   }
