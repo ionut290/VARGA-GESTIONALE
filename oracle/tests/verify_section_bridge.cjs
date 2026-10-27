@@ -46,6 +46,26 @@ async function main(){
   offline.stage("clients",[...offline.view("clients"),{id:"demo-4",name:"DEMO Quarto"}]);
   await assert.rejects(()=>offline.commit("clients"),/offline/);
   assert.equal(offline.state("clients").dirty,true);
+  // A pending offline draft must never be replaced by an implicit refresh.
+  await assert.rejects(()=>offline.load("clients",{fresh:true}),/pendenti/);
+  assert.equal(offline.view("clients").at(-1).name,"DEMO Quarto");
+  assert.equal(offline.state("clients").dirty,true);
+  // A conflict must preserve both versions until explicit human resolution.
+  const staleClient=client();
+  const stale=new SectionBridge({client:staleClient,workspace:SANDBOX,keys:["clients"],writable:true});
+  await stale.initialize();await stale.load("clients");
+  const winner=client();
+  const first=new SectionBridge({client:winner,workspace:SANDBOX,keys:["clients"],writable:true});
+  await first.initialize();await first.load("clients");
+  first.stage("clients",[...first.view("clients"),{id:"demo-race-a",name:"DEMO Race A"}]);
+  assert.equal((await first.commit("clients")).ok,true);
+  stale.stage("clients",[...stale.view("clients"),{id:"demo-race-b",name:"DEMO Race B"}]);
+  assert.equal((await stale.commit("clients")).conflict,true);
+  await assert.rejects(()=>stale.load("clients",{fresh:true}),/pendenti/);
+  assert.equal(stale.conflictValues("clients").local.at(-1).name,"DEMO Race B");
+  assert.equal(stale.conflictValues("clients").remote.at(-1).name,"DEMO Race A");
+  assert.equal(rows.clients.some(x=>x.id==="demo-race-b"),false);
+  await assert.rejects(()=>stale.commit("clients"),/Conflitto/);
   offline.discardDraft("clients");offline.clear();
   assert.throws(()=>offline.state("clients"),/Inizializzare/);
   const readOnly=new SectionBridge({client:client(),workspace:SANDBOX,keys:["clients"]});
