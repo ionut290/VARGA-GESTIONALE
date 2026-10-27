@@ -83,7 +83,8 @@ const db={
   jobs:[{id:"demo-job-01",title:"DEMO Existing job",clientId:"demo-cl-01",status:"Da avviare",value:0}],
   quotes:[{id:"demo-q-01",subject:"DEMO Existing quote",clientName:"DEMO Existing",total:12}],
   consuntivi:[{id:"demo-c-01",title:"DEMO existing consuntivo"}],
-  invoices:[],priceLists:[],entries:[]
+  invoices:[],priceLists:[],entries:[],expenses:[],deadlines:[],documents:[],requests:[],
+  vcCommesse:[],vcImpianti:[],vcOre:[],vcRecords:[],company:{}
 };
 const rev=Object.fromEntries(Object.keys(db).map(x=>[x,1]));
 const writes=[],alerts=[];
@@ -98,7 +99,7 @@ const API=class{
   }
   async manifest(space){
     assert.equal(space,demo);
-    return {workspace:space,sections:Object.fromEntries(Object.keys(db).map(x=>[x,{revision:rev[x],count:db[x].length}]))};
+    return {workspace:space,sections:Object.fromEntries(Object.keys(db).map(x=>[x,{revision:rev[x],count:Array.isArray(db[x])?db[x].length:1}]))};
   }
   async readSection(space,key){
     assert.equal(space,demo);
