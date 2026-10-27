@@ -83,7 +83,7 @@
     shell.addEventListener("click",event=>{
       const btn=event.target.closest("button,a,input[type=file],label.filebtn");
       if(!btn)return;
-      if(btn.matches(".nav[data-view], [data-go], #sidebarLogout, #addClient"))return;
+      if(btn.matches(".nav[data-view], [data-go], #sidebarLogout, #addClient, #addJob, #addManual, #newQuote, #saveQuote"))return;
       event.preventDefault();event.stopImmediatePropagation();
       if(btn.matches("a"))return;
       const context=btn.closest(".view");
@@ -99,7 +99,7 @@
     },true);
     for(const input of shell.querySelectorAll("input,select,textarea")){
       // Every input in preview is display-only; prevents browser-local changes.
-      if(input.type!=="hidden" && input.id!=="cName")input.disabled=true;
+      if(input.type!=="hidden" && !["cName","jTitle","jClient","jCode","jSite","jStart","jEnd","jStatus","jValue","jNotes","qClient","qSubject","qSite","qValidity","qPayment","qDiscount","qVat"].includes(input.id))input.disabled=true;
     }
   }
   function status(view,msg){
@@ -219,12 +219,161 @@
     try{
       const result=await Promise.all(needed.map(async k=>[k,await section(k)]));
       if(epoch!==model.epoch)return;
-      render(view,Object.fromEntries(result));
+      const dataset=Object.fromEntries(result);
+      if(view==="commesse"||view==="preventivo")fillDemoClientOptions(dataset.clients||[],view==="commesse"?"jClient":"qClient");
+      render(view,dataset);
       status(view,"Dati Oracle caricati. Consultazione di sola lettura.");
     }catch(err){
       if(epoch!==model.epoch)return;
       status(view,"Dati non disponibili: "+err.message);
     }
+  }
+  function fillDemoClientOptions(clients,elementId){
+    const field=$(elementId);if(!field)return;
+    const previous=field.value;
+    field.replaceChildren();
+    for(const client of list(clients)){
+      if(!/^demo-cl-[a-z0-9-]+$/i.test(String(client.id||"")))continue;
+      const option=document.createElement("option");
+      option.value=client.id;
+      option.textContent=client.name||"Cliente dimostrativo";
+      field.append(option);
+    }
+    if([...field.options].some(option=>option.value===previous))field.value=previous;
+  }
+  function demoName(value){
+    const name=String(value||"").trim().replace(/\s+/g," ");
+    if(name.length>90||!/^DEMO[ \-]/i.test(name))
+      throw Error("Usa un nome fittizio che inizi con DEMO e abbia massimo 90 caratteri.");
+    return name;
+  }
+  async function saveDemoSection(key,newRecord,buttonId,view){
+    if(ROOT!=="gestionale_sandbox_20261027"||!model.user||!["clients","jobs","quotes"].includes(key))
+      throw Error("Salvataggio permesso soltanto nel laboratorio di prova.");
+    const button=$(buttonId);
+    if(!button||button.disabled)throw Error("Salvataggio già in corso.");
+    button.disabled=true;
+    try{
+      const before=await section(key);
+      if(!Array.isArray(before)||before.length>=50)
+        throw Error("Sezione dimostrativa inattesa oppure massimo 50 righe raggiunto.");
+      const updated=[...before,newRecord];
+      await api.saveSection(ROOT,key,updated);
+      model.cache.set(key,updated);
+      await open(view);
+      return true;
+    }catch(err){
+      if(err.status===409){
+        model.cache.delete(key);
+        await api.readSection(ROOT,key).then(x=>model.cache.set(key,x.data)).catch(()=>{});
+        await open(view);
+        alert("Dati DEMO aggiornati da un'altra scheda. Nessuna sovrascrittura: riprova il salvataggio.");
+        return false;
+      }
+      throw err;
+    }finally{button.disabled=false;}
+  }
+  async function addDemoJob(){
+    if(ROOT!=="gestionale_sandbox_20261027"||!model.user)return;
+    try{
+      const title=demoName($("jTitle").value);
+      const clients=list(await section("clients"));
+      const clientId=$("jClient").value;
+      if(!clients.some(x=>x.id===clientId&&/^demo-cl-/i.test(String(x.id||""))))
+        throw Error("Seleziona un cliente dimostrativo.");
+      const value=Number($("jValue").value||0);
+      if(!Number.isFinite(value)||value<0||value>100000)
+        throw Error("Valore DEMO non valido.");
+      const job={id:"demo-job-"+crypto.randomUUID(),title,clientId,
+        code:"DEMO-"+String($("jCode").value||"TEST").slice(0,36),
+        site:String($("jSite").value||"").slice(0,120),
+        start:$("jStart").value,end:$("jEnd").value,
+        status:$("jStatus").value,value,notes:String($("jNotes").value||"").slice(0,300)};
+      const ok=await saveDemoSection("jobs",job,"addJob","commesse");
+      if(ok){
+        ["jTitle","jCode","jSite","jStart","jEnd","jValue","jNotes"].forEach(id=>$(id).value="");
+        alert("Commessa DEMO salvata su Oracle.");
+      }
+    }catch(err){alert("Salvataggio commessa DEMO non eseguito: "+err.message);}
+  }
+  const demoLines=[];
+  function quotePreview(){
+    const discount=Number($("qDiscount").value||0),vat=Number($("qVat").value||0);
+    const sub=demoLines.reduce((total,row)=>total+row.qty*row.price,0);
+    const taxable=sub*(1-Math.max(0,Math.min(100,discount))/100);
+    const tax=taxable*Math.max(0,Math.min(100,vat))/100;
+    stat("qSub",eur(taxable));stat("qVatAmount",eur(tax));stat("qTotal",eur(taxable+tax));
+    return {taxable,tax,total:taxable+tax};
+  }
+  function renderDemoQuoteLines(){
+    const root=$("qRows");root.replaceChildren();
+    for(const [index,row] of demoLines.entries()){
+      const tr=document.createElement("tr");
+      for(const key of ["code","description","unit","qty","price"]){
+        const td=document.createElement("td"),input=document.createElement("input");
+        input.value=row[key];input.dataset.field=key;input.dataset.index=String(index);
+        input.setAttribute("aria-label","Voce DEMO "+key);
+        if(key==="qty"||key==="price"){input.type="number";input.min="0";input.step="0.01";}
+        input.addEventListener("input",()=>{
+          const val=(key==="qty"||key==="price")?Number(input.value):input.value;
+          row[key]=val;
+          if(key==="qty"||key==="price"){
+            const amount=tr.querySelector("[data-amount]");
+            if(amount)amount.textContent=eur(row.qty*row.price);
+            quotePreview();
+          }
+        });
+        td.append(input);tr.append(td);
+      }
+      const total=document.createElement("td");total.dataset.amount="true";
+      total.textContent=eur(row.qty*row.price);tr.append(total);
+      const last=document.createElement("td"),remove=document.createElement("button");
+      remove.type="button";remove.textContent="×";remove.className="mini danger";
+      // Registration stays local to the demo UI, not backend.
+      remove.addEventListener("click",()=>{demoLines.splice(index,1);renderDemoQuoteLines();});
+      last.append(remove);tr.append(last);root.append(tr);
+    }
+    quotePreview();
+  }
+  function resetDemoQuote(){
+    demoLines.splice(0);
+    ["qSubject","qSite","qPayment"].forEach(id=>$(id).value="");
+    $("qValidity").value="30";$("qDiscount").value="0";$("qVat").value="22";
+    $("qNumber").value="DEMO-PREV-"+String(Date.now());
+    renderDemoQuoteLines();
+  }
+  async function addDemoQuote(){
+    if(ROOT!=="gestionale_sandbox_20261027"||!model.user)return;
+    try{
+      const subject=demoName($("qSubject").value);
+      const clients=list(await section("clients"));
+      const client=clients.find(x=>x.id===$("qClient").value&&/^demo-cl-/i.test(String(x.id||"")));
+      if(!client)throw Error("Seleziona un cliente DEMO.");
+      if(demoLines.length<1||demoLines.length>20)throw Error("Inserisci da 1 a 20 voci dimostrative.");
+      const rows=demoLines.map(x=>({...x}));
+      for(const row of rows){
+        row.description=demoName(row.description);
+        row.code="DEMO-"+String(row.code||"VOCE").slice(0,24);
+        if(!Number.isFinite(row.qty)||row.qty<=0||row.qty>10000||
+           !Number.isFinite(row.price)||row.price<0||row.price>100000)
+          throw Error("Quantità o prezzo dimostrativo non validi.");
+      }
+      const discount=Number($("qDiscount").value||0),vatRate=Number($("qVat").value||0);
+      if(!Number.isFinite(discount)||discount<0||discount>100||
+         !Number.isFinite(vatRate)||vatRate<0||vatRate>100)
+        throw Error("Percentuali sconto o IVA non valide.");
+      const sub=rows.reduce((total,row)=>total+row.qty*row.price,0);
+      const taxable=sub*(1-discount/100),tax=taxable*vatRate/100;
+      const quote={id:"demo-q-"+crypto.randomUUID(),
+        number:"DEMO-PREV-"+String(Date.now()),date:new Date().toLocaleDateString("it-IT"),
+        clientId:client.id,clientName:client.name,client:{id:client.id,name:client.name},
+        subject,site:String($("qSite").value||"").slice(0,120),
+        validity:Math.max(1,Math.min(365,Number($("qValidity").value||30))),
+        payment:String($("qPayment").value||"").slice(0,100),
+        rows,discount,vatRate,subtotal:taxable,vat:tax,total:taxable+tax,status:"Bozza"};
+      const ok=await saveDemoSection("quotes",quote,"saveQuote","preventivi");
+      if(ok){resetDemoQuote();alert("Preventivo DEMO salvato su Oracle.");}
+    }catch(err){alert("Salvataggio preventivo DEMO non eseguito: "+err.message);}
   }
   async function addDemoClient(){
     // Only the exact synthetic Oracle workspace may ever receive a PUT.
@@ -301,9 +450,20 @@
     const intro=document.querySelector(".login-intro");
     if(intro)intro.textContent="Usa l'account di prova Oracle.";
     const help=document.querySelector(".login-help");
-    if(help)help.textContent="Archivio fittizio: nella sezione Clienti puoi salvare solo nomi che iniziano con DEMO. Le altre funzioni restano disabilitate.";
+    if(help)help.textContent="Archivio fittizio: puoi salvare Clienti, Commesse e Preventivi DEMO. Le altre funzioni restano disabilitate.";
     const form=$("loginForm");
     $("addClient")?.addEventListener("click",addDemoClient);
+    $("addJob")?.addEventListener("click",addDemoJob);
+    $("addManual")?.addEventListener("click",()=>{
+      if(demoLines.length>=20)return alert("Massimo 20 voci DEMO.");
+      demoLines.push({code:"VOCE",description:"DEMO Voce prova",unit:"cad",qty:1,price:10});
+      renderDemoQuoteLines();
+    });
+    $("newQuote")?.addEventListener("click",resetDemoQuote);
+    $("saveQuote")?.addEventListener("click",addDemoQuote);
+    $("qDiscount")?.addEventListener("input",quotePreview);
+    $("qVat")?.addEventListener("input",quotePreview);
+    resetDemoQuote();
     form.addEventListener("submit",login);
     for(const button of document.querySelectorAll(".nav[data-view]")){
       button.addEventListener("click",()=>open(button.dataset.view));
@@ -316,11 +476,11 @@
     // preview. They must be implemented before an Oracle-only production cutover.
     for(const id of ["loginGoogleButton","forgotPassword","createLoginAccount"]){
       $(id)?.addEventListener("click",()=>explain(
-        "Disponibile solo nel Gestionale attuale. Qui sono ammessi solo clienti DEMO.",true));
+        "Disponibile solo nel Gestionale attuale. Qui sono ammessi solo Clienti, Commesse e Preventivi DEMO.",true));
     }
     if($("loginRemember"))$("loginRemember").checked=false;
     authView(false);
-    explain("Laboratorio Oracle: grafica originale, solo dati DEMO. Test salvataggio clienti nella sezione Clienti.");
+    explain("Laboratorio Oracle: grafica originale; test di salvataggio Clienti, Commesse e Preventivi, solo dati DEMO.");
     api.health().catch(()=>explain("API Oracle non raggiungibile.",true));
   }
   if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",setup,{once:true});
