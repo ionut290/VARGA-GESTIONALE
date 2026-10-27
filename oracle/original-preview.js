@@ -4,7 +4,7 @@
  * This preview deliberately stays separate from the production app.
  */
 (function(){
-  const ROOT="gestionale_candidate_20261027";
+  const ROOT="gestionale_cantieri_sync_20261027";
   const api=new window.VGOraclePilot();
   const $=id=>document.getElementById(id);
   const model={user:null,sections:null,cache:new Map(),epoch:0};
