@@ -143,6 +143,17 @@ def publish_page(digest):
         expected='/oracle/original-app-'+digest+'/original-app-bootstrap.js'
         if response.status!=200 or expected not in page or "firebasejs" in page.lower() or 'href="style.css?' not in page:
             raise ValueError("Pagina Oracle pubblica diversa dalla copia verificata")
+    # Verify the versioned browser assets through the public reverse proxy too.
+    # A file present inside nginx's container can still be inaccessible if the
+    # persistent mount or /oracle routing is stale; never report publish success
+    # based on docker-internal checks alone.
+    for rel in ("client.js","original-app-bootstrap.js"):
+        asset_url=DOMAIN+"/oracle/original-app-"+digest+"/"+rel
+        request=urllib.request.Request(asset_url,headers={"Cache-Control":"no-cache"})
+        with urllib.request.urlopen(request,timeout=15) as asset_response:
+            body=asset_response.read(2_000_001)
+            if asset_response.status!=200 or len(body)>2_000_000 or hashlib.sha256(body).hexdigest()!=checksum(SRC/rel):
+                raise ValueError("Asset Oracle non raggiungibile o diverso attraverso il proxy: "+rel)
     print("COPIA ORIGINALE ONLINE: "+url)
 
 def main():
