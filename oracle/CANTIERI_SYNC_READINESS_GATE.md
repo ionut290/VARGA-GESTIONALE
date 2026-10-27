@@ -33,3 +33,14 @@ Ultima verifica read-only dopo la decodifica dei tag storici `{t,v}`:
 - [x] Nessun workspace o sezione `vc*` è stato modificato; nessuna cancellazione eseguita.
 - [ ] Prossimo passaggio: mappare i documenti staging nelle sezioni del workspace candidato su una copia isolata, validare conteggi e associazioni, poi collegare l'anteprima originale a tale copia.
 - [ ] Il trasferimento staging non è ancora sincronizzazione automatica né cutover di produzione.
+
+
+
+## Workspace Gestionale sincronizzato (27 ottobre 2026)
+
+- [x] Creato `gestionale_cantieri_sync_20261027` come copia isolata del candidato precedente; i membri sono stati copiati con accesso in sola lettura.
+- [x] Mappati i dati `current_sync` nelle sezioni Cantieri tramite le regole già usate da `app-sync.js`; conteggi verificati: `vcCommesse` 20, `vcImpianti` 67, `vcOre` 419, `vcRecords` 5.103, `vcSquadre` 420, `vcUtenti` 149, `vcSegnalazioni` 0.
+- [x] Anteprima originale pubblicata con il workspace sincronizzato; CSS originale identico verificato e endpoint staging protetto.
+- [x] Preparati ciclo ripetibile e timer systemd ogni 5 minuti, con lock, timeout e script di rimozione reversibile.
+- [ ] Il timer non è ancora installato. La sincronizzazione ricorrente partirà quando verrà eseguito `sudo bash oracle/install_cantieri_sync_timer.sh`.
+- [ ] Rimangono esclusi dal cutover produzione e dallo spegnimento Firebase; il workspace di sincronizzazione è una preview isolata e in sola lettura.
