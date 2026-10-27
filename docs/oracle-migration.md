@@ -7,7 +7,7 @@ Audit codice effettuato il **27 ottobre 2026**. Questa scheda è preparatoria: *
 - Repository ufficiale: `ionut290/VARGA-GESTIONALE`; pubblicazione web tramite GitHub Pages e involucro Windows Tauri.
 - `app.js` prepara ancora il progetto Firebase `hera-app-6cd2b`; `app-cloud.js` inizializza Firebase Authentication, Firestore e Cloud Functions nella regione `europe-west1`.
 - **Percorso effettivo del workspace:** in `app-cloud.js` esiste una definizione legacy `vargaGestionaleWorkspaces/{workspaceId}`, ma `app.js` ridefinisce `workspaceRef` al termine del bootstrap. Il codice operativo punta quindi a `appConfig/vargaGestionaleWorkspace_{workspaceId}` (workspace predefinito: `varga-azienda`); verificare sul dato reale prima di esportare, evitando letture dal percorso legacy come unica fonte.
-- `pushCloudNow` invia lo snapshot JSON `cloudState()` in `snapshotJson`, con metadati di aggiornamento, e controlla un limite operativo di circa 850 KB. `startCloudRealtime` usa `onSnapshot`.
+- `pushCloudNow` invia uno snapshot legacy `cloudState()` in `snapshotJson` (limite circa 850 KB), **ma** `cloud-incremental-sync.js` implementa anche `incremental-v3`: documenti `*_manifest`, `*_section_*` e blocchi catalogo `*_entries_*`. **Un export del solo snapshotJson non è completo** se è attivo il manifest; verificare generazioni/versioni e ricostruire tutti i record.
 - La login usa `firebase.auth()`, mentre `authorizeCloudUser` verifica l'accesso/ruolo di Varga Cantieri; bisogna migrare **entrambe** le parti, non solo il database.
 - `app-sync.js` usa le callable Functions `rebuildVargaGestionaleSnapshot`, `getVargaGestionaleChanges`, `getVargaGestionaleSnapshotChunk` per leggere Cantieri e aggiornare consuntivi. La sorgente dei dati Cantieri deve restare autorevole: nessun doppio sistema di scrittura.
 - Copia locale in localStorage/IndexedDB; alcuni prezzari grandi e archivi di Cantieri hanno persistenza separata. I documenti possono avere URL Google Drive: copiare i metadati senza sostituire né cancellare i documenti esterni.
@@ -43,3 +43,11 @@ Audit codice effettuato il **27 ottobre 2026**. Questa scheda è preparatoria: *
 - Autorizzazioni: funzione globale `authorizeCloudUser`, flussi Firebase login/Google, ruoli ereditati da Varga Cantieri.
 - Workspace: identificare sempre la **versione finale in esecuzione di `workspaceRef`** e verificare se altri moduli la modificano.
 - Backend Cantieri: verificare nome container, porta interna, schema PostgreSQL, endpoint di sola lettura e politica di autenticazione sull'istanza Oracle prima di integrare.
+
+## Preparazione del backend Oracle — 27 ottobre 2026
+
+- È stato generato in questa sessione ChatGPT un pacchetto ZIP di **prova** con FastAPI/PostgreSQL in Compose, tabelle utenti/ruoli/workspace/sessioni, login Argon2id, controllo revisione 409, API privata, esportatore Firestore legacy + incremental-v3 e script PowerShell per **copia in sola preparazione** sulla VM. Il pacchetto non contiene credenziali né dati aziendali.
+- Verifiche locali: 8 unit test superati (richieste anonime, login hashing, validazione nomi, ricostruzione dati legacy/incremental e rifiuto di chunk mancante). **Non sono test di produzione con PostgreSQL, Firebase o Oracle.**
+- I file del pacchetto non sono ancora stati distribuiti sulla VM né integrati nel branch `main`; l'allegato è scaricabile nel contesto ChatGPT della sessione. Non confondere questa documentazione con un deploy.
+- L'URL pubblico `https://gestionale.radio-romanii-italia.duckdns.org/` espone ancora testo relativo a Firestore; la route di health Oracle non è stata confermata come API attiva.
+- **Blocchi reali**: accesso SSH alla VM, export autorizzato del workspace completo e dati locali, backend Oracle in produzione, conversione frontend e dei moduli che usano Firebase (`cloud-users.js`, `cloud-incremental-sync.js`, `app-sync.js`, `job-management-sync.js`, `plant-registry.js`, ecc.), collegamento sicuro ai dati/permessi di Cantieri, test di due utenti e rollback. Senza questi passaggi, non è corretto affermare che il Gestionale sia interamente migrato.
