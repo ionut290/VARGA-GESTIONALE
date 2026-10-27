@@ -77,16 +77,6 @@
       stat("cloudInfo","Archivio Oracle del 27 ottobre. Modifiche disabilitate durante il collaudo.");
     } else if($("loginForm")) $("loginForm").hidden=false;
   }
-  function noteView(view){
-    const target=$(view);if(!target)return;
-    const banner=document.createElement("div");
-    banner.setAttribute("role","status");
-    banner.style.cssText="border:1px solid #c49b60;border-radius:9px;padding:9px 12px;margin:10px 0;background:rgba(215,170,93,.08);font-size:12px";
-    banner.textContent="COLLAUDO ORACLE · Interfaccia originale, dati del 27 ottobre, sola lettura. Le modifiche sono disabilitate.";
-    const topline=target.querySelector(".topline");
-    if(topline)topline.insertAdjacentElement("afterend",banner);
-    else target.insertAdjacentElement("afterbegin",banner);
-  }
   function locks(){
     const shell=document.querySelector(".app-shell");
     if(!shell)return;
@@ -114,9 +104,8 @@
     }
   }
   function status(view,msg){
-    const target=$(view);if(!target)return;
-    const banner=target.querySelector('[role="status"]');
-    if(banner)banner.textContent="COLLAUDO ORACLE · "+msg;
+    // No banners or extra UI elements: the original appearance stays unchanged.
+    if($("cloudInfo"))$("cloudInfo").textContent="Collaudo Oracle · "+msg;
   }
   async function section(key){
     if(!model.user)throw Error("Sessione assente");
@@ -264,7 +253,6 @@
     authView(false);explain("");
   }
   function setup(){
-    for(const view of document.querySelectorAll(".view"))noteView(view.id);
     locks();
     const form=$("loginForm");
     form.addEventListener("submit",login);
