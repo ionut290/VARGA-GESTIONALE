@@ -5,6 +5,8 @@
 (function(){
 "use strict";
 if(new URLSearchParams(location.search).get("oracle-export")!=="1")return;
+if(window.__VGOracleExportLoaded)return;
+window.__VGOracleExportLoaded=true;
 const workspace=()=>String(document.getElementById("workspaceId")?.value||cloudCfg.workspaceId||"varga-azienda").trim().replace(/[^a-zA-Z0-9_-]/g,"_");
 const SECTION_KEYS=["clients","quotes","jobs","invoices","expenses","economicEntries","deadlines","documents",
  "consuntivi","depurazioneConsuntivi","discaricheConsuntivi","wteModenaConsuntivi","cadrianoDocuments","requests","company"];
