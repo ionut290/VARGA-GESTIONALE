@@ -187,7 +187,9 @@ def main():
     p.add_argument("current_export",type=Path)
     p.add_argument("output",type=Path)
     p.add_argument("--earliest",type=Path,required=True,help="Il backup ulteriore del 15 ottobre")
-    p.add_argument("--dry-run",action="store_true",help="Verifica senza creare output")
+    mode=p.add_mutually_exclusive_group()
+    mode.add_argument("--dry-run",action="store_true",help="Verifica senza creare output")
+    mode.add_argument("--verify-existing",action="store_true",help="Verifica che il file esistente sia identico alla ricostruzione da tutte le fonti")
     a=p.parse_args()
     try:
         old=read_json(a.historical);live=read_json(a.current_export)
@@ -218,6 +220,18 @@ def main():
           "createdAt":live.get("exported_at") or live.get("createdAt"),
           "purpose":"private Oracle staging / reconciled cloud and browser",
           "data":sections}
+        if a.verify_existing:
+            if not a.output.is_file() or a.output.is_symlink() or a.output.stat().st_size > MAX_FILE:
+                raise ValueError("Snapshot esistente non valido")
+            # Compare SHA256 of the exact deterministic output (including review)
+            # against the file already present. Never overwrite either source.
+            expected=json.dumps(wrapper,ensure_ascii=False,allow_nan=False,separators=(",",":")).encode("utf-8")
+            actual=a.output.read_bytes()
+            if actual!=expected:
+                raise ValueError("Snapshot esistente DIVERSO dalle sorgenti: verifica manuale richiesta")
+            print("ARCHIVIO ESISTENTE VALIDATO: identico alla riconciliazione delle 3 fonti")
+            print("Bytes:",len(actual),"SHA256:",hashlib.sha256(actual).hexdigest())
+            return 0
         length,digest=save_private(a.output,wrapper)
         print("ARCHIVIO DI STAGING CREATO NELLA CARTELLA PRIVATA")
         print("Bytes:",length,"SHA256:",digest)
