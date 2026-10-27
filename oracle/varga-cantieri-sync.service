@@ -1,0 +1,11 @@
+[Unit]
+Description=Sync current Varga Cantieri data into isolated Varga Gestionale Oracle workspace
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+User=root
+WorkingDirectory=/home/ubuntu/gestionale-oracle-stage
+ExecStart=/usr/bin/flock -n /run/lock/varga-cantieri-sync.lock /bin/bash /home/ubuntu/gestionale-oracle-stage/oracle/sync_cantieri_cycle.sh
+TimeoutStartSec=180
