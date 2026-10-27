@@ -35,7 +35,7 @@ La pagina /oracle/console.html è solo un laboratorio di collaudo amministrativo
 - [x] Aggiunto test funzionale Node che simula un browser e salva Cliente → Commessa → Preventivo sul backend Oracle fittizio; ultimo test GitHub CI superato
 - [x] Pubblicatore rafforzato: verifica via HTTPS anche il checksum della nuova versione JavaScript
 - [x] Ripubblicato il JavaScript per Clienti, Commesse e Preventivi DEMO; server ha verificato HTML, JavaScript HTTPS e SHA256; test simulato intero Clienti → Commessa → Preventivo superato
-- [ ] Verificare con account Oracle l'intero flusso anche dal browser reale e da una seconda sessione
+- [ ] Verificare con account Oracle l'intero flusso anche dal browser reale e da una seconda sessione (utente conferma il 27 ottobre che il test Clienti DEMO funziona; ancora da verificare Commesse, Preventivi e conflitti su due sessioni)
 - [x] Implementato adapter Oracle separato `oracle/section-bridge.js`: lettura per sezione, scritture limitate a workspace fittizio, versionamento, blocco conflitti HTTP 409, merge solo esplicito, gestione errori rete in memoria. Test Node superati.
 - [x] Collegato l'adapter ai tre moduli DEMO nella stessa HTML/CSS originale e aggiornato il pubblicatore (verifica SHA256 anche dell'adapter); CI completo superato.
 - [x] Pubblicato sul server l'adapter aggiornato del laboratorio con `sudo python3 oracle/publish_original_sandbox.py`: output VM commit `81c2623`, tre asset copiati e SHA256 verificati via HTTPS; dati aziendali e radio invariati. Rimane da collaudare la scrittura da browser reale.
