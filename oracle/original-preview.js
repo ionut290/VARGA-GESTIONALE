@@ -23,7 +23,13 @@
     "vcSquadre","vcUtenti","vcSegnalazioni","rapportini","cantieriRows",
     "depurazioneConsuntivi","discaricheConsuntivi","wteModenaConsuntivi",
     "economicEntries","priceCatalog","cadrianoDocuments","requests",
-    "deadlines","documents","vcImpianti"]);
+    "deadlines","documents","vcImpianti","vcOre","vcRecords",
+    "consuntivi","quotes","invoices","expenses"]);
+  const JOB_DETAIL_SECTIONS=["jobs","clients","requests","deadlines","quotes",
+    "documents","cadrianoDocuments","invoices","expenses","consuntivi",
+    "depurazioneConsuntivi","discaricheConsuntivi","wteModenaConsuntivi",
+    "economicEntries","vcImpianti","vcOre","vcSquadre","vcRecords",
+    "rapportini","cantieriRows"];
   const esc=value=>String(value===null||value===undefined?"":value)
     .replace(/[&<>"']/g,ch=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[ch]));
   const eur=n=>"€ "+Number(n||0).toLocaleString("it-IT",
@@ -89,7 +95,7 @@
     shell.addEventListener("click",event=>{
       const btn=event.target.closest("button,a,input[type=file],label.filebtn");
       if(!btn)return;
-      if(btn.matches(".nav[data-view], [data-go], [data-oracle-view], [data-oracle-dismiss-welcome], .vg-nav-label, #sidebarLogout, #openVargaCantieriDesktop, #vgOraclePlantSummaryButton"))return;
+      if(btn.matches(".nav[data-view], [data-go], [data-oracle-view], [data-oracle-dismiss-welcome], .vg-nav-label, #sidebarLogout, #openVargaCantieriDesktop, #vgOraclePlantSummaryButton, #vgJobBack, [data-oracle-job-tab], [data-oracle-job-economics]"))return;
       event.preventDefault();event.stopImmediatePropagation();
       if(btn.matches("a"))return;
       const context=btn.closest(".view");
@@ -207,9 +213,85 @@
     for(const job of sorted){const row=document.createElement("div");row.className="vg-package-row";const info=document.createElement("div"),code=document.createElement("div"),title=document.createElement("div"),meta=document.createElement("div");code.className="vg-package-row-code";code.textContent=String(job.code||"Codice non assegnato");title.className="vg-package-row-title";title.textContent=String(job.title||"Commessa");meta.className="vg-package-row-meta";meta.textContent=[job.site,job.status||job.stato||"Attiva"].filter(Boolean).join(" • ");info.append(code,title,meta);const open=document.createElement("button");open.className="vg-package-open";open.type="button";open.textContent="APRI";open.addEventListener("click",()=>{modal.hidden=true;showReadonlyJob(job);});row.append(info,open);content.append(row);}
     modal.hidden=false;
   }
-  function showReadonlyJob(job){
-    const modal=createReadonlyModal("vgOracleJobDetails","vg-package-modal","vg-package-modal-card","Commessa · "+String(job.title||""),"Scheda Oracle in consultazione di sola lettura."),content=modal.querySelector(".vg-package-list");content.replaceChildren();
-    const pre=document.createElement("pre");pre.className="vg-job-json";try{pre.textContent=JSON.stringify(job,null,2);}catch(_){pre.textContent=String(job);}content.append(pre);modal.hidden=false;
+  function parsedNumber(value){
+    if(typeof value==="number")return Number.isFinite(value)?value:0;
+    let text=String(value??"").trim().replace(/[\s€]/g,"");
+    if(text.includes(",")&&text.includes("."))text=text.lastIndexOf(",")>text.lastIndexOf(".")?text.replace(/\./g,"").replace(",","."):text.replace(/,/g,"");
+    else if(text.includes(","))text=text.replace(/\./g,"").replace(",",".");
+    const number=Number(text);return Number.isFinite(number)?number:0;
+  }
+  function detailMatch(row,job){
+    if(!row||!job)return false;
+    if(row.jobId===job.id||row.commessaId===job.id)return true;
+    const path=String(job.vcSourceId||job.sourcePath||"");
+    if(path&&String(row.sourcePath||row.vcSourceId||"").startsWith(path+"/"))return true;
+    return textMatchesJob([row.commessa,row.commessaNome,row.nomeCommessa,row.codiceCommessa,
+      row.jobName,row.jobCode,row.code,row.title,row.name].join(" "),job);
+  }
+  function detailRows(key,job){return list(model.cache.get(key)).filter(row=>detailMatch(row?.data&&typeof row.data==="object"?{...row.data,...row}:row,job));}
+  function detailCard(label,value,sub=""){return `<article class="vg-round-card"><span>${esc(label)}</span><strong>${esc(value)}</strong>${sub?`<small>${esc(sub)}</small>`:""}</article>`;}
+  function detailStat(label,value){return `<div class="vg-stat"><span>${esc(label)}</span><strong>${esc(value)}</strong></div>`;}
+  function detailList(rows,mapper,emptyText){
+    if(!rows.length)return `<div class="vg-empty">${esc(emptyText)}</div>`;
+    return `<div class="vg-job-detail-list">${rows.slice(0,150).map(row=>{const x=mapper(row);return `<article><div><strong>${esc(x[0])}</strong><small>${esc(x[1]||"")}</small></div><span>${esc(x[2]||"")}</span></article>`;}).join("")}</div>`;
+  }
+  function readonlyJobPane(job,tab,data){
+    const client=list(data.clients).find(x=>x.id===job.clientId)||{};
+    const requests=detailRows("requests",job),deadlines=detailRows("deadlines",job),quotes=detailRows("quotes",job);
+    const documents=[...detailRows("documents",job),...detailRows("cadrianoDocuments",job)];
+    const invoices=detailRows("invoices",job),expenses=detailRows("expenses",job),reports=detailRows("rapportini",job);
+    const plants=detailRows("vcImpianti",job),rows=detailRows("cantieriRows",job);
+    const allHours=list(data.vcOre),jobHours=allHours.filter(row=>detailMatch(row?.data&&typeof row.data==="object"?{...row.data,...row}:row,job));
+    const hourValue=row=>parsedNumber(row.ore??row.hours??row.numeroOre??row.totaleOre??row.oreLavorate);
+    const workedHours=jobHours.reduce((sum,row)=>sum+hourValue(row.data&&typeof row.data==="object"?{...row.data,...row}:row),0);
+    const entries=detailRows("economicEntries",job),rate=parsedNumber(job.hourlyRevenueRate)||35;
+    const pending=entries.filter(x=>normText(x.status).includes("confermare")||normText(x.status).includes("pending")).reduce((n,x)=>n+parsedNumber(x.amount),0);
+    const confirmed=entries.filter(x=>normText(x.status).includes("confermata")||normText(x.status).includes("confirmed")).reduce((n,x)=>n+parsedNumber(x.amount),0);
+    const totalExpenses=expenses.reduce((n,x)=>n+parsedNumber(x.amount),0),accrued=workedHours*rate,actual=confirmed-totalExpenses,estimated=accrued-totalExpenses;
+    const jobPath=String(job.vcSourceId||job.sourcePath||"").replace(/\/$/,"");
+    const workRecords=list(data.vcRecords).filter(row=>!row.vcArchived&&row.deleted!==true&&row.operation!=="delete"&&jobPath&&String(row.sourcePath||"").startsWith(jobPath+"/lavorazioni/"));
+    const completed=workRecords.filter(row=>normText((row.data||row).stato||(row.data||row).status)==="fatto").length;
+    const workTotal=workRecords.length,plantActivity=Math.max(plants.length,rows.length,workTotal);
+    const openRequests=requests.filter(x=>!["Completata","Archiviata"].includes(x.status)).length;
+    const openDeadlines=deadlines.filter(x=>!x.done).length;
+    const money=eur;
+    const tabNames=[["overview","Panoramica"],["economics","Entrate e uscite"],["requests","Email / Richieste"],["deadlines","Scadenze"],["quotes","Preventivi"],["documents","Documenti"],["accounting","Contabilità"],["sites","Impianti / attività"],["reports","Rapportini"],["timeline","Cronologia"]];
+    let pane="";
+    if(tab==="overview"){
+      const info=[ ["Cliente",client.name||job.clientName||"-"],["Codice",job.code||"-"],["Cantiere / luogo",job.site||"-"],["Periodo",(job.start||"-")+" → "+(job.end||"aperta")],["Valore commessa · totale impianti",money(job.value||0)],["Stato",job.status||job.stato||"Attiva"] ];
+      pane=`<section class="panel"><div class="vg-section-head"><h2>Panoramica commessa</h2><button class="ghost" type="button">MODIFICA COMMESSA</button></div><div class="vg-kv">${info.map(x=>`<div><small>${esc(x[0])}</small><strong>${esc(x[1])}</strong></div>`).join("")}</div>${client.address||client.city?`<p class="muted">${esc([client.address,client.cap,client.city,client.province].filter(Boolean).join(" · "))}</p>`:""}</section><section class="panel"><h2>Riepilogo collegamenti</h2>${detailList([...requests,...deadlines,...quotes,...documents],x=>[x.subject||x.title||x.name||x.number||"Elemento collegato",x.status||x.date||x.due||x.category||"",""] ,"Nessun elemento collegato alla commessa.")}</section>`;
+    }else if(tab==="economics"){
+      pane=`<section class="panel"><h2>Entrate e uscite</h2><p class="muted">Valore ore stimato a ${esc(money(rate))}/h. I valori sono mostrati dai dati Oracle disponibili.</p><div class="vg-round-grid">${detailCard("Ore lavorate",workedHours.toLocaleString("it-IT",{maximumFractionDigits:2})+" h")}${detailCard("Valore maturato",money(accrued),"Ore × tariffa")}${detailCard("Da confermare",money(pending),"In attesa del MAP")}${detailCard("Entrate confermate",money(confirmed),"MAP ricevuti")}${detailCard("Uscite",money(totalExpenses),"Spese collegate")}${detailCard("Risultato reale",money(actual),"Entrate confermate − uscite")}${detailCard("Risultato stimato",money(estimated),"Valore ore − uscite")}</div></section><section class="panel"><h2>Movimenti economici</h2>${detailList([...entries,...expenses].sort((a,b)=>String(b.date||b.documentDate||"").localeCompare(String(a.date||a.documentDate||""))),x=>[x.title||x.supplier||x.type||"Movimento",x.type||x.status||x.category||x.date||"",money(x.amount||0)],"Nessun movimento registrato.")}</section>`;
+    }else if(tab==="requests")pane=`<section class="panel"><h2>Richieste collegate</h2>${detailList(requests,x=>[x.subject||x.oggetto||"Richiesta",[x.fromName||x.from||x.email,x.status||x.type].filter(Boolean).join(" · "),""] ,"Nessuna richiesta collegata.")}</section>`;
+    else if(tab==="deadlines")pane=`<section class="panel"><h2>Scadenze e attività</h2>${detailList(deadlines,x=>[x.title||"Attività",[x.date,x.type,x.status].filter(Boolean).join(" · "),x.done?"Completata":"Aperta"],"Nessuna scadenza collegata.")}</section>`;
+    else if(tab==="quotes")pane=`<section class="panel"><h2>Preventivi</h2>${detailList(quotes,x=>[x.number||x.subject||"Preventivo",[x.clientName,x.date,x.status].filter(Boolean).join(" · "),money(x.total||0)],"Nessun preventivo collegato.")}</section>`;
+    else if(tab==="documents")pane=`<section class="panel"><h2>Documenti</h2>${detailList(documents,x=>[x.name||x.nome||x.title||"Documento",[x.category||x.categoria,x.date,x.status].filter(Boolean).join(" · "),""],"Nessun documento collegato.")}</section>`;
+    else if(tab==="accounting")pane=`<section class="panel"><h2>Contabilità impianti</h2>${detailList(workRecords,x=>{const d=x.data||x;return[d.impianto||d.denominazione||d.nome||d.comune||"Lavorazione",[d.codicePrezzo||d.codiceVocePrezzo,d.data||d.dataEsecuzione,d.stato||d.status].filter(Boolean).join(" · "),money(d.totale||d.importo||0)];},"Nessuna riga contabile collegata.")}</section>`;
+    else if(tab==="sites")pane=`<section class="panel"><h2>Impianti e attività</h2>${detailList([...plants,...rows],x=>[x.nome||x.name||x.impianto||x.denominazione||x.title||"Impianto",[x.codice||x.code||x.idSap,x.comune,x.stato||x.status||x.statoGenerale].filter(Boolean).join(" · "),""] ,"Nessun impianto o attività collegato.")}</section>`;
+    else if(tab==="reports")pane=`<section class="panel"><h2>Rapportini e ore lavorate</h2>${detailList([...reports,...jobHours],x=>[x.title||x.jobName||x.operatore||x.nomeOperatore||x.squadra||"Rapporto ore",[x.data||x.date||x.giorno,x.lavorazione||x.attivita||x.note].filter(Boolean).join(" · "),(hourValue(x.data&&typeof x.data==="object"?{...x.data,...x}:x)||0).toLocaleString("it-IT")+" h"],"Nessun rapportino o registro ore collegato.")}</section>`;
+    else pane=`<section class="panel"><h2>Cronologia</h2>${detailList([...requests,...deadlines,...quotes,...documents,...reports].sort((a,b)=>String(b.updatedAt||b.date||b.createdAt||"").localeCompare(String(a.updatedAt||a.date||a.createdAt||""))),x=>[x.title||x.subject||x.name||x.number||"Evento",x.date||x.updatedAt||x.createdAt||x.status||"",""] ,"Nessun evento collegato.")}</section>`;
+    const pages=`<div class="vg-work-head"><div class="topline"><div><div class="vg-job-code">${esc(job.code||"COMMESSA")}</div><h1>${esc(job.title||"Commessa")}</h1><p class="subtitle">${esc(client.name||job.clientName||"Cliente non associato")}${job.site?" • "+esc(job.site):""}</p></div><span class="vg-chip">${esc(job.status||job.stato||"Attiva")}</span></div><div class="vg-work-actions"><button id="vgJobBack" type="button">← COMMESSE</button><button type="button" data-oracle-job-economics>ENTRATE E USCITE</button><button type="button">+ PREVENTIVO</button><button type="button">+ DOCUMENTO</button><button type="button">+ RAPPORTINO</button><button type="button">GESTISCI</button></div></div>
+      <div class="vg-round-summary"><div class="vg-round-summary-head"><div><h2>Andamento economico della commessa</h2><span>Ore valorizzate a ${esc(money(rate))} · entrate confermate soltanto alla ricezione del MAP</span></div><button class="ghost" type="button" data-oracle-job-economics>APRI DETTAGLIO</button></div><div class="vg-round-grid"><article class="vg-round-card ${actual>0?"vg-balance-positive":actual<0?"vg-balance-negative":"vg-balance-neutral"}"><span>RISULTATO REALE</span><strong>${esc(money(actual))}</strong><small>Entrate confermate ${esc(money(confirmed))} − uscite ${esc(money(totalExpenses))}</small></article><article class="vg-round-card"><span>Ore e valore maturato</span><strong>${esc(workedHours.toLocaleString("it-IT",{maximumFractionDigits:2}))} h</strong><small>${esc(money(accrued))} stimati dalle ore</small></article><article class="vg-round-card"><span>Da confermare</span><strong>${esc(money(pending))}</strong><small>Preventivi, consuntivi e contabilità in attesa MAP</small></article><article class="vg-round-card"><span>Risultato stimato</span><strong>${esc(money(estimated))}</strong><small>Valore ore − uscite registrate</small></article><article class="vg-round-card"><span>Avanzamento lavori</span><strong>${workTotal?completed+" / "+workTotal:"Non disponibile"}</strong><small>${workTotal?Math.round(completed/workTotal*100)+"% degli impianti FATTO":"Dati impianti non disponibili"}</small>${workTotal?`<div class="vg-progress-track"><div class="vg-progress-fill" style="width:${Math.min(100,completed/workTotal*100)}%"></div></div>`:""}</article></div><div class="vg-round-note">Il valore delle ore è una stima e non viene sommato alle entrate dei documenti. Ogni MAP conferma la registrazione esistente senza crearne una seconda.</div></div>
+      <div class="vg-summary">${detailStat("Richieste aperte",String(openRequests))}${detailStat("Scadenze aperte",String(openDeadlines))}${detailStat("Documenti",String(documents.length))}${detailStat("Preventivi",String(quotes.length))}${detailStat("Impianti / attività",String(plantActivity))}${detailStat("Rapportini",String(reports.length))}</div>
+      <div class="vg-tabs">${tabNames.map(([id,label])=>`<button class="vg-tab ${tab===id?"active":""}" data-oracle-job-tab="${id}" type="button">${label}</button>`).join("")}</div><div class="vg-pane active">${pane}</div>`;
+    return pages;
+  }
+  async function showReadonlyJob(job,tab="overview"){
+    if(!model.user)return;
+    const epoch=++model.epoch;
+    let view=$("jobWorkspace");if(!view){view=document.createElement("section");view.id="jobWorkspace";view.className="view";document.querySelector(".main")?.append(view);}
+    view.classList.add("active-view");view.style.display="block";view.innerHTML='<div class="panel">Caricamento scheda commessa da Oracle…</div>';
+    document.querySelectorAll(".view").forEach(item=>{const active=item===view;item.classList.toggle("active-view",active);item.style.display=active?"block":"none";});
+    document.querySelectorAll(".nav[data-view]").forEach(item=>item.classList.toggle("active",item.dataset.view==="commesse"));
+    try{
+      const entries=await Promise.all(JOB_DETAIL_SECTIONS.map(async key=>[key,await section(key)]));
+      if(epoch!==model.epoch)return;
+      const data=Object.fromEntries(entries),fresh=list(data.jobs).find(x=>x.id===job.id)||job;
+      view.innerHTML=readonlyJobPane(fresh,tab,data);window.scrollTo({top:0,behavior:"auto"});
+      view.querySelector("#vgJobBack")?.addEventListener("click",()=>open("commesse"));
+      view.querySelectorAll("[data-oracle-job-tab]").forEach(button=>button.addEventListener("click",()=>showReadonlyJob(fresh,button.dataset.oracleJobTab)));
+      view.querySelectorAll("[data-oracle-job-economics]").forEach(button=>button.addEventListener("click",()=>showReadonlyJob(fresh,"economics")));
+    }catch(error){if(epoch===model.epoch)view.innerHTML='<div class="panel"><h2>Scheda commessa non disponibile</h2><p class="muted">'+esc(error.message)+"</p><button id=\"vgJobBack\" class=\"ghost\" type=\"button\">← COMMESSE</button></div>";view.querySelector("#vgJobBack")?.addEventListener("click",()=>open("commesse"));}
   }
   function showPlantSummary(){
     const jobs=list(model.cache.get("jobs")).filter(job=>/depuraz|\binrete\b/.test(jobText(job))),plants=list(model.cache.get("vcImpianti"));
