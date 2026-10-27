@@ -43,5 +43,20 @@ class OriginalPreviewCoverage(unittest.TestCase):
         self.assertIn("model.cache.get(key)",js)
         self.assertIn('event.target.closest("#vcRecordExplorer")',js)
 
+    def test_commesse_preview_reuses_original_package_layout_without_firebase(self):
+        js=(ROOT/"oracle"/"original-preview.js").read_text(encoding="utf-8")
+        ui=(ROOT/"oracle"/"original-preview-ui.js").read_text(encoding="utf-8")
+        for label in ("DISCARICHE","INRETE","VARIE","COMUNE BOLOGNA",
+                      "SITUAZIONE IMPIANTI","NUOVA COMMESSA"):
+            with self.subTest(label=label):
+                self.assertIn(label,js)
+        self.assertIn("renderCommesseRecords();",js)
+        self.assertIn(".vg-job-grid",ui)
+        self.assertIn("@media(min-width:1500px)",ui)
+        self.assertIn("repeat(4,minmax(250px,1fr))",ui)
+        self.assertIn("function showReadonlyJob(job)",js)
+        self.assertNotIn('src="/job-workspace.js"',
+                         (ROOT/"oracle"/"original-preview.html").read_text(encoding="utf-8"))
+
 if __name__=="__main__":
     unittest.main()
