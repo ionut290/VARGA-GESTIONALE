@@ -47,6 +47,22 @@
       if(!/^[A-Za-z0-9_-]{1,64}$/.test(name))throw Error("Nome workspace non valido");
       return encodeURIComponent(name);
     }
+    manifest(name){return this.request("workspaces/"+this.validWorkspace(name)+"/manifest")}
+    async readSection(name,section){
+      this.validWorkspace(section);
+      const data=await this.request("workspaces/"+this.validWorkspace(name)+"/sections/"+encodeURIComponent(section));
+      this.revisions.set(name+":"+section,data.revision);
+      return data;
+    }
+    async saveSection(name,section,value){
+      this.validWorkspace(section);
+      const key=name+":"+section;
+      if(!this.revisions.has(key))throw Error("Leggere la sezione prima di modificarla.");
+      const body=JSON.stringify({expected_revision:this.revisions.get(key),data:{value}});
+      const result=await this.request("workspaces/"+this.validWorkspace(name)+"/sections/"+encodeURIComponent(section),{method:"PUT",body});
+      this.revisions.set(key,result.revision);
+      return result;
+    }
     async read(name){
       const data=await this.request("workspaces/"+this.validWorkspace(name));
       this.revisions.set(name,data.revision);
