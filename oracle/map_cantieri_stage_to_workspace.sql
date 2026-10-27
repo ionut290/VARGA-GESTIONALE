@@ -60,7 +60,7 @@ mapped AS (
     WHEN collection_name='commesse' AND array_length(string_to_array(path,'/'),1)=2 THEN 'vcCommesse'
     WHEN collection_name ILIKE '%segnal%' THEN 'vcSegnalazioni'
   END AS section,
-  data || jsonb_build_object(
+  (CASE WHEN jsonb_typeof(data)='object' THEN data ELSE jsonb_build_object('value',data) END) || jsonb_build_object(
     'id',COALESCE(data->>'id',split_part(path,'/',array_length(string_to_array(path,'/'),1))),
     'vcSourceId',path,'vcRootCollection',collection_name,
     'vcArchived',is_deleted,
