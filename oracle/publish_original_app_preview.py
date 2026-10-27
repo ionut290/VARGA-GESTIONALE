@@ -71,6 +71,7 @@ def bundle_sources():
     files={name:ROOT/name for name in module_files()}
     files["original-app-bootstrap.js"]=SRC/"original-app-bootstrap.js"
     files["original-app-adapter.js"]=SRC/"original-app-adapter.js"
+    files["client.js"]=SRC/"client.js"
     files["vendor/exceljs.min.js"]=ROOT/"vendor/exceljs.min.js"
     total=0;digest=hashlib.sha256()
     for name,path in sorted(files.items()):
@@ -131,6 +132,7 @@ def publish_bundle(bundle,digest,files):
 def publish_page(digest):
     generated=load_builder().transform((ROOT/"index.html").read_text(encoding="utf-8"))
     generated=generated.replace('/oracle/original-app-bootstrap.js','/oracle/original-app-'+digest+'/original-app-bootstrap.js')
+    generated=generated.replace('/oracle/client.js','/oracle/original-app-'+digest+'/client.js')
     if "firebasejs" in generated.lower() or "connect-src 'self'" not in generated:raise ValueError("HTML Oracle non isolato")
     data=generated.encode("utf-8");path=PERSIST/"original-app.html";save_atomic(path,data)
     run(["docker","cp",str(path),WEB+":"+WEB_ROOT+"/oracle/original-app.html"])
