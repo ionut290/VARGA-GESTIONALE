@@ -21,8 +21,9 @@ EXPECTED_SCRIPT_COUNT=10
 HEAD_MARK='<head>'
 BASE='<base href="/">'
 PREVIEW_SCRIPTS='<script src="/oracle/client.js"></script><script src="/oracle/original-preview.js"></script>'
+SANDBOX_SCRIPTS='<script src="/oracle/client.js"></script><script src="/oracle/original-sandbox.js"></script>'
 
-def transform(raw):
+def transform(raw, *, sandbox=False):
     if not raw.startswith("<!doctype html>") or raw.count(HTML_END)!=1:
         raise ValueError("index.html originale non riconosciuto")
     scripts=list(re.finditer(START,raw,flags=re.IGNORECASE))
@@ -38,7 +39,8 @@ def transform(raw):
     if not re.fullmatch(r"(?:<script\b[^>]*>[\s\S]*?</script>)+",expected,
                         flags=re.IGNORECASE):
         raise ValueError("Script non isolati nel footer")
-    without=raw[:scripts[0].start()]+PREVIEW_SCRIPTS+raw[raw.index(HTML_END):]
+    scripts_to_load=SANDBOX_SCRIPTS if sandbox else PREVIEW_SCRIPTS
+    without=raw[:scripts[0].start()]+scripts_to_load+raw[raw.index(HTML_END):]
     if without.count(HEAD_MARK)!=1 or "<base " in without:
         raise ValueError("Head inesperato")
     result=without.replace(HEAD_MARK,HEAD_MARK+BASE,1)
@@ -46,7 +48,7 @@ def transform(raw):
         raise ValueError("Script Firebase ancora presenti")
     if "style.css?v=" not in result:
         raise ValueError("Stylesheet originale non trovato")
-    if result.count(PREVIEW_SCRIPTS)!=1:
+    if result.count(scripts_to_load)!=1:
         raise ValueError("Bridge Oracle non inserito correttamente")
     return result
 
@@ -54,10 +56,11 @@ def main():
     p=argparse.ArgumentParser()
     p.add_argument("--output",type=Path,default=PAGE)
     p.add_argument("--check",action="store_true")
+    p.add_argument("--sandbox",action="store_true",help="Use synthetic-workspace Oracle client script")
     a=p.parse_args()
     try:
         original=INDEX.read_text(encoding="utf-8")
-        prepared=transform(original)
+        prepared=transform(original,sandbox=a.sandbox)
         if a.check:
             if not a.output.is_file() or a.output.read_text(encoding="utf-8")!=prepared:
                 raise ValueError("Anteprima diversa dall'HTML originale")
