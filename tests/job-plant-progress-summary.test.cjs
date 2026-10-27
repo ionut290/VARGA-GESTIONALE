@@ -44,6 +44,25 @@ test('usa gli impianti fisici quando non esistono righe lavorazione',()=>{
 test('il modulo viene caricato dopo la vista commesse',()=>{
   const loader=fs.readFileSync(path.join(__dirname,'..','app.js'),'utf8');
   const index=fs.readFileSync(path.join(__dirname,'..','index.html'),'utf8');
+  const workspace=fs.readFileSync(path.join(__dirname,'..','job-workspace.js'),'utf8');
   assert.ok(loader.indexOf('job-workspace.js')<loader.indexOf('job-plant-progress-summary.js'));
-  assert.match(index,/app\.js\?v=20260912-impianti-riepilogo-v130/);
+  assert.match(workspace,/VargaPlantProgressSummary\?\.jobSummary\(job\)/);
+  assert.match(workspace,/Lavorazioni FATTE/);
+  assert.match(index,/app\.js\?v=[^\" ]+/);
+});
+
+test('distingue 28 impianti con 22 completi da 87 righe con 25 lavorazioni fatte',()=>{
+  const job={id:'mod',title:'INRETE MODENA',code:'28015',vcSourceId:'commesse/mod'};
+  const vcRecords=[];
+  for(let plant=1;plant<=28;plant++){
+    const count=plant<=22?1:plant===23?39:plant===24?6:plant===25?5:plant===26?5:plant===27?5:5;
+    for(let line=1;line<=count;line++){
+      const isDone=plant<=22||(plant===23&&line<=3);
+      vcRecords.push({id:`${plant}-${line}`,sourcePath:`commesse/mod/lavorazioni/${plant}-${line}`,data:{idSap:`SAP-${plant}`,denominazione:`Impianto ${plant}`,stato:isDone?'FATTO':'DA FARE'}});
+    }
+  }
+  assert.equal(vcRecords.length,87);
+  assert.equal(vcRecords.filter(row=>row.data.stato==='FATTO').length,25);
+  const result=load({jobs:[job],vcRecords,vcImpianti:[]}).jobSummary(job);
+  assert.deepEqual(JSON.parse(JSON.stringify({total:result.total,done:result.done,todo:result.todo,workItems:result.workItems})),{total:28,done:22,todo:6,workItems:87});
 });
