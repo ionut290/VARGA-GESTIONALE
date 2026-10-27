@@ -64,11 +64,20 @@ def main():
             ap.error("L'importazione via stdin richiede --confirm-sha256")
         elif input("Digita IMPORTA per procedere: ")!="IMPORTA":
             print("Annullato");return
+        if not all(k and k[0].isalpha() and k.replace("_","").isalnum() and len(k)<=64 for k in payload):
+            ap.error("Nome sezione non valido: importazione interrotta")
         with db() as con:
-            existing=con.execute("SELECT revision FROM vg.workspaces WHERE id=%s FOR UPDATE",(args.workspace,)).fetchone()
-            if existing and existing["revision"]!=0:ap.error("Workspace non vuoto: importazione rifiutata")
-            if existing:con.execute("UPDATE vg.workspaces SET snapshot=%s::jsonb,revision=1,updated_at=now() WHERE id=%s",(raw,args.workspace))
-            else:con.execute("INSERT INTO vg.workspaces(id,revision,snapshot) VALUES(%s,1,%s::jsonb)",(args.workspace,raw))
+            existing=con.execute("SELECT revision,snapshot FROM vg.workspaces WHERE id=%s FOR UPDATE",(args.workspace,)).fetchone()
+            if existing and (existing["revision"]!=0 or existing["snapshot"]):
+                ap.error("Workspace non vuoto: importazione rifiutata")
+            if con.execute("SELECT 1 FROM vg.workspace_sections WHERE workspace_id=%s LIMIT 1",(args.workspace,)).fetchone():
+                ap.error("Archivio a sezioni già popolato: importazione rifiutata")
+            if not existing:
+                con.execute("INSERT INTO vg.workspaces(id,revision,snapshot) VALUES(%s,0,'{}'::jsonb)",(args.workspace,))
+            for key,value in payload.items():
+                part=json.dumps(value,ensure_ascii=False,allow_nan=False,separators=(",",":"))
+                con.execute("""INSERT INTO vg.workspace_sections(workspace_id,section,revision,data)
+                               VALUES(%s,%s,1,%s::jsonb)""",(args.workspace,key,part))
             con.commit()
-        print("Importazione completata:",args.workspace)
+        print("Importazione sezionale completata:",args.workspace,"sezioni",len(payload))
 if __name__=="__main__":main()
