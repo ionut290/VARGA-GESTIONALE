@@ -52,7 +52,13 @@ def main():
         elif isinstance(obj.get("snapshotJson"),str):payload=json.loads(obj["snapshotJson"])
         else:payload=obj
         if not isinstance(payload,dict) or not payload:ap.error("Snapshot vuoto o non valido")
-        if "workspace" in obj and obj["workspace"]!=args.workspace:ap.error("Workspace diverso dall'export")
+        # A source-export workspace is intentionally different from a dated staging
+        # workspace. Never allow a source mismatch when importing into production.
+        if "workspace" in obj and obj["workspace"]!=args.workspace:
+            if not (args.workspace.startswith("gestionale_backup_20") and
+                    len(args.workspace)==25 and args.workspace[19:].isdigit() and
+                    obj["workspace"]=="varga-azienda"):
+                ap.error("Workspace sorgente diverso: importazione rifiutata")
         raw=json.dumps(payload,ensure_ascii=False,allow_nan=False)
         print("Dimensioni:",{k:len(v) for k,v in payload.items() if isinstance(v,list)},"bytes",len(raw.encode("utf-8")))
         print("File SHA256:",checksum)
