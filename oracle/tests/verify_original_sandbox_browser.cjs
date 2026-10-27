@@ -9,6 +9,7 @@ const vm=require("node:vm");
 const path=require("node:path");
 const script=fs.readFileSync(path.join(__dirname,"..","original-sandbox.js"),"utf8");
 const SectionModule=require("../section-bridge.js");
+const BusinessValidation=require("../business-demo-validation.js");
 const demo="gestionale_sandbox_20261027";
 const clone=x=>structuredClone(x);
 class Elem{
@@ -51,7 +52,10 @@ const ids=["loginLoading","loginForm","loginEmail","loginPassword","loginEmailBu
   "cName","addClient","jTitle","jClient","jCode","jSite","jStart","jEnd",
   "jStatus","jValue","jNotes","addJob","qClient","qSubject","qSite",
   "qValidity","qPayment","qDiscount","qVat","qSub","qVatAmount",
-  "qTotal","qRows","qNumber","addManual","newQuote","saveQuote"];
+  "qTotal","qRows","qNumber","addManual","newQuote","saveQuote",
+  "xDate","xSupplier","xCategory","xAmount","xJob","xNotes","addExpense",
+  "dTitle","dJob","dType","dDate","dTime","dPriority","dAssignee","dNotes","dCalendar","addDeadline",
+  "docName","docCategory","docClient","docJob","docDriveUrl","docNotes","addDocument","saveCompany"];
 const elements=new Map(ids.map(id=>[id,new Elem(id)]));
 const $=id=>{assert.ok(elements.has(id),"unknown element "+id);return elements.get(id)};
 const views=["dashboard","clienti","commesse","preventivo","preventivi",
@@ -78,7 +82,7 @@ const fakeDoc={
     return [];
   }
 };
-const db={
+  const db={
   clients:[{id:"demo-cl-01",name:"DEMO Existing"}],
   jobs:[{id:"demo-job-01",title:"DEMO Existing job",clientId:"demo-cl-01",status:"Da avviare",value:0}],
   quotes:[{id:"demo-q-01",subject:"DEMO Existing quote",clientName:"DEMO Existing",total:12}],
@@ -109,7 +113,7 @@ const API=class{
   }
   async saveSection(space,key,items){
     assert.equal(space,demo,"wrong workspace!");
-    assert.ok(["clients","jobs","quotes"].includes(key),"writing unexpected section "+key);
+    assert.ok(["clients","jobs","quotes","invoices","priceLists","entries","expenses","deadlines","documents","company"].includes(key),"writing unexpected section "+key);
     if(this.revs[key]!==rev[key]){
       const e=new Error("Revision conflict");e.status=409;throw e;
     }
@@ -121,7 +125,7 @@ const API=class{
   }
   async logout(){this.token=null;}
 };
-const ctx={window:{VGOraclePilot:API,VGOracleSectionBridge:SectionModule},document:fakeDoc,crypto:{randomUUID:(()=>{let n=0;return()=>String(++n)})()},
+  const ctx={window:{VGOraclePilot:API,VGOracleSectionBridge:SectionModule,VGOracleBusinessDemo:BusinessValidation},document:fakeDoc,crypto:{randomUUID:(()=>{let n=0;return()=>String(++n)})()},
   alert:msg=>alerts.push(String(msg)),console,
   Date,Number,Map,Array,Object,String,Math,RegExp,Promise,
 };
@@ -178,9 +182,56 @@ const click=async key=>{$(key).click();await flush()};
   assert.equal(q.rows.length,1);
   assert.equal(q.rows[0].description,"DEMO Voce prova");
   assert.equal(q.total,12.2);
-  assert.deepEqual(writes.map(x=>x[1]),["clients","jobs","quotes"]);
+  // Spese: link only to an existing DEMO job; real supplier is rejected.
+  await nav("spese");
+  $("xDate").value="2026-10-27";$("xSupplier").value="DEMO Fornitore";
+  $("xCategory").value="DEMO Materiali";$("xAmount").value="18.5";$("xJob").value=job.id;
+  $("xNotes").value="DEMO materiale di prova";
+  await click("addExpense");
+  assert.equal(db.expenses.length,1);
+  assert.equal(db.expenses[0].jobId,job.id);
+  const writesBeforeInvalid=writes.length;
+  $("xSupplier").value="Fornitore reale";
+  await click("addExpense");
+  assert.equal(writes.length,writesBeforeInvalid);
+
+  // Scadenze: local DEMO record only; Google Calendar is never called.
+  await nav("scadenze");
+  $("dTitle").value="DEMO Controllo materiale";$("dDate").value="2026-10-30";
+  $("dTime").value="08:30";$("dType").value="Attività";$("dPriority").value="Alta";
+  $("dAssignee").value="DEMO Ufficio";$("dJob").value=job.id;$("dNotes").value="DEMO promemoria";
+  await click("addDeadline");
+  assert.equal(db.deadlines.length,1);
+  assert.equal(db.deadlines[0].calendarEnabled,false);
+  assert.equal(db.deadlines[0].jobId,job.id);
+
+  // Document metadata only; no Drive URL or file upload reaches the API.
+  await nav("documenti");
+  $("docName").value="DEMO Contratto prova";$("docCategory").value="Contratto";
+  $("docClient").value=client.id;$("docJob").value=job.id;
+  $("docDriveUrl").value="https://drive.google.com/real-file";
+  $("docNotes").value="DEMO documento sintetico";
+  await click("addDocument");
+  assert.equal(db.documents.length,1);
+  assert.equal(db.documents[0].driveUrl,"");
+  assert.equal(db.documents[0].clientId,client.id);
+  assert.equal(db.documents[0].jobId,job.id);
+  assert.equal(db.documents[0].addedBy,"DEMO Utente");
+
+  // Company profile accepts only DEMO values and stores a single object revision.
+  await nav("azienda");
+  $("aName").value="Azienda reale";
+  await click("saveCompany");
+  assert.equal(writes.at(-1)[1],"documents");
+  $("aName").value="DEMO Azienda prova";
+  $("aVat").value="DEMO CF FITTIZIO";
+  await click("saveCompany");
+  assert.equal(db.company.name,"DEMO Azienda prova");
+  assert.equal(writes.at(-1)[1],"company");
+  assert.ok(writes.every(([space])=>space===demo));
+  assert.deepEqual(writes.map(x=>x[1]),["clients","jobs","quotes","expenses","deadlines","documents","company"]);
   assert.ok(!writes.some(x=>x[0]!=="gestionale_sandbox_20261027"));
   assert.ok(alerts.some(x=>x.includes("Preventivo DEMO salvato")));
   // No real business archive or other module ever received a write.
-  console.log("SUCCESSO: original UI mock browser Clienti → Commesse → Preventivi salva solo 3 sezioni DEMO.");
+  console.log("SUCCESSO: UI originale mock salva 7 sezioni esclusivamente DEMO: Clienti, Commesse, Preventivi, Spese, Scadenze, Documenti e Azienda.");
 })().catch(err=>{console.error(err);process.exitCode=1;});

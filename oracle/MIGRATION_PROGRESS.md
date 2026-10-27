@@ -84,6 +84,16 @@ La pagina /oracle/console.html è solo un laboratorio di collaudo amministrativo
 ## Prossima azione
 Prossima azione: i tre salvataggi DEMO sono confermati dall'utente nel browser reale; verificare in due sessioni il comportamento con modifiche concorrenti e che non vi siano sovrascritture. Collaudare perdita di connessione, recupero manuale IndexedDB e collisioni multi-sessione; poi implementare Fatture, Consuntivi e Prezzari in workspace DEMO separato prima delle prove sul dataset aziendale. Non trattare il componente come sincronizzazione offline di produzione. Per la produzione restano persistenza offline, autenticazione colleghi/ruoli, test moduli e cutover finale.
 
+## Estensione dei moduli DEMO — 27 ottobre 2026
+- [x] Aggiunte prove di scrittura revision-safe per Spese, Scadenze, Documenti (solo metadati) e Dati azienda, oltre ai moduli DEMO esistenti.
+- [x] I validatori rifiutano dati non prefissati `DEMO`, impediscono riferimenti a clienti/commesse non dimostrativi e non inviano link Drive né eventi Google Calendar.
+- [x] Recupero delle bozze DEMO esteso alle nuove sezioni; il publisher controlla il nuovo asset prima di copiare qualunque file.
+- [x] Test mock browser: 7 sezioni scritte solo nel workspace `gestionale_sandbox_20261027`; test negativi su dati reali; grafica HTML/CSS originale immutata.
+- [x] Suite Python completa: 75 test superati. Test Node per il browser mock, bridge e validatori superati.
+- [ ] **Non pubblicato sulla VM Oracle:** aggiornati codice e controlli soltanto nel repository. Nessuna migrazione del workspace aziendale, Firebase o container eseguita.
+- [ ] Da fare prima di usare il laboratorio sulla VM: applicare l'estensione SQL solo al workspace sintetico con `sudo bash oracle/deploy_demo_batch.sh`, poi provare le quattro nuove schermate con account di test e verificare revisioni/conflitti da due sessioni.
+- [ ] Restano fuori da questo lotto: fatture fiscali/SDI, upload binari e Drive, Calendar, email, modifica dei dati sorgente Varga Cantieri, autenticazione e autorizzazioni di produzione, sincronizzazione offline completa e cutover.
+
 ## Metodo di lavoro per accelerare
 Procedere in parallelo sul codice del frontend e sulle verifiche backend; usare un solo comando per blocco; segnalare a ogni aggiornamento completato/mancante/prossimo passo.
 Non pubblicare backup/credenziali; non toccare Varga Cantieri né AzuraCast.

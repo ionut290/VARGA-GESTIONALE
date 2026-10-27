@@ -21,7 +21,7 @@ EXPECTED_SCRIPT_COUNT=10
 HEAD_MARK='<head>'
 BASE='<base href="/">'
 PREVIEW_SCRIPTS='<script src="/view-scenes.js?v=20261027-oracle-parity"></script><script src="/oracle/client.js"></script><script src="/oracle/original-preview-ui.js"></script><script src="/oracle/original-preview.js"></script>'
-SANDBOX_SCRIPTS='<script src="/oracle/client.js"></script><script src="/oracle/section-bridge.js"></script><script src="/oracle/demo-draft-vault.js"></script><script src="/oracle/accounting-demo-validation.js"></script><script src="/oracle/original-sandbox.js"></script>'
+SANDBOX_SCRIPTS='<script src="/oracle/client.js"></script><script src="/oracle/section-bridge.js"></script><script src="/oracle/demo-draft-vault.js"></script><script src="/oracle/accounting-demo-validation.js"></script><script src="/oracle/business-demo-validation.js"></script><script src="/oracle/original-sandbox.js"></script>'
 
 def transform(raw, *, sandbox=False):
     if not raw.startswith("<!doctype html>") or raw.count(HTML_END)!=1:
