@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="it"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Varga Gestionale · Collaudo Oracle</title>
+<style>
+body{font:16px system-ui,sans-serif;background:#101c2c;color:#f1f5fa;margin:0;padding:24px}
+main{max-width:650px;margin:auto}h1{font-size:25px}section{background:#1a304b;border:1px solid #355374;padding:23px;border-radius:14px;margin:20px 0}
+input,button{font:inherit;border-radius:8px;padding:11px;width:100%;box-sizing:border-box;margin:7px 0}
+button{background:#d4ad62;border:0;color:#14202a;font-weight:700;cursor:pointer}
+input{background:#f5f7fa;color:#17263c;border:1px solid #758ca0}
+pre{white-space:pre-wrap;overflow-wrap:anywhere;font:13px ui-monospace,monospace}
+small{color:#bbcede}#status{font-weight:600}label{display:block;margin-top:10px}
+</style></head><body><main>
+<h1>Varga Gestionale · Collaudo Oracle</h1>
+<p>Ambiente di prova: <strong>solo lettura</strong>. Nessuna modifica a Varga Cantieri, Firebase o dati aziendali.</p>
+<section><button id="health">Controlla API Oracle</button><p id="healthStatus"></p></section>
+<section><form id="login"><label>Email<input id="email" type="email" autocomplete="username" required></label>
+<label>Password Oracle<input id="password" type="password" autocomplete="current-password" required></label>
+<button type="submit">Accedi al backend di prova</button></form><p id="status">Non autenticato</p>
+<button id="inspect" disabled>Verifica archivio (solo conteggi)</button>
+<button id="logout" disabled>Esci</button>
+<pre id="summary" aria-live="polite"></pre></section>
+<small>Non utilizzare questa pagina per migrare o pubblicare dati. Le credenziali non vengono memorizzate nel browser.</small>
+<script src="client.js"></script><script>
+const client=new VGOraclePilot(),$=id=>document.getElementById(id);
+const report=(target,message)=>$(target).textContent=String(message);
+$("health").onclick=async()=>{try{const x=await client.health();report("healthStatus",x.ready?"Servizio Oracle raggiungibile":"Servizio non pronto")}catch(e){report("healthStatus","Non disponibile: "+e.message)}};
+$("login").onsubmit=async e=>{e.preventDefault();const password=$("password").value;
+try{const user=await client.login($("email").value,password);$("password").value="";report("status","Accesso di prova: "+user.email+" / "+user.role);$("inspect").disabled=false;$("logout").disabled=false}
+catch(err){$("password").value="";report("status","Accesso non riuscito: "+err.message)}};
+$("inspect").onclick=async()=>{
+  try{const x=await client.read("varga-azienda");const counts={};
+    for(const [key,value] of Object.entries(x.data||{})){if(Array.isArray(value))counts[key]=value.length;else if(key==="company")counts[key]=value?"presente":"assente"}
+    report("summary",JSON.stringify({workspace:x.workspace,revision:x.revision,counts},null,2));
+  }catch(e){report("summary","Impossibile leggere archivio: "+e.message)}
+};
+$("logout").onclick=async()=>{await client.logout();$("inspect").disabled=true;$("logout").disabled=true;report("status","Disconnesso");report("summary","")};
+</script></main></body></html>
