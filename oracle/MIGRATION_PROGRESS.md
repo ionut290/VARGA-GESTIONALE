@@ -44,6 +44,12 @@ La pagina /oracle/console.html è solo un laboratorio di collaudo amministrativo
 - [ ] Confrontare aggiornamenti inseriti dopo il backup del 27 ottobre, importare e validare la versione finale
 - [ ] Pianificare cutover e ripristino; rimuovere Firebase solo dopo verifiche complete
 
+## Verifica del passaggio definitivo (27 ottobre 2026)
+- [x] Creato `oracle/audit_production_cutover.py`: controllo statico in sola lettura, che termina con codice 2 se il passaggio alla produzione non è sicuro.
+- [x] Aggiornata GitHub Actions per confermare esplicitamente che l'archivio DEMO resta isolato e che la produzione è bloccata; esito della nuova pipeline da verificare.
+- [ ] Abilitare moduli reali soltanto dopo autorizzazioni server, prove in due sessioni, dati aggiornati, backup/ripristino e verifica separazione dalla radio.
+- [ ] Firebase resta attivo: non esiste ancora evidenza sufficiente per rimuoverlo o convertire il workspace reale in scrittura.
+
 ## Prossima azione
 Prossima azione: i tre salvataggi DEMO sono confermati dall'utente nel browser reale; verificare in due sessioni il comportamento con modifiche concorrenti e che non vi siano sovrascritture. Collegare l'archivio IndexedDB opt-in al laboratorio DEMO, con recupero manuale e confronto revisioni, verificando prima i test CI aggiornati. Non distribuire il nuovo adapter da solo come se fosse già recupero offline completo. Per la produzione restano persistenza offline, autenticazione colleghi/ruoli, test moduli e cutover finale.
 
