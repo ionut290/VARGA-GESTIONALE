@@ -20,6 +20,13 @@ class SandboxPublisherTests(unittest.TestCase):
     def test_current_source_can_be_published(self):
         publisher.validate_assets(self.js,self.bridge,self.html)
 
+    def test_rejects_stale_demo_section_manifest(self):
+        expected=b'keys:["clients","jobs","quotes","consuntivi","invoices","priceLists","entries"]'
+        self.assertIn(expected,self.js)
+        stale=self.js.replace(expected,b'keys:["clients","jobs","quotes"]')
+        with self.assertRaisesRegex(ValueError,"Adapter"):
+            publisher.validate_assets(stale,self.bridge,self.html)
+
     def test_rejects_direct_api_save(self):
         with self.assertRaisesRegex(ValueError,"diretti"):
             publisher.validate_assets(
