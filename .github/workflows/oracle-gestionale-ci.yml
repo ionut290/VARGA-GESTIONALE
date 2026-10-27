@@ -50,6 +50,9 @@ jobs:
           bash -n install_on_vm.sh
           bash -n preflight.sh
           bash -n diagnose_vm.sh
+          bash -n verify_deployment.sh
+          bash -n stage_backup.sh
+          python -m py_compile verify_backup.py
       - name: Integration test against temporary PostgreSQL
         run: python -m unittest discover -s integration_tests -v
       - name: Validate schema and Compose YAML (without deployment)
