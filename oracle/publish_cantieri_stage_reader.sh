@@ -16,6 +16,18 @@ if ! sudo docker compose -f "$COMPOSE_FILE" -p vg-gestionale-oracle ps --status 
 fi
 echo "=== SOLO API GESTIONALE (NESSUN ALTRO SERVIZIO) ==="
 sudo docker compose -f "$COMPOSE_FILE" -p vg-gestionale-oracle up -d --no-deps --build api
+echo "=== ATTESA HEALTH HTTPS API (max 60 secondi) ==="
+ready=0
+for attempt in $(seq 1 12); do
+ http="$(curl -s -o /dev/null -w '%{http_code}' --max-time 5 'https://gestionale.radio-romanii-italia.duckdns.org/api/gestionale/v1/health' || true)"
+ if [ "$http" = '200' ]; then ready=1; break; fi
+ echo "API in avvio: HTTP $http (tentativo $attempt/12)"
+ sleep 5
+done
+if [ "$ready" -ne 1 ]; then
+ echo "STOP: health API non pronto dopo 60 secondi; anteprima non pubblicata"; exit 3
+fi
+echo "API pronta: HTTP 200"
 echo "=== PUBBLICAZIONE INTERFACCIA ORIGINALE ==="
 sudo python3 oracle/publish_original_ui_preview.py
 echo "=== ENDPOINT RISERVATO (senza credenziali, risposta 401/403 attesa) ==="
