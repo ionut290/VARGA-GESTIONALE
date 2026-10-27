@@ -183,15 +183,14 @@ $apply$;
 SELECT 'backup_privato' AS controllo,id FROM inrete_backup_id;
 SELECT section,COUNT(*) AS record_importati
 FROM inrete_incoming GROUP BY section ORDER BY section;
-SELECT COUNT(*) AS lavorazioni_correnti,
-       COUNT(DISTINCT COALESCE(NULLIF(data->>'impiantoId',''),NULLIF(data->>'physicalPlantId',''),
-         NULLIF(data->>'idSap',''),NULLIF(data->>'ID SAP',''),
-         lower(btrim(concat_ws('|',data->>'denominazione',data->>'comune',data->>'indirizzo'))))) AS impianti_distinti,
-       COUNT(DISTINCT plant_key) FILTER (WHERE tutte_fatte) AS impianti_fatti
+SELECT COALESCE(SUM(lavorazioni),0) AS lavorazioni_correnti,
+       COUNT(*) AS impianti_distinti,
+       COUNT(*) FILTER (WHERE tutte_fatte) AS impianti_fatti
 FROM (
   SELECT COALESCE(NULLIF(data->>'impiantoId',''),NULLIF(data->>'physicalPlantId',''),
          NULLIF(data->>'idSap',''),NULLIF(data->>'ID SAP',''),
          lower(btrim(concat_ws('|',data->>'denominazione',data->>'comune',data->>'indirizzo')))) AS plant_key,
+         COUNT(*) AS lavorazioni,
          bool_and(lower(btrim(COALESCE(data->>'stato',data->>'status',''))) IN
            ('fatto','completato','completa','terminato') OR data->>'done'='true') AS tutte_fatte
   FROM (
