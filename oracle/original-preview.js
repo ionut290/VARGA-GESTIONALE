@@ -278,6 +278,21 @@
   }
   function setup(){
     locks();
+    // Expose the original Cantieri navigation control in the Oracle-only preview.
+    const cantieriButton=$("openVargaCantieriDesktop");
+    if(cantieriButton){
+      cantieriButton.hidden=false;
+      cantieriButton.removeAttribute("hidden");
+      cantieriButton.style.display="block";
+      cantieriButton.textContent="🏗️ Varga Cantieri · Oracle";
+      cantieriButton.addEventListener("click",()=>open("cantieriSync"));
+    }
+    const syncNav=document.querySelector('.nav[data-view="cantieriSync"]');
+    if(syncNav){
+      syncNav.hidden=false;
+      syncNav.style.display="block";
+      syncNav.textContent="↻ Dati e sincronizzazione Cantieri";
+    }
     // Same structure and styling; clarify that preview authentication is Oracle,
     // not the still-running Varga Cantieri/Firebase account.
     const title=document.querySelector(".login-brand-copy h1");
