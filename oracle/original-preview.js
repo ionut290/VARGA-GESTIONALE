@@ -98,6 +98,8 @@
       event.preventDefault();event.stopImmediatePropagation();
     },true);
     shell.addEventListener("change",event=>{
+      // Controls in the dynamic read-only explorer only filter cached records.
+      if(event.target.closest("#vcRecordExplorer"))return;
       if(event.target.matches("input,textarea,select")){
         event.preventDefault();event.stopImmediatePropagation();
       }
