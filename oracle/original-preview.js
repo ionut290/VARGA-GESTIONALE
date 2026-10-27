@@ -210,7 +210,12 @@
     }
   }
   async function open(view){
-    if(!model.user||!$(view))return;
+    const target=$(view);
+    if(!target)return;
+    if(!model.user){
+      explain("Accesso Oracle necessario prima di aprire "+view+".",true);
+      return;
+    }
     model.epoch+=1;
     const epoch=model.epoch;
     document.querySelectorAll(".view").forEach(x=>x.classList.toggle("active-view",x.id===view));
@@ -285,10 +290,15 @@
       event.preventDefault();
       event.stopImmediatePropagation();
       if(!model.user){
-        explain("Accedi con l'account Oracle per consultare Varga Cantieri.",true);
+        const panel=$("loginScreen");
+        if(panel){panel.hidden=false;panel.setAttribute("aria-hidden","false");}
+        explain("Accedi prima con le credenziali Oracle; la sezione Cantieri non è accessibile senza login.",true);
         return;
       }
       open("cantieriSync");
+      // A visible breadcrumb helps distinguish navigation from stalled loading.
+      if($("vcSyncInfo") && !$("vcSyncInfo").textContent.trim())
+        $("vcSyncInfo").textContent="Schermata aperta. Lettura dei documenti Cantieri da Oracle…";
     },true);
     locks();
     // Expose the original Cantieri navigation control in the Oracle-only preview.
