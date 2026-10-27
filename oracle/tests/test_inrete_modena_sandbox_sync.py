@@ -39,6 +39,12 @@ class InreteModenaSandboxSyncTest(unittest.TestCase):
         self.assertIn("oracle/sync_cantieri_cycle.sh", SCRIPT)
         self.assertIn("oracle/sync_inrete_modena_to_ui_sandbox.sql", SCRIPT)
 
+    def test_five_minute_cycle_also_refreshes_gestionale_sandbox(self):
+        cycle = (ROOT / "sync_cantieri_cycle.sh").read_text(encoding="utf-8")
+        self.assertLess(cycle.index("sync_cantieri_current_to_stage.sh"), cycle.index("map_cantieri_stage_to_workspace.sh"))
+        self.assertLess(cycle.index("map_cantieri_stage_to_workspace.sh"), cycle.index("sync_inrete_modena_to_ui_sandbox.sql"))
+        self.assertIn("ON_ERROR_STOP=1", cycle)
+
 
 if __name__ == "__main__":
     unittest.main()
