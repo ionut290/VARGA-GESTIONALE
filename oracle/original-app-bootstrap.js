@@ -23,7 +23,7 @@
   }catch(_){/* IndexedDB is optional for this preview. */}
   window.VG_ORACLE_SANDBOX=true;
   window.cloudUser=null;window.cloudUserRole="";window.cloudStore=null;window.cloudFunctions=null;
-  window.cloudCfg={workspaceId:"gestionale_cantieri_sync_20261027"};
+  window.cloudCfg={workspaceId:"gestionale_varga_ui_sandbox_20261027"};
   window.queueCloudPush=()=>{};window.stopCloudRealtime=()=>{};window.startCloudRealtime=()=>{};
   window.cloudStatus=message=>{const node=document.getElementById("cloudStatus");if(node)node.textContent=String(message||"")};
   window.firebase={firestore:{FieldValue:{serverTimestamp:()=>new Date(),delete:()=>null}}};
