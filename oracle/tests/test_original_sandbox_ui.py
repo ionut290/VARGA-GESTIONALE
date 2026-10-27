@@ -33,14 +33,14 @@ class SandboxUiTests(unittest.TestCase):
 
     def test_accounting_sections_use_revision_safe_read_adapter(self):
         js=(P/"original-sandbox.js").read_text(encoding="utf-8")
-        self.assertIn('keys:["clients","jobs","quotes","consuntivi","invoices","priceLists","entries"]',js)
-        self.assertIn('const value=["clients","jobs","quotes","consuntivi","invoices","priceLists","entries"].includes(key)',js)
+        self.assertIn('keys:["clients","jobs","quotes","consuntivi","invoices","priceLists","entries","expenses","deadlines","documents","requests","vcCommesse","vcImpianti","vcOre","vcRecords","company"]',js)
+        self.assertIn('const value=["clients","jobs","quotes","consuntivi","invoices","priceLists","entries","expenses","deadlines","documents","requests","vcCommesse","vcImpianti","vcOre","vcRecords","company"].includes(key)',js)
         self.assertIn('await bridge.load(key)',js)
         self.assertIn('await saveDemoSection("invoices",record,"addInvoice","fatture")',js)
         self.assertIn('window.VGOracleAccountingDemo',js)
         self.assertIn('await saveDemoSection("priceLists",item,"addPriceList","prezzari")',js)
         self.assertIn('await saveDemoSection("entries",{...valid,id:"demo-entry-"+crypto.randomUUID(),priceListId},"addEntry","prezzari")',js)
-        self.assertIn('const requiredDemo=["clients","consuntivi","entries","invoices","jobs","priceLists","quotes"]',js)
+        self.assertIn('const requiredDemo=["clients","consuntivi","entries","invoices","jobs","priceLists","quotes","expenses","deadlines","documents","requests","vcCommesse","vcImpianti","vcOre","vcRecords","company"]',js)
         self.assertIn('missingDemo=requiredDemo.filter(',js)
         self.assertIn('response.workspace!==ROOT||missingDemo.length',js)
 
