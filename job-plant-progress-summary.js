@@ -53,12 +53,11 @@ function summaryFromPlants(plants){
   return{total:rows.length,done,todo:rows.length-done,workItems:0};
 }
 function jobSummary(job){
+  const physical=physicalRecords(job);
+  const linkedPlants=A(database().vcImpianti).filter(plant=>matchesJob(plant,job)&&!plant.vcArchived);
   const works=workRecords(job);
-  let count=works.length?summaryFromWork(works):null;
-  if(!count){
-    const physical=physicalRecords(job);
-    count=physical.length?summaryFromPlants(physical.map(record=>record.data||record)):summaryFromPlants(A(database().vcImpianti).filter(plant=>matchesJob(plant,job)&&!plant.vcArchived));
-  }
+  const count=physical.length?summaryFromPlants(physical.map(record=>record.data||record)):
+    linkedPlants.length?summaryFromPlants(linkedPlants):summaryFromWork(works);
   return{jobId:job.id,title:job.title||job.nome||'Commessa',code:job.code||job.codice||'',family:family(job),...count,progress:count.total?Math.round(count.done/count.total*100):0};
 }
 function summaries(){
