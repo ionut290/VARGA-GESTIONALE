@@ -2,6 +2,8 @@
 import argparse
 from getpass import getpass
 import json
+import hashlib
+import sys
 from pathlib import Path
 from argon2 import PasswordHasher
 from .main import db, WORKSPACE_PATTERN
@@ -18,6 +20,7 @@ def main():
     imp.add_argument("--file",required=True)
     imp.add_argument("--workspace",default="varga-azienda")
     imp.add_argument("--dry-run",action="store_true")
+    imp.add_argument("--confirm-sha256",default="",help="Required for non-interactive import from stdin")
     args=ap.parse_args()
     if not WORKSPACE_PATTERN.fullmatch(args.workspace):ap.error("Workspace non valido")
     if args.action=="create-user":
@@ -35,9 +38,15 @@ def main():
             con.commit()
         print("Account Oracle creato",email,"ruolo",args.role)
     else:
-        path=Path(args.file)
-        if not path.is_file():ap.error("File non trovato")
-        obj=json.loads(path.read_text(encoding="utf-8"))
+        if args.file=="-":
+            raw_input=sys.stdin.buffer.read(40_000_001)
+            if len(raw_input)>40_000_000:ap.error("Export oltre 40 MB; verificare dimensione e piano import")
+        else:
+            path=Path(args.file)
+            if not path.is_file():ap.error("File non trovato")
+            raw_input=path.read_bytes()
+        checksum=hashlib.sha256(raw_input).hexdigest()
+        obj=json.loads(raw_input.decode("utf-8"))
         if not isinstance(obj,dict):ap.error("Formato non valido")
         if isinstance(obj.get("data"),dict):payload=obj["data"]
         elif isinstance(obj.get("snapshotJson"),str):payload=json.loads(obj["snapshotJson"])
@@ -46,9 +55,14 @@ def main():
         if "workspace" in obj and obj["workspace"]!=args.workspace:ap.error("Workspace diverso dall'export")
         raw=json.dumps(payload,ensure_ascii=False,allow_nan=False)
         print("Dimensioni:",{k:len(v) for k,v in payload.items() if isinstance(v,list)},"bytes",len(raw.encode("utf-8")))
+        print("File SHA256:",checksum)
         if args.dry_run:
             print("SOLO VERIFICA: database non modificato");return
-        if input("Digita IMPORTA per procedere: ")!="IMPORTA":
+        if args.confirm_sha256:
+            if args.confirm_sha256.lower()!=checksum:ap.error("SHA256 non corrispondente: importazione rifiutata")
+        elif args.file=="-":
+            ap.error("L'importazione via stdin richiede --confirm-sha256")
+        elif input("Digita IMPORTA per procedere: ")!="IMPORTA":
             print("Annullato");return
         with db() as con:
             existing=con.execute("SELECT revision FROM vg.workspaces WHERE id=%s FOR UPDATE",(args.workspace,)).fetchone()
