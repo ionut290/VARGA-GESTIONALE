@@ -53,6 +53,8 @@ jobs:
           node --check section-bridge.js
           node tests/verify_original_sandbox_browser.cjs
           node tests/verify_section_bridge.cjs
+          node --check demo-draft-vault.js
+          node tests/verify_demo_draft_vault.cjs
           bash -n install_on_vm.sh
           bash -n preflight.sh
           bash -n diagnose_vm.sh
