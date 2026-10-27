@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex,nofollow">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'unsafe-inline'; connect-src 'self'; form-action 'none'; base-uri 'none'; object-src 'none'; frame-ancestors 'none'">
+  <title>Varga Gestionale · Oracle</title>
+  <style>
+    :root{font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#eff5fc;background:#0b1423;font-size:15px}
+    *{box-sizing:border-box}
+    body{margin:0}
+    button,input{font:inherit}
+    button{cursor:pointer}
+    button:disabled{opacity:.5;cursor:not-allowed}
+    .shell{min-height:100vh;display:flex}
+    aside{width:268px;flex:none;padding:26px 17px;background:#111f31;border-right:1px solid #23354b}
+    .brand{font-size:21px;font-weight:800;letter-spacing:.3px;padding:1px 12px}
+    .brand em{font-style:normal;color:#e3b66f}
+    .micro{font-size:11px;letter-spacing:1.7px;color:#9baec4;text-transform:uppercase;padding:8px 12px}
+    #nav{display:grid;gap:4px;margin-top:22px}
+    #nav button{text-align:left;border:none;background:transparent;padding:12px;border-radius:10px;color:#d5e2f1;display:flex;gap:10px;justify-content:space-between;align-items:center}
+    #nav button:hover,#nav button[aria-current="page"]{background:#243b56;color:white}
+    #nav button span:last-child{font-size:12px;color:#aac1d9}
+    main{flex:1;min-width:0;padding:30px clamp(18px,4vw,56px) 70px}
+    .head{display:flex;flex-wrap:wrap;justify-content:space-between;gap:12px;align-items:center;border-bottom:1px solid #253c53;padding-bottom:20px}
+    h1{font-size:29px;letter-spacing:-.7px;margin:7px 0}
+    h2{font-size:19px;letter-spacing:-.3px;margin:0 0 10px}
+    p{line-height:1.6}
+    .muted{color:#a2b6ce}
+    .pill{display:inline-block;border:1px solid #52677d;border-radius:999px;padding:6px 10px;font-size:12px;color:#bfd0e1}
+    .subtle{font-size:12px}
+    .notice{background:#182d44;border:1px solid #2e5170;border-radius:11px;padding:12px 16px;line-height:1.5;margin:20px 0}
+    .panel{background:#14263a;border:1px solid #2b4157;border-radius:15px;padding:22px;margin:20px 0;box-shadow:0 12px 30px #0002}
+    .form{display:grid;grid-template-columns:minmax(150px,1fr) minmax(150px,1fr) auto;align-items:end;gap:12px}
+    label{display:grid;gap:7px;font-size:13px;color:#b9c9d8}
+    input{background:#0c1c2e;color:white;border:1px solid #4b6078;padding:12px;border-radius:8px;width:100%;min-width:0}
+    input:focus,button:focus-visible{outline:2px solid #f2c783;outline-offset:2px}
+    .action{border:0;border-radius:9px;background:#e1b46e;color:#132135;font-weight:700;padding:12px 16px;min-height:43px}
+    .secondary{border:1px solid #546981;color:#e7f0fa;border-radius:9px;background:transparent;padding:10px 14px}
+    .head-right{display:flex;gap:9px;align-items:center;flex-wrap:wrap}
+    .cards{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:13px}
+    .stat{border:1px solid #2c4c67;background:#14293e;border-radius:12px;padding:18px}
+    .stat strong{display:block;font-size:25px;font-variant-numeric:tabular-nums;margin:5px 0 8px}
+    .stat small{color:#a9bdd3}
+    .section-title{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+    .toolbar{display:flex;flex-wrap:wrap;gap:9px;align-items:center;margin:14px 0}
+    .toolbar input{flex:1;max-width:350px}
+    .table-scroll{overflow-x:auto}
+    table{width:100%;border-collapse:collapse;text-align:left}
+    th{color:#9eb3c9;font-size:12px;text-transform:uppercase;letter-spacing:.7px}
+    th,td{padding:12px 13px;border-bottom:1px solid #2b3f55;vertical-align:top}
+    td{font-size:13px;max-width:330px;overflow-wrap:anywhere}
+    tr:hover td{background:#192e44}
+    .controls{display:flex;gap:10px;justify-content:flex-end;align-items:center;margin-top:15px}
+    .empty{padding:28px 0;color:#9bb0c6}
+    [hidden]{display:none!important}
+    #feedback{min-height:25px}
+    .foot{font-size:12px;color:#9cafc2;margin-top:25px}
+    @media(max-width:1000px){.cards{grid-template-columns:repeat(2,minmax(0,1fr))}}
+    @media(max-width:780px){.shell{display:block}aside{width:100%;padding:15px;border-right:0;border-bottom:1px solid #34485f}#nav{display:flex;overflow-x:auto;gap:4px;margin-top:5px}#nav button{white-space:nowrap}main{padding:20px 15px 44px}.form{grid-template-columns:1fr}.cards{grid-template-columns:repeat(2,minmax(0,1fr))}}
+  </style>
+</head>
+<body>
+<div class="shell">
+  <aside aria-label="Navigazione Oracle">
+    <div class="brand">VARGA <em>ORACLE</em></div>
+    <div class="micro">Gestionale · Ambiente di prova</div>
+    <nav id="nav" aria-label="Moduli"></nav>
+  </aside>
+  <main>
+    <div class="head">
+      <div><div class="micro" style="padding:0">Archivio PostgreSQL</div><h1>Gestionale Oracle</h1>
+        <span class="pill">Collaudo · 27 ottobre 2026 · Sola lettura</span></div>
+      <div class="head-right"><span id="session" class="muted subtle">Non autenticato</span><button id="logout" class="secondary" type="button" hidden>Esci</button></div>
+    </div>
+    <div class="notice">Questa pagina utilizza esclusivamente l'API Oracle. Non usa Firebase e non modifica dati. Il Gestionale attuale rimane invariato. Per consultare l'archivio occorre un account Oracle autorizzato.</div>
+    <section class="panel" id="login-panel">
+      <h2>Accedi al Gestionale Oracle</h2>
+      <form id="login-form" class="form">
+        <label>Email Oracle<input id="email" type="email" autocomplete="username" required maxlength="255"></label>
+        <label>Password Oracle<input id="password" type="password" autocomplete="current-password" required></label>
+        <button id="login-submit" class="action" type="submit">Accedi</button>
+      </form>
+      <p class="muted subtle">La sessione è conservata soltanto nella memoria della pagina. La password non viene salvata.</p>
+    </section>
+    <p id="feedback" role="status" aria-live="polite"></p>
+    <div id="workspace" hidden>
+      <div class="cards" id="stats"></div>
+      <section class="panel">
+        <div class="section-title"><div><h2 id="section-name">Panoramica</h2><div class="muted subtle" id="section-info">Seleziona un modulo.</div></div>
+          <button class="action" id="load" type="button" hidden>Carica record</button></div>
+        <div id="module-overview" class="empty">Scegli un modulo per visualizzare i dati importati su Oracle.</div>
+        <div id="records" hidden>
+          <div class="toolbar"><input id="search" type="search" placeholder="Cerca tra i record caricati…" aria-label="Cerca record"><button id="search-button" class="secondary" type="button">Cerca</button><button id="clear-button" class="secondary" type="button">Azzera</button></div>
+          <div id="table-area" class="table-scroll"></div>
+          <div class="controls"><button id="previous" class="secondary" type="button">Precedenti</button><span id="page-index" class="subtle muted"></span><button id="next" class="secondary" type="button">Successivi</button></div>
+        </div>
+      </section>
+      <p class="foot">Dati dal workspace di prova <code>gestionale_backup_20261027</code>. Eventuali modifiche successive al 27 ottobre non sono ancora sincronizzate qui. I dati storici in revisione sono esclusi dall'interfaccia.</p>
+    </div>
+  </main>
+</div>
+<script src="client.js"></script>
+<script src="console.js"></script>
+</body>
+</html>
