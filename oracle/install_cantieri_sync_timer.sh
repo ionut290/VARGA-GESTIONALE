@@ -6,8 +6,7 @@ repo_root="$(pwd)"
 if [ "$repo_root" != "/home/ubuntu/gestionale-oracle-stage" ]; then
   echo "STOP: percorso repository inatteso"; exit 2
 fi
-for file in oracle/sync_cantieri_cycle.sh oracle/sync_cantieri_current_to_stage.sh \\
-            oracle/map_cantieri_stage_to_workspace.sh oracle/map_cantieri_stage_to_workspace.sql; do
+for file in oracle/sync_cantieri_cycle.sh oracle/sync_cantieri_current_to_stage.sh oracle/map_cantieri_stage_to_workspace.sh oracle/map_cantieri_stage_to_workspace.sql; do
   [ -f "$file" ] || { echo "STOP: file richiesto assente: $file"; exit 2; }
 done
 service=/etc/systemd/system/varga-cantieri-sync.service
