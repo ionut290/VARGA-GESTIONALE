@@ -10,6 +10,8 @@ class CantieriWorkspaceMappingTest(unittest.TestCase):
         decoder=SQL.index("FUNCTION pg_temp.unwrap_firestore")
         source=SQL.index("pg_temp.unwrap_firestore(data) AS data")
         self.assertLess(decoder,source)
+        self.assertNotIn("jsonb_object_length",SQL)
+        self.assertIn("(value-'t'-'v')='{}'::jsonb",SQL)
         for tag in ("'map'", "'array'", "'null'", "'boolean'", "'number'", "'string'", "'timestamp'"):
             self.assertIn(tag,SQL[decoder:source])
 
