@@ -221,6 +221,10 @@
     document.querySelectorAll(".view").forEach(x=>x.classList.toggle("active-view",x.id===view));
     document.querySelectorAll(".nav[data-view]").forEach(x=>x.classList.toggle("active",x.dataset.view===view));
     const needed=routes[view]||[];
+    if(view==="cantieriSync"){
+      if($("vcSyncInfo"))$("vcSyncInfo").textContent="Sezione Varga Cantieri aperta · caricamento riepilogo Oracle…";
+      stat("vcLastSync","Caricamento…");
+    }
     if(!needed.length)return;
     status(view,"Caricamento dati dall'archivio PostgreSQL…");
     try{
@@ -253,6 +257,7 @@
       status(view,"Dati Oracle caricati. Consultazione di sola lettura.");
     }catch(err){
       if(epoch!==model.epoch)return;
+      if(view==="cantieriSync" && $("vcSyncInfo"))$("vcSyncInfo").textContent="Impossibile caricare i dati: "+err.message;
       status(view,"Dati non disponibili: "+err.message);
     }
   }
@@ -269,7 +274,7 @@
       model.user=user;model.sections=response.sections;
       model.cache.clear();
       authView(true);explain("");
-      open("dashboard");
+      open(location.hash==="#cantieriSync"?"cantieriSync":"dashboard");
     }catch(err){
       try{await api.logout();}catch(_){}
       authView(false);
@@ -341,6 +346,10 @@
         "Disponibile solo nel Gestionale attuale. Anteprima Oracle in sola lettura.",true));
     }
     if($("loginRemember"))$("loginRemember").checked=false;
+    // Diagnostic navigation direct link after authentication only, without bypassing authorization.
+    window.addEventListener("hashchange",()=>{
+      if(location.hash==="#cantieriSync" && model.user)open("cantieriSync");
+    });
     authView(false);
     explain("Anteprima Oracle: stessa grafica, accesso separato e dati in sola lettura.");
     api.health().catch(()=>explain("API Oracle non raggiungibile.",true));
