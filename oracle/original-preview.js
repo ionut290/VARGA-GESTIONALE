@@ -240,17 +240,19 @@
           const rows=summary.collections||[];
           const count=name=>rows.filter(x=>x.name===name).reduce((n,x)=>n+Number(x.count||0),0);
           const total=rows.reduce((n,x)=>n+Number(x.count||0),0);
-          stat("vcPending",total);
-          stat("vcLastSync","Fotografie Oracle: 26/10/2026");
+          const current=rows.filter(x=>x.snapshot==="current_sync").reduce((n,x)=>n+Number(x.count||0),0);
+          const historical=Math.max(0,total-current);
+          stat("vcPending",current);
+          stat("vcLastSync",current?"Sorgente Oracle sincronizzata":"Sincronizzazione non ancora eseguita");
           if($("vcSyncInfo"))$("vcSyncInfo").textContent=
-            "Oracle: "+total.toLocaleString("it-IT")+" documenti operativi in staging; "+
+            "Oracle: "+current.toLocaleString("it-IT")+" documenti dalla sorgente corrente; "+
             count("commesse").toLocaleString("it-IT")+" commesse, "+
             count("impianti").toLocaleString("it-IT")+" impianti, "+
             count("oreReports").toLocaleString("it-IT")+" rapporti ore. "+
-            "Da verificare prima dell'integrazione; aggiornamento automatico non attivo.";
+            historical.toLocaleString("it-IT")+" documenti storici conservati per revisione.";
           fillList("vcRowsList",rows.map(x=>({
             name:x.name,snapshot:x.snapshot,count:x.count
-          })),x=>[x.name,"Fotografia Oracle "+x.snapshot,x.count+" documenti"],100);
+          })),x=>[x.name,x.snapshot==="current_sync"?"Sorgente corrente":"Archivio storico "+x.snapshot,x.count+" documenti"],100);
         }catch(error){
           if($("vcSyncInfo"))$("vcSyncInfo").textContent=
             "Archivio staging non disponibile: "+error.message;
