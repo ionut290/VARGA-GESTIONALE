@@ -222,13 +222,17 @@
   }
   function detailMatch(row,job){
     if(!row||!job)return false;
-    if(row.jobId===job.id||row.commessaId===job.id)return true;
-    const path=String(job.vcSourceId||job.sourcePath||"");
-    if(path&&String(row.sourcePath||row.vcSourceId||"").startsWith(path+"/"))return true;
-    return textMatchesJob([row.commessa,row.commessaNome,row.nomeCommessa,row.codiceCommessa,
-      row.jobName,row.jobCode,row.code,row.title,row.name].join(" "),job);
+    const nested=row.data&&typeof row.data==="object"?row.data:{};
+    const value={...nested,...row};
+    if([value.jobId,value.commessaId,value.job_id,value.commessa_id].some(id=>String(id||"")===String(job.id)))return true;
+    const path=String(job.vcSourceId||job.sourcePath||job.sourceId||"").replace(/\/$/,"");
+    const rowPath=String(value.sourcePath||value.vcSourceId||value.path||"");
+    if(path&&rowPath&&(rowPath===path||rowPath.startsWith(path+"/")))return true;
+    if(path&&String(value.commessaPath||value.jobPath||"")===path)return true;
+    return textMatchesJob([value.commessa,value.commessaNome,value.nomeCommessa,value.codiceCommessa,
+      value.jobName,value.jobCode,value.code,value.title,value.name,value.idSap,value.ID_SAP].join(" "),job);
   }
-  function detailRows(key,job){return list(model.cache.get(key)).filter(row=>detailMatch(row?.data&&typeof row.data==="object"?{...row.data,...row}:row,job));}
+  function detailRows(key,job){return list(model.cache.get(key)).filter(row=>detailMatch(row,job));}
   function detailCard(label,value,sub=""){return `<article class="vg-round-card"><span>${esc(label)}</span><strong>${esc(value)}</strong>${sub?`<small>${esc(sub)}</small>`:""}</article>`;}
   function detailStat(label,value){return `<div class="vg-stat"><span>${esc(label)}</span><strong>${esc(value)}</strong></div>`;}
   function detailList(rows,mapper,emptyText){
@@ -241,17 +245,19 @@
     const documents=[...detailRows("documents",job),...detailRows("cadrianoDocuments",job)];
     const invoices=detailRows("invoices",job),expenses=detailRows("expenses",job),reports=detailRows("rapportini",job);
     const plants=detailRows("vcImpianti",job),rows=detailRows("cantieriRows",job);
-    const allHours=list(data.vcOre),jobHours=allHours.filter(row=>detailMatch(row?.data&&typeof row.data==="object"?{...row.data,...row}:row,job));
-    const hourValue=row=>parsedNumber(row.ore??row.hours??row.numeroOre??row.totaleOre??row.oreLavorate);
-    const workedHours=jobHours.reduce((sum,row)=>sum+hourValue(row.data&&typeof row.data==="object"?{...row.data,...row}:row),0);
+    const allHours=list(data.vcOre),jobHours=allHours.filter(row=>detailMatch(row,job));
+    const hourValue=row=>{const d=row?.data&&typeof row.data==="object"?{...row.data,...row}:row||{};return parsedNumber(d.ore??d.hours??d.numeroOre??d.totaleOre??d.oreLavorate??d.quantitaOre??d.durata)};
+    const workedHours=jobHours.reduce((sum,row)=>sum+hourValue(row),0);
     const entries=detailRows("economicEntries",job),rate=parsedNumber(job.hourlyRevenueRate)||35;
     const pending=entries.filter(x=>normText(x.status).includes("confermare")||normText(x.status).includes("pending")).reduce((n,x)=>n+parsedNumber(x.amount),0);
     const confirmed=entries.filter(x=>normText(x.status).includes("confermata")||normText(x.status).includes("confirmed")).reduce((n,x)=>n+parsedNumber(x.amount),0);
     const totalExpenses=expenses.reduce((n,x)=>n+parsedNumber(x.amount),0),accrued=workedHours*rate,actual=confirmed-totalExpenses,estimated=accrued-totalExpenses;
-    const jobPath=String(job.vcSourceId||job.sourcePath||"").replace(/\/$/,"");
-    const workRecords=list(data.vcRecords).filter(row=>!row.vcArchived&&row.deleted!==true&&row.operation!=="delete"&&jobPath&&String(row.sourcePath||"").startsWith(jobPath+"/lavorazioni/"));
+    const jobPath=String(job.vcSourceId||job.sourcePath||job.sourceId||"").replace(/\/$/,"");
+    const workRecords=list(data.vcRecords).filter(row=>{const d=row?.data&&typeof row.data==="object"?{...row.data,...row}:row||{};return !d.vcArchived&&d.deleted!==true&&d.operation!=="delete"&&jobPath&&String(d.sourcePath||d.path||"").startsWith(jobPath+"/lavorazioni/")});
     const completed=workRecords.filter(row=>normText((row.data||row).stato||(row.data||row).status)==="fatto").length;
-    const workTotal=workRecords.length,plantActivity=Math.max(plants.length,rows.length,workTotal);
+    const accountingRecords=[...detailRows("consuntivi",job),...detailRows("depurazioneConsuntivi",job),...detailRows("discaricheConsuntivi",job),...detailRows("wteModenaConsuntivi",job)];
+    const accountingCount=new Set(accountingRecords.map(row=>String(row.id||row.sourcePath||row.documentId||JSON.stringify(row)))).size;
+    const workTotal=workRecords.length,plantActivity=Math.max(plants.length,rows.length,workTotal,accountingCount);
     const openRequests=requests.filter(x=>!["Completata","Archiviata"].includes(x.status)).length;
     const openDeadlines=deadlines.filter(x=>!x.done).length;
     const money=eur;
@@ -266,7 +272,7 @@
     else if(tab==="deadlines")pane=`<section class="panel"><h2>Scadenze e attività</h2>${detailList(deadlines,x=>[x.title||"Attività",[x.date,x.type,x.status].filter(Boolean).join(" · "),x.done?"Completata":"Aperta"],"Nessuna scadenza collegata.")}</section>`;
     else if(tab==="quotes")pane=`<section class="panel"><h2>Preventivi</h2>${detailList(quotes,x=>[x.number||x.subject||"Preventivo",[x.clientName,x.date,x.status].filter(Boolean).join(" · "),money(x.total||0)],"Nessun preventivo collegato.")}</section>`;
     else if(tab==="documents")pane=`<section class="panel"><h2>Documenti</h2>${detailList(documents,x=>[x.name||x.nome||x.title||"Documento",[x.category||x.categoria,x.date,x.status].filter(Boolean).join(" · "),""],"Nessun documento collegato.")}</section>`;
-    else if(tab==="accounting")pane=`<section class="panel"><h2>Contabilità impianti</h2>${detailList(workRecords,x=>{const d=x.data||x;return[d.impianto||d.denominazione||d.nome||d.comune||"Lavorazione",[d.codicePrezzo||d.codiceVocePrezzo,d.data||d.dataEsecuzione,d.stato||d.status].filter(Boolean).join(" · "),money(d.totale||d.importo||0)];},"Nessuna riga contabile collegata.")}</section>`;
+    else if(tab==="accounting")pane=`<section class="panel"><h2>Contabilità impianti</h2>${detailList([...workRecords,...accountingRecords],x=>{const d=x.data||x;return[d.impianto||d.denominazione||d.denominazioneImpianto||d.nome||d.comune||"Lavorazione",[d.codicePrezzo||d.codiceVocePrezzo||d.ID_SAP,d.data||d.dataEsecuzione,d.stato||d.status].filter(Boolean).join(" · "),money(d.totale||d.importo||d.total||0)];},"Nessuna riga contabile collegata.")}</section>`;
     else if(tab==="sites")pane=`<section class="panel"><h2>Impianti e attività</h2>${detailList([...plants,...rows],x=>[x.nome||x.name||x.impianto||x.denominazione||x.title||"Impianto",[x.codice||x.code||x.idSap,x.comune,x.stato||x.status||x.statoGenerale].filter(Boolean).join(" · "),""] ,"Nessun impianto o attività collegato.")}</section>`;
     else if(tab==="reports")pane=`<section class="panel"><h2>Rapportini e ore lavorate</h2>${detailList([...reports,...jobHours],x=>[x.title||x.jobName||x.operatore||x.nomeOperatore||x.squadra||"Rapporto ore",[x.data||x.date||x.giorno,x.lavorazione||x.attivita||x.note].filter(Boolean).join(" · "),(hourValue(x.data&&typeof x.data==="object"?{...x.data,...x}:x)||0).toLocaleString("it-IT")+" h"],"Nessun rapportino o registro ore collegato.")}</section>`;
     else pane=`<section class="panel"><h2>Cronologia</h2>${detailList([...requests,...deadlines,...quotes,...documents,...reports].sort((a,b)=>String(b.updatedAt||b.date||b.createdAt||"").localeCompare(String(a.updatedAt||a.date||a.createdAt||""))),x=>[x.title||x.subject||x.name||x.number||"Evento",x.date||x.updatedAt||x.createdAt||x.status||"",""] ,"Nessun evento collegato.")}</section>`;
