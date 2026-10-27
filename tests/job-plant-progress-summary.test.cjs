@@ -66,3 +66,24 @@ test('distingue 28 impianti con 22 completi da 87 righe con 25 lavorazioni fatte
   const result=load({jobs:[job],vcRecords,vcImpianti:[]}).jobSummary(job);
   assert.deepEqual(JSON.parse(JSON.stringify({total:result.total,done:result.done,todo:result.todo,workItems:result.workItems})),{total:28,done:22,todo:6,workItems:87});
 });
+
+test('preferisce lo stato dei 28 impianti fisici alle 87 righe contabili',()=>{
+  const job={id:'mod',title:'INRETE MODENA',code:'28015',vcSourceId:'commesse/mod'};
+  const vcRecords=[];
+  for(let plant=1;plant<=28;plant++){
+    const status=plant<=22?'FATTO':'DA FARE';
+    vcRecords.push({id:`physical-${plant}`,sourcePath:`commesse/mod/impiantiFisici/physical-${plant}`,data:{idSap:`SAP-${plant}`,statoGenerale:status}});
+  }
+  let workLines=0;
+  for(let plant=1;plant<=28;plant++){
+    const count=plant<=22?1:plant===23?39:plant===24?6:5;
+    for(let line=1;line<=count;line++){
+      const isDone=plant<=22||(plant===23&&line<=3);
+      vcRecords.push({id:`work-${plant}-${line}`,sourcePath:`commesse/mod/lavorazioni/${plant}-${line}`,data:{idSap:`SAP-${plant}`,stato:isDone?'FATTO':'DA FARE'}});
+      workLines++;
+    }
+  }
+  assert.equal(workLines,87);
+  const result=load({jobs:[job],vcRecords,vcImpianti:[]}).jobSummary(job);
+  assert.deepEqual(JSON.parse(JSON.stringify({total:result.total,done:result.done,todo:result.todo})),{total:28,done:22,todo:6});
+});
