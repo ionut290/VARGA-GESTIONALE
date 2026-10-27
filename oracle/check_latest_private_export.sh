@@ -34,8 +34,14 @@ try:
   raise ValueError("Export senza orario verificabile")
  if b.get("workspace") not in (None,"varga-azienda"):
   raise ValueError("Workspace differente")
- oldtime=datetime.fromisoformat(str(a.get("createdAt") or a.get("exported_at")).replace("Z","+00:00"))
- if oldtime.tzinfo is None or date<=oldtime:
+ oldstamp=str(a.get("createdAt") or a.get("exported_at") or "")
+ if not oldstamp:raise ValueError("Data snapshot storico assente")
+ oldtime=datetime.fromisoformat(oldstamp.replace("Z","+00:00"))
+ if oldtime.tzinfo is None:
+  # A date-only baseline has no reliable time. Require a later calendar day.
+  if date.date()<=oldtime.date():
+   raise ValueError("Export non successivo al giorno dello snapshot")
+ elif date<=oldtime:
   raise ValueError("Export non più recente della copia importata")
  previous=a["data"];current=b["data"]
  changed=[k for k in set(previous)|set(current) if previous.get(k)!=current.get(k)]
