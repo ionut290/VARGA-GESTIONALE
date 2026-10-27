@@ -22,12 +22,15 @@ class CantieriWorkspaceMappingTest(unittest.TestCase):
         self.assertIn("'gestionale_cantieri_sync_20261027'",SQL)
 
     def test_merge_is_additive_and_does_not_touch_candidate_workspace(self):
-        self.assertIn("UNION ALL",SQL)
-        self.assertIn("WHERE NOT EXISTS",SQL)
-        self.assertNotIn("DELETE FROM vg.workspace_sections",SQL.upper())
-        self.assertNotIn("DELETE FROM vg.workspaces",SQL.upper())
-        self.assertNotIn("UPDATE vg.workspace_sections",SQL.upper().split("target_ws",1)[0])
-        self.assertNotIn("gestionale_candidate_20261027'",SQL[SQL.index("DO $apply$"):])
+        upper=SQL.upper()
+        apply=upper.split("DO $APPLY$",1)[1]
+        self.assertIn("UNION ALL",upper)
+        self.assertIn("WHERE NOT EXISTS",upper)
+        self.assertNotIn("DELETE FROM VG.WORKSPACE_SECTIONS",upper)
+        self.assertNotIn("DELETE FROM VG.WORKSPACES",upper)
+        self.assertIn("INSERT INTO VG.WORKSPACE_SECTIONS(WORKSPACE_ID,SECTION",apply)
+        self.assertIn("VALUES(TARGET_WS,ITEM.SECTION",apply)
+        self.assertNotIn("GESTIONALE_CANDIDATE_20261027",apply)
 
 if __name__=="__main__":
     unittest.main()
