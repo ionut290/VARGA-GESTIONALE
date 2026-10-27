@@ -224,7 +224,7 @@
       render(view,Object.fromEntries(result));
       if(view==="cantieriSync"){
         try{
-          const summary=await api.cantieriStageSummary(ROOT);
+          const summary=await api.request("workspaces/"+api.validWorkspace(ROOT)+"/cantieri-stage/summary");
           if(epoch!==model.epoch)return;
           const rows=summary.collections||[];
           const count=name=>rows.filter(x=>x.name===name).reduce((n,x)=>n+Number(x.count||0),0);
