@@ -29,9 +29,9 @@ $("login").onsubmit=async e=>{e.preventDefault();const password=$("password").va
 try{const user=await client.login($("email").value,password);$("password").value="";report("status","Accesso di prova: "+user.email+" / "+user.role);$("inspect").disabled=false;$("logout").disabled=false}
 catch(err){$("password").value="";report("status","Accesso non riuscito: "+err.message)}};
 $("inspect").onclick=async()=>{
-  try{const x=await client.read("varga-azienda");const counts={};
-    for(const [key,value] of Object.entries(x.data||{})){if(Array.isArray(value))counts[key]=value.length;else if(key==="company")counts[key]=value?"presente":"assente"}
-    report("summary",JSON.stringify({workspace:x.workspace,revision:x.revision,counts},null,2));
+  try{const x=await client.manifest("varga-azienda");const counts={};
+    for(const [key,value] of Object.entries(x.sections||{})){counts[key]={items:value.count,revision:value.revision}}
+    report("summary",JSON.stringify({workspace:x.workspace,sections:counts},null,2));
   }catch(e){report("summary","Impossibile leggere archivio: "+e.message)}
 };
 $("logout").onclick=async()=>{await client.logout();$("inspect").disabled=true;$("logout").disabled=true;report("status","Disconnesso");report("summary","")};
