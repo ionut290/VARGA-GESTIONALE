@@ -2,6 +2,7 @@
 import argparse
 from getpass import getpass
 import json
+import re
 import hashlib
 import sys
 from pathlib import Path
@@ -55,8 +56,7 @@ def main():
         # A source-export workspace is intentionally different from a dated staging
         # workspace. Never allow a source mismatch when importing into production.
         if "workspace" in obj and obj["workspace"]!=args.workspace:
-            if not (args.workspace.startswith("gestionale_backup_20") and
-                    len(args.workspace)==25 and args.workspace[19:].isdigit() and
+            if not (re.fullmatch(r"gestionale_backup_20[0-9]{6}",args.workspace) and
                     obj["workspace"]=="varga-azienda"):
                 ap.error("Workspace sorgente diverso: importazione rifiutata")
         raw=json.dumps(payload,ensure_ascii=False,allow_nan=False)
