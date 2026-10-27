@@ -25,7 +25,7 @@ PERSIST=Path("/home/ubuntu/gestionale-private/oracle-edge-static/oracle")
 WEB="varga-gestionale-oracle-varga-gestionale-web-1"
 WEB_ROOT="/usr/share/nginx/html"
 DOMAIN="https://gestionale.radio-romanii-italia.duckdns.org"
-ARTIFACTS=("original-preview.js","original-preview.html")
+ARTIFACTS=("original-preview.js","original-preview-ui.js","original-preview.html")
 
 def run(args,timeout=22):
     result=subprocess.run(args,check=False,capture_output=True,timeout=timeout)
@@ -52,6 +52,9 @@ def verify_sources():
     served=run(["docker","exec",WEB,"sha256sum",WEB_ROOT+"/style.css"]).split()[0]
     if served!=checksum(ROOT/"style.css"):
         raise ValueError("CSS pubblicato diverso dal CSS originale: NON pubblico un'anteprima con grafica differente")
+    served_scenes=run(["docker","exec",WEB,"sha256sum",WEB_ROOT+"/view-scenes.js"]).split()[0]
+    if served_scenes!=checksum(ROOT/"view-scenes.js"):
+        raise ValueError("Animazioni originali diverse: preview non pubblicata")
     api_url=DOMAIN+"/api/gestionale/v1/health"
     req=urllib.request.Request(api_url,headers={"Accept":"application/json"})
     with urllib.request.urlopen(req,timeout=10) as response:
@@ -118,7 +121,10 @@ def main():
     verify_sources()
     generated=prepare_html()
     script=(SRC/"original-preview.js").read_bytes()
-    for name,data in (("original-preview.js",script),("original-preview.html",generated)):
+    ui_script=(SRC/"original-preview-ui.js").read_bytes()
+    for name,data in (("original-preview.js",script),
+                      ("original-preview-ui.js",ui_script),
+                      ("original-preview.html",generated)):
         if not data or len(data)>150_000:
             raise ValueError("Asset originale oltre limite")
         dest=PERSIST/name
@@ -129,7 +135,9 @@ def main():
     url=DOMAIN+"/oracle/original-preview.html"
     with urllib.request.urlopen(urllib.request.Request(url,headers={"Cache-Control":"no-cache"}),timeout=12) as response:
         served=response.read(50_000).decode("utf-8","strict")
-        if (response.status!=200 or "src=\"/oracle/original-preview.js\"" not in served or
+        if (response.status!=200 or "src=\"/oracle/original-preview-ui.js\"" not in served or
+            "src=\"/oracle/original-preview.js\"" not in served or
+            "src=\"/view-scenes.js?" not in served or
             "href=\"style.css?" not in served):
             raise ValueError("Preview pubblica diversa dalla sorgente")
     print("SUCCESSO: GRAFICA ORIGINALE ONLINE IN ANTEPRIMA ORACLE.")
