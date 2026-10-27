@@ -12,7 +12,7 @@
     dashboard:["quotes","clients","jobs","invoices","deadlines","vcRecords"],
     richieste:["requests","dismissedRequestReceiptIds"],preventivo:["clients","priceLists","entries","company"],
     preventivi:["quotes"],clienti:["clients","priceLists"],
-    commesse:["jobs","clients"],cantieriSync:["vcCommesse","vcImpianti","vcOre","vcRecords","vcSquadre","vcUtenti","vcSegnalazioni","rapportini","cantieriRows","documents","cadrianoDocuments"],
+    commesse:["jobs","clients","requests","deadlines","documents","cadrianoDocuments","vcImpianti"],cantieriSync:["vcCommesse","vcImpianti","vcOre","vcRecords","vcSquadre","vcUtenti","vcSegnalazioni","rapportini","cantieriRows","documents","cadrianoDocuments"],
     consuntivi:["consuntivi","depurazioneConsuntivi","discaricheConsuntivi","wteModenaConsuntivi","economicEntries"],prezzari:["priceLists","entries","priceCatalog"],
     fatture:["invoices","clients"],spese:["expenses","jobs"],
     scadenze:["deadlines"],documenti:["documents","cadrianoDocuments","clients","jobs"],
@@ -22,7 +22,8 @@
   const OPTIONAL_SECTIONS=new Set(["dismissedRequestReceiptIds","entries","company",
     "vcSquadre","vcUtenti","vcSegnalazioni","rapportini","cantieriRows",
     "depurazioneConsuntivi","discaricheConsuntivi","wteModenaConsuntivi",
-    "economicEntries","priceCatalog","cadrianoDocuments"]);
+    "economicEntries","priceCatalog","cadrianoDocuments","requests",
+    "deadlines","documents","vcImpianti"]);
   const esc=value=>String(value===null||value===undefined?"":value)
     .replace(/[&<>"']/g,ch=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[ch]));
   const eur=n=>"€ "+Number(n||0).toLocaleString("it-IT",
@@ -88,7 +89,7 @@
     shell.addEventListener("click",event=>{
       const btn=event.target.closest("button,a,input[type=file],label.filebtn");
       if(!btn)return;
-      if(btn.matches(".nav[data-view], [data-go], [data-oracle-view], [data-oracle-dismiss-welcome], .vg-nav-label, #sidebarLogout, #openVargaCantieriDesktop"))return;
+      if(btn.matches(".nav[data-view], [data-go], [data-oracle-view], [data-oracle-dismiss-welcome], .vg-nav-label, #sidebarLogout, #openVargaCantieriDesktop, #vgOraclePlantSummaryButton"))return;
       event.preventDefault();event.stopImmediatePropagation();
       if(btn.matches("a"))return;
       const context=btn.closest(".view");
@@ -128,6 +129,96 @@
   function clientsName(id,clients){
     return clients.find(row=>row.id===id)?.name||"";
   }
+  const normText=value=>String(value||"").toLowerCase().normalize("NFD")
+    .replace(/[\u0300-\u036f]/g,"").replace(/[^a-z0-9]+/g," ").trim();
+  const packageSpecs=[
+    {id:"discariche",title:"DISCARICHE",description:"Ore, squadre, consuntivi e contabilita restano separati per ogni discarica.",match:t=>t.includes("discaric")&&!t.includes("cadriano")&&!t.includes("ozzano")&&!t.includes("strg")&&!t.includes("stradelli guelf")},
+    {id:"inrete",title:"INRETE",description:"INRETE Bologna, Modena e Ferrara, con codici e dati sempre separati.",match:t=>/\binrete\b/.test(t)&&/\b(bologna|modena|ferrara)\b/.test(t)},
+    {id:"varie",title:"VARIE",description:"Hera Ozzano, WTE, Vega Carburanti, STR G e Hera Cadriano.",match:t=>t.includes("ozzano")||t.includes("vega carburanti")||t.includes("cadriano")||t.includes("stradelli guelf")||/\bstr\s*g\b/.test(t)||t.includes("strg")||(/\bwte\b/.test(t)&&/\b(mo|modena)\b/.test(t))},
+    {id:"comune-bologna",title:"COMUNE BOLOGNA",description:"Potature Abbattimenti e Sfalcio COBO, mantenute come commesse distinte.",match:t=>t.includes("potature abbattimenti")||t.includes("pot abb")||t.includes("sfalcio cobo")||t.includes("cobo sfalcio")}
+  ];
+  function jobText(job){return normText([job?.title,job?.code,job?.site,job?.commessa,job?.nome].filter(Boolean).join(" "));}
+  function textMatchesJob(value,job){const text=normText(value),terms=[job?.code,job?.title].map(normText).filter(term=>term.length>=3);return !!text&&terms.some(term=>text===term||(term.length>=5&&text.includes(term)));}
+  function configureCommessePreview(){
+    const view=$("commesse");if(!view||$("vgJobGrid"))return;
+    const scene=view.querySelector(":scope > .vg-view-scene");
+    const head=document.createElement("div");head.className="topline vg-commesse-head";
+    const intro=document.createElement("div"),title=document.createElement("h1"),subtitle=document.createElement("p");
+    title.textContent="Commesse";subtitle.className="subtitle";subtitle.textContent="Cerca e apri una commessa oppure creane una nuova.";
+    intro.append(title,subtitle);head.append(intro);if(scene)head.append(scene);
+    const actions=document.createElement("div");actions.className="vg-commesse-actions";
+    const plants=document.createElement("button");plants.id="vgOraclePlantSummaryButton";plants.className="ghost";plants.type="button";plants.textContent="SITUAZIONE IMPIANTI";plants.addEventListener("click",showPlantSummary);
+    const create=document.createElement("button");create.className="primary";create.type="button";create.textContent="+ NUOVA COMMESSA";
+    actions.append(plants,create);head.append(actions);
+    const panel=document.createElement("section");panel.className="panel vg-commesse-panel";
+    const toolbar=document.createElement("div");toolbar.className="vg-job-list-toolbar";
+    const search=document.createElement("input");search.id="vgJobSearch";search.type="search";search.placeholder="Cerca commessa, codice, cliente, cantiere...";search.setAttribute("aria-label",search.placeholder);
+    toolbar.append(search);const grid=document.createElement("div");grid.id="vgJobGrid";grid.className="vg-job-grid";panel.append(toolbar,grid);
+    view.replaceChildren(head,panel);search.addEventListener("input",()=>renderCommesseRecords());
+  }
+  function renderCommesseRecords(){
+    const grid=$("vgJobGrid");if(!grid)return;
+    const jobs=list(model.cache.get("jobs")),clients=list(model.cache.get("clients"));
+    const q=normText($("vgJobSearch")?.value||"");
+    const matches=jobs.filter(job=>!q||normText([job.title,job.code,job.site,clientsName(job.clientId,clients)].join(" ")).includes(q));
+    const grouped=new Set(),cards=[];
+    for(const spec of packageSpecs){
+      const group=jobs.filter(job=>spec.match(jobText(job))&&!grouped.has(String(job.id)));
+      const visible=group.filter(job=>matches.includes(job));if(!visible.length)continue;
+      group.forEach(job=>grouped.add(String(job.id)));
+      const card=document.createElement("article");card.className="vg-job-card vg-package-card";card.tabIndex=0;
+      const code=document.createElement("div");code.className="vg-job-code";code.textContent="PACCHETTO COMMESSE";
+      const name=document.createElement("h3");name.textContent=spec.title;
+      const meta=document.createElement("div");meta.className="vg-job-meta";meta.textContent=group.length+" commesse raggruppate • codici e dati separati";
+      const bottom=document.createElement("div");bottom.className="vg-job-bottom";
+      const badge=document.createElement("span");badge.className="badge";badge.textContent="ATTIVE";
+      const open=document.createElement("span");open.className="vg-job-open";open.textContent="APRI PACCHETTO →";bottom.append(badge,open);
+      const description=document.createElement("div");description.className="vg-job-meta";description.style.marginTop="10px";description.textContent=spec.description;
+      card.append(code,name,meta,bottom,description);card.addEventListener("click",()=>showCommessePackage(spec,group,clients));
+      card.addEventListener("keydown",event=>{if(event.key==="Enter"||event.key===" "){event.preventDefault();showCommessePackage(spec,group,clients);}});cards.push(card);
+    }
+    for(const job of matches){
+      if(grouped.has(String(job.id)))continue;
+      const card=document.createElement("article");card.className="vg-job-card";card.tabIndex=0;
+      const code=document.createElement("div");code.className="vg-job-code";code.textContent=String(job.code||"Codice non assegnato");
+      const name=document.createElement("h3");name.textContent=String(job.title||"Commessa");
+      const client=clientsName(job.clientId,clients),site=String(job.site||"");
+      const meta=document.createElement("div");meta.className="vg-job-meta";meta.textContent=[client&&normText(client)!==normText(job.title)?client:"",site].filter(Boolean).join(" • ");
+      const bottom=document.createElement("div");bottom.className="vg-job-bottom";
+      const badge=document.createElement("span");badge.className="badge";badge.textContent=String(job.status||job.stato||"-");
+      const open=document.createElement("span");open.className="vg-job-open";open.textContent="APRI →";bottom.append(badge,open);
+      const requests=list(model.cache.get("requests")).filter(row=>row.jobId===job.id||(!row.jobId&&textMatchesJob([row.subject,row.bodyPreview].join(" "),job)));
+      const deadlines=list(model.cache.get("deadlines")).filter(row=>row.jobId===job.id||textMatchesJob([row.title,row.notes].join(" "),job));
+      const documents=[...list(model.cache.get("documents")),...list(model.cache.get("cadrianoDocuments"))].filter(row=>row.jobId===job.id);
+      const countline=document.createElement("div");countline.className="vg-job-meta";countline.style.marginTop="10px";
+      countline.textContent=requests.filter(row=>!["Completata","Archiviata"].includes(row.status)).length+" richieste • "+deadlines.filter(row=>!row.done).length+" scadenze • "+documents.length+" documenti"+(job.vcSyncStatus?" • "+job.vcSyncStatus:"");
+      card.append(code,name);if(meta.textContent)card.append(meta);card.append(bottom,countline);
+      card.addEventListener("click",()=>showReadonlyJob(job));card.addEventListener("keydown",event=>{if(event.key==="Enter"){event.preventDefault();showReadonlyJob(job);}});cards.push(card);
+    }
+    grid.replaceChildren();if(!cards.length){const empty=document.createElement("div");empty.className="vg-empty";empty.textContent="Nessuna commessa trovata.";grid.append(empty);}else grid.append(...cards);
+  }
+  function createReadonlyModal(id,className,innerClass,titleText,subtitleText){
+    let modal=$(id);if(!modal){modal=document.createElement("div");modal.id=id;modal.className=className;modal.hidden=true;const card=document.createElement("section");card.className=innerClass;const head=document.createElement("div");head.className="vg-package-modal-head";const text=document.createElement("div"),title=document.createElement("h2"),subtitle=document.createElement("p"),close=document.createElement("button");title.textContent=titleText;subtitle.textContent=subtitleText;close.className="vg-package-close";close.type="button";close.textContent="CHIUDI";close.addEventListener("click",()=>{modal.hidden=true;});text.append(title,subtitle);head.append(text,close);const content=document.createElement("div");content.className="vg-package-list";card.append(head,content);modal.append(card);modal.addEventListener("click",event=>{if(event.target===modal)modal.hidden=true;});document.body.append(modal);}return modal;
+  }
+  function showCommessePackage(spec,jobs,clients){
+    const modal=createReadonlyModal("vgOracleCommessePackage","vg-package-modal","vg-package-modal-card","Pacchetto "+spec.title,spec.description),content=modal.querySelector(".vg-package-list");content.replaceChildren();
+    const sorted=jobs.slice().sort((a,b)=>String(a.title||"").localeCompare(String(b.title||""),"it"));
+    if(!sorted.length){const empty=document.createElement("div");empty.className="vg-empty";empty.textContent="Nessuna commessa nel pacchetto.";content.append(empty);}
+    for(const job of sorted){const row=document.createElement("div");row.className="vg-package-row";const info=document.createElement("div"),code=document.createElement("div"),title=document.createElement("div"),meta=document.createElement("div");code.className="vg-package-row-code";code.textContent=String(job.code||"Codice non assegnato");title.className="vg-package-row-title";title.textContent=String(job.title||"Commessa");meta.className="vg-package-row-meta";meta.textContent=[job.site,job.status||job.stato||"Attiva"].filter(Boolean).join(" • ");info.append(code,title,meta);const open=document.createElement("button");open.className="vg-package-open";open.type="button";open.textContent="APRI";open.addEventListener("click",()=>{modal.hidden=true;showReadonlyJob(job);});row.append(info,open);content.append(row);}
+    modal.hidden=false;
+  }
+  function showReadonlyJob(job){
+    const modal=createReadonlyModal("vgOracleJobDetails","vg-package-modal","vg-package-modal-card","Commessa · "+String(job.title||""),"Scheda Oracle in consultazione di sola lettura."),content=modal.querySelector(".vg-package-list");content.replaceChildren();
+    const pre=document.createElement("pre");pre.className="vg-job-json";try{pre.textContent=JSON.stringify(job,null,2);}catch(_){pre.textContent=String(job);}content.append(pre);modal.hidden=false;
+  }
+  function showPlantSummary(){
+    const jobs=list(model.cache.get("jobs")).filter(job=>/depuraz|\binrete\b/.test(jobText(job))),plants=list(model.cache.get("vcImpianti"));
+    const rows=jobs.map(job=>{const linked=plants.filter(plant=>plant.jobId===job.id||plant.commessaId===job.id||normText([plant.commessa,plant.nomeCommessa,plant.codiceCommessa].join(" ")).includes(normText(job.code||job.title)));const done=linked.filter(plant=>plant.done===true||["fatto","completato","completa","terminato"].includes(normText(plant.statoGenerale||plant.stato||plant.status))).length;return{job,linked,done};});
+    const modal=createReadonlyModal("vgOraclePlantSummary","vg-plant-summary-modal","vg-plant-summary-card","Situazione impianti","Riepilogo Oracle · consultazione di sola lettura."),content=modal.querySelector(".vg-package-list");content.replaceChildren();
+    const total=rows.reduce((n,row)=>n+row.linked.length,0),done=rows.reduce((n,row)=>n+row.done,0),summary=document.createElement("p");summary.className="muted";summary.textContent="Impianti: "+total+" · Fatti: "+done+" · Da fare: "+(total-done);content.append(summary);
+    for(const row of rows){const item=document.createElement("div");item.className="vg-package-row";const name=document.createElement("strong"),meta=document.createElement("span");name.textContent=String(row.job.title||"Commessa");meta.textContent=row.done+" fatti · "+(row.linked.length-row.done)+" da fare · "+row.linked.length+" totali";item.append(name,meta);content.append(item);}
+    if(!rows.length){const empty=document.createElement("div");empty.className="vg-empty";empty.textContent="Nessuna commessa DEPURAZIONE o INRETE trovata.";content.append(empty);}modal.hidden=false;
+  }
   function render(view,data){
     const get=k=>list(data[k]);
     const combine=keys=>keys.flatMap(key=>get(key).map(row=>
@@ -150,11 +241,7 @@
         x.name,(x.vat||"")+" "+(x.city||"")+" "+(x.email||""),
         prices.find(p=>p.id===x.priceListId)?.name||""]);
     } else if(view==="commesse"){
-      const clients=get("clients");
-      fillList("jobsList",get("jobs"),x=>[
-        (x.code||"")+" "+(x.title||x.name||""),
-        clientsName(x.clientId,clients)+" · "+(x.site||"")+" · "+(x.status||""),
-        eur(x.value)]);
+      renderCommesseRecords();
     } else if(view==="preventivi"){
       fillList("quotesList",get("quotes"),x=>[
         (x.number||"")+" — "+(x.subject||"Preventivo"),
@@ -408,6 +495,7 @@
     },true);
     locks();
     configureCantieriOraclePanel();
+    configureCommessePreview();
     // Expose the original Cantieri navigation control in the Oracle-only preview.
     const cantieriButton=$("openVargaCantieriDesktop");
     if(cantieriButton){
