@@ -23,6 +23,14 @@ class SandboxUiTests(unittest.TestCase):
         self.assertNotIn("firebasejs",result)
         self.assertNotIn('src="app.js',result)
 
+    def test_consuntivi_demo_filter_and_export(self):
+        js=(P/"original-sandbox.js").read_text(encoding="utf-8")
+        self.assertIn('function exportDemoConsuntivi()',js)
+        self.assertIn('addEventListener("click",exportDemoConsuntivi)',js)
+        self.assertIn('addEventListener("change",refreshDemoConsuntivi)',js)
+        self.assertIn('addEventListener("input",refreshDemoConsuntivi)',js)
+        self.assertIn('ROOT!=="gestionale_sandbox_20261027"',js)
+
     def test_accounting_sections_use_revision_safe_read_adapter(self):
         js=(P/"original-sandbox.js").read_text(encoding="utf-8")
         self.assertIn('keys:["clients","jobs","quotes","consuntivi","invoices","priceLists","entries"]',js)
@@ -48,7 +56,7 @@ class SandboxUiTests(unittest.TestCase):
         self.assertIn('id="addClient"',(ROOT/"index.html").read_text(encoding="utf-8"))
         self.assertIn('"cName","jTitle","jClient"',js)
         self.assertIn('#recoverDemoDrafts',js)
-        self.assertIn('#saveQuote, #qRows button, #addInvoice, #addPriceList, #addEntry, #recoverDemoDrafts")',js)
+        self.assertIn('#saveQuote, #qRows button, #addInvoice, #addPriceList, #addEntry, #exportConsCsv, #recoverDemoDrafts")',js)
         self.assertIn('if(name.length>90||!/^DEMO[ \\-]/i.test(name))',js)
         self.assertIn("before.length>=50",js)
         self.assertIn('if(ROOT!=="gestionale_sandbox_20261027"||!model.user||!["clients","jobs","quotes","invoices","priceLists","entries"].includes(key))',js)
