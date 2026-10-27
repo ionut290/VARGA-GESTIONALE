@@ -27,7 +27,10 @@
   window.queueCloudPush=()=>{};window.stopCloudRealtime=()=>{};window.startCloudRealtime=()=>{};
   window.cloudStatus=message=>{const node=document.getElementById("cloudStatus");if(node)node.textContent=String(message||"")};
   window.firebase={firestore:{FieldValue:{serverTimestamp:()=>new Date(),delete:()=>null}}};
-  const assetPrefix=new URL(".",document.currentScript.src).pathname;
+  const bootstrapPath=new URL(document.currentScript.src).pathname;
+  const assetPrefix=bootstrapPath.replace(/original-app-bootstrap\.js$/,"" );
+  if(assetPrefix===bootstrapPath)throw Error("Percorso bundle Oracle non valido");
+  const assetPath=src=>assetPrefix+src.replaceAll("/","__");
   const skip=new Set(["app-sync.js","shared-auth-policy.js","cloud-users.js",
     "password-recovery-code.js","app-cloud.js","job-management-sync.js",
     "cloud-incremental-sync.js","job-plant-management.js","squadre-management-sync.js",
@@ -52,11 +55,11 @@
     "stradelli-guelfi-consuntivi.js","job-workspace.js","job-plant-progress-summary.js",
     "job-plant-progress-excel-style.js","commesse-packages.js","view-scenes.js",
     "ui-overhaul.js","dashboard-company-economics.js","desktop-varga-navigation.js"];
-  document.write('<script src="'+assetPrefix+'vendor/exceljs.min.js?v=oracle-sandbox-20261027"></scr'+'ipt>');
+  document.write('<script src="'+assetPath("vendor/exceljs.min.js")+'?v=oracle-sandbox-20261027"></scr'+'ipt>');
   for(const src of modules){
     if(skip.has(src))continue;
     if(!/^[A-Za-z0-9_./-]+\.js$/.test(src)||src.includes(".."))throw Error("Modulo non valido");
-    document.write('<script src="'+assetPrefix+src+'?v=oracle-sandbox-20261027"></scr'+'ipt>');
+    document.write('<script src="'+assetPath(src)+'?v=oracle-sandbox-20261027"></scr'+'ipt>');
   }
-  document.write('<script src="'+assetPrefix+'original-app-adapter.js?v=oracle-sandbox-20261027"></scr'+'ipt>');
+  document.write('<script src="'+assetPath("original-app-adapter.js")+'?v=oracle-sandbox-20261027"></scr'+'ipt>');
 })();
