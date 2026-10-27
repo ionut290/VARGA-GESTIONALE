@@ -53,6 +53,7 @@ jobs:
           bash -n verify_deployment.sh
           bash -n stage_backup.sh
           bash -n compare_staging.sh
+          bash -n repair_web_export.sh
           python -m py_compile verify_backup.py
           python -m py_compile compare_backups.py
           python -m py_compile compare_backup_fields.py
