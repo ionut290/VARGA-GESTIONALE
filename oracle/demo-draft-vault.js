@@ -47,5 +47,45 @@
     }
     async clear(key){await this.store.delete(scope(this.userId,key));}
   }
-  return Object.freeze({DemoDraftVault,WORKSPACE});
+  // Browser adapter: isolated IndexedDB, never reads Firebase or app storage.
+  // IndexedDB may be unavailable (private mode/disabled): fail closed.
+  function openBrowserStore(indexedDB){
+    if(!indexedDB||typeof indexedDB.open!=="function")
+      throw Error("IndexedDB non disponibile");
+    const dbName="varga-oracle-demo-drafts-v1";
+    const table="drafts";
+    const open=()=>new Promise((resolve,reject)=>{
+      const req=indexedDB.open(dbName,1);
+      req.onupgradeneeded=()=>{
+        const db=req.result;
+        if(!db.objectStoreNames.contains(table))db.createObjectStore(table);
+      };
+      req.onsuccess=()=>resolve(req.result);
+      req.onerror=()=>reject(req.error||Error("Apertura IndexedDB fallita"));
+      req.onblocked=()=>reject(Error("Archivio IndexedDB bloccato"));
+    });
+    async function action(method,key,value){
+      const db=await open();
+      try{
+        return await new Promise((resolve,reject)=>{
+          const tx=db.transaction(table,method==="get"?"readonly":"readwrite");
+          const store=tx.objectStore(table);
+          const req=method==="get"?store.get(key):
+            method==="put"?store.put(value,key):store.delete(key);
+          let result;
+          req.onsuccess=()=>{result=req.result};
+          req.onerror=()=>reject(req.error||Error("Operazione IndexedDB fallita"));
+          tx.oncomplete=()=>resolve(result);
+          tx.onerror=()=>reject(tx.error||Error("Transazione IndexedDB fallita"));
+          tx.onabort=()=>reject(tx.error||Error("Transazione IndexedDB annullata"));
+        });
+      }finally{db.close();}
+    }
+    return Object.freeze({
+      get:key=>action("get",key),
+      put:(key,value)=>action("put",key,value),
+      delete:key=>action("delete",key)
+    });
+  }
+  return Object.freeze({DemoDraftVault,WORKSPACE,openBrowserStore});
 });
