@@ -21,7 +21,7 @@ spec.loader.exec_module(pub)
 NAME="original-sandbox"
 
 def main():
-    print("=== CLIENTI ORACLE DEMO CON LA GRAFICA ORIGINALE ===")
+    print("=== CLIENTI, COMMESSE E PREVENTIVI ORACLE DEMO, GRAFICA ORIGINALE ===")
     pub.verify_sources()  # Ensure original CSS is identical on the public web container.
     js=(SRC/(NAME+".js")).read_bytes()
     html=pub.load_builder().transform((ROOT/"index.html").read_text(encoding="utf-8"),sandbox=True).encode("utf-8")
@@ -46,7 +46,19 @@ def main():
         served=response.read(50_000)
         if response.status!=200 or b'src="/oracle/original-sandbox.js"' not in served:
             raise ValueError("Pagina sandbox non disponibile o errata")
-    print("SUCCESSO: LABORATORIO CLIENTI ORACLE PUBBLICATO.")
+    # Verify the *new JavaScript* via HTTPS, not just the unchanged HTML loader.
+    # A unique checksum query avoids a cached previous version; it cannot
+    # change the document or expose business data.
+    script_url=pub.DOMAIN+"/oracle/"+NAME+".js?v="+hashlib.sha256(js).hexdigest()[:16]
+    script_req=urllib.request.Request(script_url,headers={"Cache-Control":"no-cache"})
+    with urllib.request.urlopen(script_req,timeout=12) as response:
+        script_bytes=response.read(150_001)
+        if response.status!=200 or len(script_bytes)>150_000:
+            raise ValueError("JavaScript sandbox HTTPS non valido")
+    if hashlib.sha256(script_bytes).hexdigest()!=hashlib.sha256(js).hexdigest():
+        raise ValueError("JavaScript pubblico non corrisponde alla nuova versione: controllare cache/proxy")
+    print("HTML e JavaScript pubblici verificati via HTTPS, versione SHA256 corretta.")
+    print("SUCCESSO: LABORATORIO CLIENTI, COMMESSE E PREVENTIVI ORACLE PUBBLICATO.")
     print("URL: "+url)
     print("Scritture abilitate SOLO nel workspace gestionale_sandbox_20261027, con dati fittizi.")
     print("Originale e backup aziendale invariati. Nessun container o servizio radio riavviato.")
