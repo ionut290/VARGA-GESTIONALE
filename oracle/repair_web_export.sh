@@ -5,7 +5,7 @@
 set -euo pipefail
 cd "$(dirname "$0")"
 container="varga-gestionale-oracle-varga-gestionale-web-1"
-asset="oracle/browser-export.js"
+asset="browser-export.js"
 site="https://gestionale.radio-romanii-italia.duckdns.org"
 echo "=== VARGA GESTIONALE / RIPRISTINO SOLO EXPORT ==="
 if [[ ! -s "$asset" ]]; then
