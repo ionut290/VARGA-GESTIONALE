@@ -1,6 +1,6 @@
 "use strict";
-/* Pilot client only: not loaded by Varga Gestionale production bootstrap.
-   Session token is memory-only. No credentials are written to localStorage. */
+/* Oracle client. API sessions use an HttpOnly, Secure cookie; no token is
+   exposed to browser JavaScript or saved in localStorage. */
 (function(global){
   const DEFAULT_API = "https://gestionale.radio-romanii-italia.duckdns.org/api/gestionale/v1/";
   class OraclePilot {
@@ -9,39 +9,36 @@
       if(parsed.protocol!=="https:" && parsed.hostname!=="localhost" && parsed.hostname!=="127.0.0.1")
         throw Error("L'API Oracle richiede HTTPS.");
       this.base=parsed.href.replace(/\/?$/,"/");
-      this.token=null;
       this.revisions=new Map();
     }
     async request(path, options={}){
       const controller=new AbortController();
       const timeout=setTimeout(()=>controller.abort(),15000);
-      const headers={"Accept":"application/json",...(options.body?{"Content-Type":"application/json"}:{})};
-      if(this.token) headers.Authorization="Bearer "+this.token;
+      const headers={"Accept":"application/json",...(options.body?{"Content-Type":"application/json"}:{}),...(options.headers||{})};
       try{
         const res=await fetch(new URL(path,this.base),{...options,headers,signal:controller.signal,
-            credentials:"omit",cache:"no-store",redirect:"error"});
+            credentials:"same-origin",cache:"no-store",redirect:"error"});
         const kind=(res.headers.get("content-type")||"").toLowerCase();
         if(!kind.includes("application/json")) throw Error("Risposta inattesa: Oracle API non configurata o pagina HTML al posto del servizio.");
         const body=await res.json();
         if(!res.ok){
           const error=new Error(typeof body.detail==="string"?body.detail:JSON.stringify(body.detail||body));
           error.status=res.status;
-          if(res.status===401){this.token=null;this.revisions.clear()}
+          if(res.status===401)this.revisions.clear();
           throw error;
         }
         return body;
       }finally{clearTimeout(timeout)}
     }
     health(){return this.request("health")}
-    async login(email,password){
-      const data=await this.request("auth/login",{method:"POST",body:JSON.stringify({email,password})});
-      this.token=data.access_token;
+    async login(email,password,remember=true){
+      const data=await this.request("auth/login",{method:"POST",headers:{"X-VG-Session-Mode":"cookie"},body:JSON.stringify({email,password,remember:!!remember})});
       return data.user;
     }
     me(){return this.request("auth/me")}
     async logout(){
-      try{if(this.token)await this.request("auth/logout",{method:"POST"})}
-      finally{this.token=null;this.revisions.clear()}
+      try{await this.request("auth/logout",{method:"POST"})}
+      finally{this.revisions.clear()}
     }
     validWorkspace(name){
       if(!/^[A-Za-z0-9_-]{1,64}$/.test(name))throw Error("Nome workspace non valido");
