@@ -1,18 +1,20 @@
 "use strict";
 /* Oracle data adapter for the original Varga UI. Firebase is not initialized here. */
 (function(){
-  const ROOT="gestionale_cantieri_sync_20261027";
+  const ROOT="gestionale_varga_ui_sandbox_20261027";
   const api=new window.VGOraclePilot();
   const $=id=>document.getElementById(id);
   const keys=["priceLists","entries","clients","quotes","jobs","invoices","expenses",
-    "economicEntries","deadlines","documents","cantieriRows","consuntivi",
+    "economicEntries","deadlines","documents","requests","dismissedRequestReceiptIds",
+    "cantieriRows","consuntivi","meta",
     "depurazioneConsuntivi","discaricheConsuntivi","wteModenaConsuntivi",
     "cadrianoDocuments","vcCommesse","vcImpianti","vcSquadre","vcOre",
     "vcSegnalazioni","vcUtenti","vcRecords","company"];
   const revisions=new Map(),baseline=new Map();
   let busy=false,timer=0;
   const defaults={priceLists:[],entries:[],clients:[],quotes:[],jobs:[],invoices:[],expenses:[],
-    economicEntries:[],deadlines:[],documents:[],cantieriRows:[],consuntivi:[],
+    economicEntries:[],deadlines:[],documents:[],requests:[],dismissedRequestReceiptIds:[],
+    cantieriRows:[],consuntivi:[],meta:{},
     depurazioneConsuntivi:[],discaricheConsuntivi:[],wteModenaConsuntivi:[],
     cadrianoDocuments:[],vcCommesse:[],vcImpianti:[],vcSquadre:[],vcOre:[],
     vcSegnalazioni:[],vcUtenti:[],vcRecords:[],company:{}};
@@ -54,7 +56,7 @@
     }
     if(typeof window.companyToForm==="function")window.companyToForm();
     if(typeof window.refresh==="function")window.refresh();
-    if(typeof window.refreshVcCounts==="function")window.refreshVcCounts();
+      if(typeof window.refreshVcCounts==="function")window.refreshVcCounts();
     if($("cloudInfo"))$("cloudInfo").textContent="Dati caricati dal workspace Oracle di prova. Firebase del Gestionale originale resta separato.";
   }
   async function pushChanged(){
