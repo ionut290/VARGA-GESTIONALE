@@ -131,7 +131,7 @@
     shell.addEventListener("click",event=>{
       const btn=event.target.closest("button,a,input[type=file],label.filebtn");
       if(!btn)return;
-      if(btn.matches(".nav[data-view], [data-go], #sidebarLogout, #addClient, #addJob, #addManual, #newQuote, #saveQuote, #qRows button, #addInvoice, #recoverDemoDrafts"))return;
+      if(btn.matches(".nav[data-view], [data-go], #sidebarLogout, #addClient, #addJob, #addManual, #newQuote, #saveQuote, #qRows button, #addInvoice, #addPriceList, #addEntry, #recoverDemoDrafts"))return;
       event.preventDefault();event.stopImmediatePropagation();
       if(btn.matches("a"))return;
       const context=btn.closest(".view");
@@ -147,7 +147,7 @@
     },true);
     for(const input of shell.querySelectorAll("input,select,textarea")){
       // Every input in preview is display-only; prevents browser-local changes.
-      if(input.type!=="hidden" && !["cName","jTitle","jClient","jCode","jSite","jStart","jEnd","jStatus","jValue","jNotes","qClient","qSubject","qSite","qValidity","qPayment","qDiscount","qVat","fNumber","fClient","fDate","fDue","fAmount","fStatus","fNotes"].includes(input.id))input.disabled=true;
+      if(input.type!=="hidden" && !["cName","jTitle","jClient","jCode","jSite","jStart","jEnd","jStatus","jValue","jNotes","qClient","qSubject","qSite","qValidity","qPayment","qDiscount","qVat","fNumber","fClient","fDate","fDue","fAmount","fStatus","fNotes","plName","ePL","eCode","eDesc","eUnit","ePrice"].includes(input.id))input.disabled=true;
     }
   }
   function status(view,msg){
@@ -272,6 +272,7 @@
       const dataset=Object.fromEntries(result);
       if(view==="commesse"||view==="preventivo")fillDemoClientOptions(dataset.clients||[],view==="commesse"?"jClient":"qClient");
       if(view==="fatture")fillDemoClientOptions(dataset.clients||[],"fClient");
+      if(view==="prezzari")fillDemoPriceListOptions(dataset.priceLists||[]);
       render(view,dataset);
       status(view,"Dati Oracle caricati. Consultazione di sola lettura.");
     }catch(err){
@@ -299,7 +300,7 @@
     return name;
   }
   async function saveDemoSection(key,newRecord,buttonId,view){
-    if(ROOT!=="gestionale_sandbox_20261027"||!model.user||!["clients","jobs","quotes","invoices"].includes(key))
+    if(ROOT!=="gestionale_sandbox_20261027"||!model.user||!["clients","jobs","quotes","invoices","priceLists","entries"].includes(key))
       throw Error("Salvataggio permesso soltanto nel laboratorio di prova.");
     const button=$(buttonId);
     if(!button||button.disabled)throw Error("Salvataggio già in corso.");
@@ -445,6 +446,44 @@
         alert("Documento DEMO salvato su Oracle. Non è una fattura fiscale.");}
     }catch(err){alert("Documento DEMO non salvato: "+err.message);}
   }
+  async function addDemoPriceList(){
+    if(ROOT!=="gestionale_sandbox_20261027"||!model.user)return;
+    try{
+      const name=demoName($("plName").value);
+      if(list(await section("priceLists")).some(x=>x.name?.toLowerCase()===name.toLowerCase()))
+        throw Error("Prezzario DEMO già presente.");
+      const item={id:"demo-pl-"+crypto.randomUUID(),name};
+      const ok=await saveDemoSection("priceLists",item,"addPriceList","prezzari");
+      if(ok){$("plName").value="";alert("Prezzario DEMO salvato su Oracle.");}
+    }catch(err){alert("Prezzario DEMO non salvato: "+err.message);}
+  }
+  async function addDemoPriceEntry(){
+    if(ROOT!=="gestionale_sandbox_20261027"||!model.user)return;
+    try{
+      const priceListId=$("ePL").value;
+      if(!list(await section("priceLists")).some(x=>x.id===priceListId&&/^demo-pl-/i.test(x.id)))
+        throw Error("Seleziona un prezzario DEMO.");
+      const valid=window.VGOracleAccountingDemo.priceEntry({
+        code:$("eCode").value,description:$("eDesc").value,
+        unit:$("eUnit").value,price:$("ePrice").value});
+      const existing=list(await section("entries"));
+      if(existing.some(x=>x.priceListId===priceListId&&x.code===valid.code))
+        throw Error("Codice prezzo DEMO già presente.");
+      const ok=await saveDemoSection("entries",{...valid,id:"demo-entry-"+crypto.randomUUID(),priceListId},"addEntry","prezzari");
+      if(ok){["eCode","eDesc","eUnit","ePrice"].forEach(id=>$(id).value="");
+        alert("Voce DEMO salvata su Oracle.");}
+    }catch(err){alert("Voce DEMO non salvata: "+err.message);}
+  }
+  function fillDemoPriceListOptions(prices){
+    const field=$("ePL");if(!field)return;
+    const old=field.value;field.replaceChildren();
+    for(const price of list(prices)){
+      if(!/^demo-pl-/i.test(String(price.id||"")))continue;
+      const option=document.createElement("option");
+      option.value=price.id;option.textContent=price.name;field.append(option);
+    }
+    if([...field.options].some(x=>x.value===old))field.value=old;
+  }
   async function addDemoClient(){
     if(ROOT!=="gestionale_sandbox_20261027"||!model.user)return;
     const input=$("cName");if(!input)return;
@@ -516,6 +555,8 @@
     $("addClient")?.addEventListener("click",addDemoClient);
     $("addJob")?.addEventListener("click",addDemoJob);
     $("addInvoice")?.addEventListener("click",addDemoInvoice);
+    $("addPriceList")?.addEventListener("click",addDemoPriceList);
+    $("addEntry")?.addEventListener("click",addDemoPriceEntry);
     $("addManual")?.addEventListener("click",()=>{
       if(demoLines.length>=20)return alert("Massimo 20 voci DEMO.");
       demoLines.push({code:"VOCE",description:"DEMO Voce prova",unit:"cad",qty:1,price:10});
