@@ -38,3 +38,25 @@ CREATE TABLE IF NOT EXISTS vg.workspace_audit(
  created_at timestamptz NOT NULL DEFAULT now(),
  UNIQUE(workspace_id,revision)
 );
+
+-- Large 2026 archives are stored by section so routine edits do not rewrite 27k price rows.
+CREATE TABLE IF NOT EXISTS vg.workspace_sections(
+ workspace_id text NOT NULL REFERENCES vg.workspaces(id) ON DELETE CASCADE,
+ section text NOT NULL CHECK(section ~ '^[A-Za-z][A-Za-z0-9_]{0,63}$'),
+ revision bigint NOT NULL DEFAULT 1,
+ data jsonb NOT NULL,
+ updated_at timestamptz NOT NULL DEFAULT now(),
+ updated_by uuid REFERENCES vg.users(id),
+ PRIMARY KEY(workspace_id,section)
+);
+CREATE TABLE IF NOT EXISTS vg.workspace_section_audit(
+ audit_id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+ workspace_id text NOT NULL,
+ section text NOT NULL,
+ user_id uuid REFERENCES vg.users(id),
+ revision bigint NOT NULL,
+ sha256 char(64) NOT NULL,
+ created_at timestamptz NOT NULL DEFAULT now(),
+ UNIQUE(workspace_id,section,revision)
+);
+CREATE INDEX IF NOT EXISTS vg_section_audit_time ON vg.workspace_section_audit(created_at);
