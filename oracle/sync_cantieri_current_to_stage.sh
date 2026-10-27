@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# Incrementally refresh isolated Oracle Cantieri staging from current sync state.
-# Source is read-only. Destination update is additive/upsert-only; absent paths
-# are never deleted, and Gestionale workspace sections are not modified.
+# Refresh isolated Oracle Cantieri staging from the current sync-state snapshot.
+# Source is read-only. Previously current paths are retained as previous_sync;
+# current paths are upserted again. No rows are physically deleted.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 tmp="$(mktemp -d /tmp/vg-cantieri-current.XXXXXXXX)"
@@ -55,6 +55,12 @@ echo "=== UPSERT TRANSAZIONALE DEL SOLO STAGING ==="
   cat "$tmp/current.csv"
   printf '%s\n' '\.'
   cat <<'SQL'
+-- Rotate the last complete snapshot before applying this validated batch.
+-- The transaction rolls back both the rotation and upserts on any SQL error.
+UPDATE vg.cantieri_source_stage
+SET source_snapshot='previous_sync'
+WHERE source_snapshot='current_sync';
+
 INSERT INTO vg.cantieri_source_stage(path,collection_name,data,update_time,source_snapshot)
 SELECT path,collection_name,data,update_time,'current_sync'
 FROM cantieri_current_incoming

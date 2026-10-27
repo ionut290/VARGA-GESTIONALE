@@ -127,7 +127,9 @@ DECLARE
   revision_now bigint;
   revision_next bigint;
   key_field text;
+  job_root_path text;
 BEGIN
+  SELECT root_path INTO job_root_path FROM inrete_sync_job;
   FOR item IN
     SELECT section,jsonb_agg(value.item ORDER BY value.item_key) AS data
     FROM (SELECT DISTINCT ON(section,item_key) section,item_key,item FROM inrete_incoming
@@ -150,7 +152,30 @@ BEGIN
     SELECT COALESCE(jsonb_agg(merged.item ORDER BY merged.sort_key),'[]'::jsonb)
     INTO merged_data
     FROM (
-      SELECT old.value AS item,old.ordinality*2 AS sort_key
+      SELECT CASE
+               WHEN item.section IN ('vcRecords','vcCommesse','vcImpianti','vcOre','vcSquadre')
+                 AND EXISTS (
+                   SELECT 1 FROM vg.cantieri_source_stage stale,inrete_sync_job j
+                   WHERE stale.path=COALESCE(old.value->>key_field,old.value->>'id')
+                     AND stale.source_snapshot='previous_sync'
+                     AND (
+                       (item.section='vcRecords'
+                        AND (stale.path=job_root_path OR stale.path LIKE job_root_path||'/%'))
+                       OR (item.section='vcCommesse' AND stale.path=job_root_path)
+                       OR (item.section IN ('vcImpianti','vcOre','vcSquadre') AND (
+                         old.value->>'vcSourceId'=job_root_path
+                         OR old.value->>'vcSourceId' LIKE job_root_path||'/%'
+                         OR COALESCE(old.value->>'commessaId',old.value->>'jobId','')=j.job_id
+                         OR lower(btrim(COALESCE(old.value->>'commessa','')))=lower(btrim(j.title))
+                         OR lower(btrim(COALESCE(old.value->>'nomeCommessa','')))=lower(btrim(j.title))
+                         OR lower(btrim(COALESCE(old.value->>'codiceCommessa','')))=lower(btrim(j.job_code))
+                       ))
+                     )
+                 )
+               THEN old.value||jsonb_build_object('vcArchived',true,'deleted',true,'operation','delete')
+               ELSE old.value
+             END AS item,
+             old.ordinality*2 AS sort_key
       FROM jsonb_array_elements(CASE WHEN jsonb_typeof(old_data)='array' THEN old_data ELSE '[]'::jsonb END)
            WITH ORDINALITY AS old(value,ordinality)
       WHERE COALESCE(old.value->>key_field,old.value->>'id') IS NULL
