@@ -96,7 +96,40 @@
     panel.innerHTML=`<div class="vg-section-head"><div><h2>Commesse</h2><div class="muted">Le 4 commesse più recenti.</div></div><button class="ghost" type="button" data-oracle-view="commesse">TUTTE LE COMMESSE</button></div><div class="vg-oracle-job-grid">${cards.length?cards.join(''):'<div class="empty">Nessuna commessa attiva.</div>'}</div>`;
     panel.querySelectorAll('[data-oracle-view]').forEach(button=>button.onclick=()=>document.querySelector(`.nav[data-view="${button.dataset.oracleView}"]`)?.click());
   }
-  function render(){styles();organizeMenu();welcomePanel();quickPanel();jobPanel()}
+
+  function accountingPanel(){
+    const dashboard=$('dashboard'),cards=dashboard?.querySelector('.cards');
+    if(!dashboard||!cards)return;
+    const source=window.VGOraclePreviewData?.vcRecords;
+    if(!Array.isArray(source))return;
+    const normalize=v=>String(v??'').trim().toLowerCase();
+    const rounds=source.filter(r=>{
+      const parts=String(r.sourcePath||'').split('/');
+      return parts.length===4&&parts[0]==='commesse'&&parts[2]==='giriContabili';
+    }).map(r=>({...((r.data&&typeof r.data==='object'&&!Array.isArray(r.data))?r.data:{}),_path:r.sourcePath}))
+      .filter(r=>!r.roundDeletedAt&&!r.dashboardHidden&&normalize(r.stato)!=='chiuso_definitivamente'&&normalize(r.mapStatus)!=='ricevuto')
+      .sort((a,b)=>String(a.accountingDueAt||a.mapDueAt||a.closedAtIso||'').localeCompare(String(b.accountingDueAt||b.mapDueAt||b.closedAtIso||'')));
+    let panel=$('dashboardAccountingRounds');
+    if(!rounds.length){panel?.remove();return;}
+    if(!panel){panel=document.createElement('section');panel.id='dashboardAccountingRounds';panel.className='panel';cards.insertAdjacentElement('afterend',panel);}
+    const signature=JSON.stringify(rounds.map(r=>[r._path,r.stato,r.accountingSentAt,r.totalAmount,r.accountingDueAt,r.localArchiveSavedAt]));
+    if(panel.dataset.signature===signature)return;panel.dataset.signature=signature;
+    panel.replaceChildren();
+    const heading=document.createElement('h2');heading.textContent='Contabilità da gestire';
+    const description=document.createElement('p');description.className='muted';
+    description.textContent=rounds.length+' giri con azioni ancora aperte · consultazione Oracle di sola lettura';
+    panel.append(heading,description);
+    for(const r of rounds.slice(0,10)){
+      const item=document.createElement('div');item.className='item';
+      const title=document.createElement('strong');title.textContent=String(r.commessaNome||'Commessa')+' — Giro '+String(r.numeroGiro||'');
+      const detail=document.createElement('div');detail.className='muted';
+      const sent=!!r.accountingSentAt||normalize(r.stato)==='map_in_attesa';
+      detail.textContent=(sent?'MAP IN ATTESA':'CONTABILITÀ DA INVIARE')+' · '+Number(r.totalAmount||0).toLocaleString('it-IT',{style:'currency',currency:'EUR'});
+      item.append(title,detail);panel.append(item);
+    }
+  }
+
+  function render(){styles();organizeMenu();welcomePanel();quickPanel();accountingPanel();jobPanel()}
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>setTimeout(render,0),{once:true});else render();
   const observer=new MutationObserver(()=>{clearTimeout(observer._timer);observer._timer=setTimeout(render,50)});
   observer.observe(document.documentElement,{childList:true,subtree:true});
