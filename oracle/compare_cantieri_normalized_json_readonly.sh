@@ -9,74 +9,35 @@ echo "Esporto JSON nel deposito temporaneo protetto; non mostro contenuti."
 sudo docker exec -i db-postgres-1 psql -X -q -v ON_ERROR_STOP=1 -U varga -d varga_cantieri -c "COPY (SELECT source_path,payload::text FROM public.varga_sync_state WHERE source='firebase' ORDER BY source_path) TO STDOUT WITH (FORMAT csv)" > "$tmp/live.csv"
 sudo docker compose -f oracle/compose.yaml -p vg-gestionale-oracle exec -T db psql -X -q -v ON_ERROR_STOP=1 -U varga_gestionale -d varga_gestionale -c "COPY (SELECT path,data::text FROM vg.cantieri_source_stage ORDER BY path) TO STDOUT WITH (FORMAT csv)" > "$tmp/stage.csv"
 python3 - "$tmp/live.csv" "$tmp/stage.csv" <<'PY'
-import csv,sys,json,collections,math,re
+import csv,sys,json,collections,math
+
 csv.field_size_limit(64 * 1024 * 1024)
-wrapped_values=collections.Counter()
-tagged_envelopes=collections.Counter()
-SAFE_TAG=re.compile(r'^[A-Za-z][A-Za-z0-9_-]{0,31}' + chr(36))
+tag_counts=collections.Counter()
 
-def tag_label(value):
-    """Type metadata only; arbitrary content stays redacted."""
-    return value if isinstance(value,str) and SAFE_TAG.fullmatch(value) else '<nonstandard-redacted>'
-
-def decode(x, origin):
+def unwrap(x):
     if isinstance(x,list):
-        return [decode(v,origin) for v in x]
+        return [unwrap(v) for v in x]
     if not isinstance(x,dict):
         return x
-    if set(x)=={'v'}:
-        wrapped_values[(origin,'legacy_v')]+=1
-        return decode(x['v'],origin)
-    if set(x)=={'stringValue'}:
-        wrapped_values[(origin,'stringValue')]+=1
-        return x['stringValue']
-    if set(x)=={'booleanValue'}:
-        wrapped_values[(origin,'booleanValue')]+=1
-        return x['booleanValue']
-    if set(x)=={'nullValue'}:
-        wrapped_values[(origin,'nullValue')]+=1
-        return None
-    if set(x)=={'integerValue'}:
-        wrapped_values[(origin,'integerValue')]+=1
-        try: return int(x['integerValue'])
-        except (TypeError,ValueError): return x
-    if set(x)=={'doubleValue'}:
-        wrapped_values[(origin,'doubleValue')]+=1
-        try:
-            value=float(x['doubleValue'])
-            return x if not math.isfinite(value) else value
-        except (TypeError,ValueError): return x
-    for name in ('timestampValue','referenceValue','bytesValue'):
-        if set(x)=={name}:
-            wrapped_values[(origin,name)]+=1
-            return x[name]
-    if set(x)=={'geoPointValue'} and isinstance(x['geoPointValue'],dict):
-        point=x['geoPointValue']
-        if set(point) <= {'latitude','longitude'}:
-            wrapped_values[(origin,'geoPointValue')]+=1
-            return {'latitude':decode(point.get('latitude'),origin),
-                    'longitude':decode(point.get('longitude'),origin)}
-    if set(x)=={'arrayValue'} and isinstance(x['arrayValue'],dict):
-        inner=x['arrayValue']
-        if set(inner) <= {'values'}:
-            wrapped_values[(origin,'arrayValue')]+=1
-            return [decode(v,origin) for v in inner.get('values',[])]
-    if set(x)=={'mapValue'} and isinstance(x['mapValue'],dict):
-        inner=x['mapValue']
-        if set(inner) <= {'fields'} and isinstance(inner.get('fields',{}),dict):
-            wrapped_values[(origin,'mapValue')]+=1
-            return {k:decode(v,origin) for k,v in inner.get('fields',{}).items()}
-    return {k:decode(v,origin) for k,v in x.items()}
-
-def decode_tagged_probe(x, origin):
-    if isinstance(x,list):
-        return [decode_tagged_probe(v,origin) for v in x]
-    if not isinstance(x,dict):
-        return x
-    if set(x)=={'t','v'}:
-        tagged_envelopes[(origin,tag_label(x['t']))]+=1
-        return decode_tagged_probe(x['v'],origin)
-    return {k:decode_tagged_probe(v,origin) for k,v in x.items()}
+    if set(x)=={'t','v'} and isinstance(x['t'],str):
+        tag=x['t']
+        tag_counts[tag]+=1
+        value=x['v']
+        if tag=='map' and isinstance(value,dict):
+            return {k:unwrap(v) for k,v in value.items()}
+        if tag=='array' and isinstance(value,list):
+            return [unwrap(v) for v in value]
+        if tag=='null':
+            return None
+        if tag=='boolean' and isinstance(value,bool):
+            return value
+        if tag=='number' and isinstance(value,(int,float)) and not isinstance(value,bool):
+            return value
+        if tag in ('string','timestamp') and isinstance(value,str):
+            return value
+        # Preserve unknown or malformed tagged values for a visible mismatch.
+        return {'t':tag,'v':unwrap(value)}
+    return {k:unwrap(v) for k,v in x.items()}
 
 def load(path):
     with open(path,newline='') as f:
@@ -86,11 +47,9 @@ live=load(sys.argv[1]);stage=load(sys.argv[2])
 matched=live.keys() & stage.keys()
 stats=collections.defaultdict(lambda:[0,0,0])
 different_fields=collections.Counter()
-probe_matches=0
 for key in matched:
-    wrapped=stage[key]
-    previous=decode(wrapped,'storico')
-    current=decode(live[key],'sorgente')
+    previous=unwrap(stage[key])
+    current=unwrap(live[key])
     group=key.split('/')[0]
     stats[group][0]+=1
     if previous==current:
@@ -101,26 +60,16 @@ for key in matched:
             for field in previous.keys()|current.keys():
                 if previous.get(field)!=current.get(field):
                     different_fields[(group,field)]+=1
-    if decode_tagged_probe(wrapped,'storico')==decode_tagged_probe(live[key],'sorgente'):
-        probe_matches+=1
 print('Raccolta | Comuni | Uguali normalizzati | Differenti normalizzati')
 for group,nums in sorted(stats.items()):
     print(f'{group} | {nums[0]} | {nums[1]} | {nums[2]}')
 print('TOTALE',len(matched),'uguali',sum(v[1] for v in stats.values()),'differenti',sum(v[2] for v in stats.values()))
 print('SOLO SORGENTE',len(live.keys()-stage.keys()),'SOLO STORICO',len(stage.keys()-live.keys()))
-print('SONDA {t,v} (diagnostica, non autorizza import):',probe_matches,'equivalenti su',len(matched))
-if tagged_envelopes:
-    print('Involucri {t,v} rilevati (solo tag strutturale e conteggio):')
-    for (origin,tag),count in sorted(tagged_envelopes.items()):
-        print(origin,tag,count,sep=' | ')
+print('Tag legacy {t,v} decodificati (solo tag e conteggio):')
+for tag,count in sorted(tag_counts.items()):
+    print(tag,count,sep=' | ')
 print('Campi con differenze frequenti (nomi, non valori):')
 for (group,field),count in different_fields.most_common(25):
     print(group,field,count,sep=' | ')
-if wrapped_values:
-    print('Involucri decodificati (solo tipo e conteggio):')
-    for (origin,kind),count in sorted(wrapped_values.items()):
-        print(origin,kind,count,sep=' | ')
-else:
-    print('Nessun involucro JSON noto rilevato.')
-print('SONDA SOLA LETTURA. Nessuna acquisizione o sovrascrittura effettuata.')
+print('CONFRONTO IN SOLA LETTURA. Nessuna acquisizione o sovrascrittura effettuata.')
 PY
