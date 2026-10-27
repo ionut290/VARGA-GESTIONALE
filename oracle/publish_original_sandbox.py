@@ -22,14 +22,6 @@ NAME="original-sandbox"
 
 
 def validate_assets(js: bytes, bridge: bytes, html: bytes) -> None:
-    validate_assets(js,bridge,html)
-
-def main():
-    print("=== CLIENTI, COMMESSE E PREVENTIVI ORACLE DEMO, GRAFICA ORIGINALE ===")
-    pub.verify_sources()  # Ensure original CSS is identical on the public web container.
-    js=(SRC/(NAME+".js")).read_bytes()
-    bridge=(SRC/"section-bridge.js").read_bytes()
-    html=pub.load_builder().transform((ROOT/"index.html").read_text(encoding="utf-8"),sandbox=True).encode("utf-8")
     if len(js)>150_000 or len(bridge)>150_000 or len(html)>150_000:
         raise ValueError("Asset oltre limite")
     if b'gestionale_sandbox_20261027' not in js or b'gestionale_backup_20261027' in js:
@@ -61,6 +53,14 @@ def main():
         raise ValueError("Il loader sandbox non è isolato da Firebase")
     if b"gestionale_sandbox_20261027" not in bridge or b"varga-azienda" in bridge:
         raise ValueError("Adapter Oracle non limitato al laboratorio fittizio")
+
+def main():
+    print("=== CLIENTI, COMMESSE E PREVENTIVI ORACLE DEMO, GRAFICA ORIGINALE ===")
+    pub.verify_sources()  # Ensure original CSS is identical on the public web container.
+    js=(SRC/(NAME+".js")).read_bytes()
+    bridge=(SRC/"section-bridge.js").read_bytes()
+    html=pub.load_builder().transform((ROOT/"index.html").read_text(encoding="utf-8"),sandbox=True).encode("utf-8")
+    validate_assets(js,bridge,html)
     for name,data in (("section-bridge.js",bridge),(NAME+".js",js),(NAME+".html",html)):
         destination=pub.PERSIST/name
         pub.save_atomic(destination,data)
