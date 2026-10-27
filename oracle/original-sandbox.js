@@ -448,7 +448,7 @@
     try{
       const user=await api.login(email,password);
       const response=await api.manifest(ROOT);
-      if(Object.keys(response.sections||{}).sort().join(",")!=="clients,consuntivi,jobs,quotes")
+      if(Object.keys(response.sections||{}).sort().join(",")!=="clients,consuntivi,entries,invoices,jobs,priceLists,quotes")
         throw Error("Questo ambiente non contiene soltanto le quattro sezioni demo previste.");
       if(!response.sections?.clients)throw Error("Archivio di prova non autorizzato");
       await bridge.initialize();
