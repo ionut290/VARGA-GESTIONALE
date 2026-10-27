@@ -14,7 +14,7 @@
     async request(path, options={}){
       const controller=new AbortController();
       const timeout=setTimeout(()=>controller.abort(),15000);
-      const headers={"Accept":"application/json",...(options.body?{"Content-Type":"application/json"}:{})};
+      const headers={"Accept":"application/json",...(options.body?{"Content-Type":"application/json"}:{}),...(options.headers||{})};
       try{
         const res=await fetch(new URL(path,this.base),{...options,headers,signal:controller.signal,
             credentials:"same-origin",cache:"no-store",redirect:"error"});
@@ -32,7 +32,7 @@
     }
     health(){return this.request("health")}
     async login(email,password,remember=true){
-      const data=await this.request("auth/login",{method:"POST",body:JSON.stringify({email,password,remember:!!remember})});
+      const data=await this.request("auth/login",{method:"POST",headers:{"X-VG-Session-Mode":"cookie"},body:JSON.stringify({email,password,remember:!!remember})});
       return data.user;
     }
     me(){return this.request("auth/me")}
