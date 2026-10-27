@@ -50,6 +50,12 @@ La pagina /oracle/console.html è solo un laboratorio di collaudo amministrativo
 - [ ] Abilitare moduli reali soltanto dopo autorizzazioni server, prove in due sessioni, dati aggiornati, backup/ripristino e verifica separazione dalla radio.
 - [ ] Firebase resta attivo: non esiste ancora evidenza sufficiente per rimuoverlo o convertire il workspace reale in scrittura.
 
+## Preparazione Fatture, Consuntivi e Prezzari DEMO
+- [x] Validatori puri `accounting-demo-validation.js` per fatture, consuntivi e voci prezzario, senza scritture o dati reali.
+- [x] ID clienti DEMO verificati nel formato `demo-cl-*`; esclusi identificativi aziendali.
+- [x] Test Node di validazione collegati a GitHub Actions; atteso esito del commit `fd4f39b`.
+- [ ] Il database sandbox attuale contiene solo 4 sezioni: per Fatture/Prezzari servono sezioni DEMO aggiuntive predisposte e verificate prima di abilitare pulsanti o pubblicare.
+
 ## Prossima azione
 Prossima azione: i tre salvataggi DEMO sono confermati dall'utente nel browser reale; verificare in due sessioni il comportamento con modifiche concorrenti e che non vi siano sovrascritture. Collaudare perdita di connessione, recupero manuale IndexedDB e collisioni multi-sessione; poi implementare Fatture, Consuntivi e Prezzari in workspace DEMO separato prima delle prove sul dataset aziendale. Non trattare il componente come sincronizzazione offline di produzione. Per la produzione restano persistenza offline, autenticazione colleghi/ruoli, test moduli e cutover finale.
 
