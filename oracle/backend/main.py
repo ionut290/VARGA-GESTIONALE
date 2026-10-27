@@ -132,6 +132,8 @@ def logout(authorization: Annotated[str | None, Header()] = None, user=Depends(b
 def assert_workspace(con,user,workspace,writable=False):
     if not WORKSPACE_PATTERN.fullmatch(workspace):
         raise HTTPException(400, "Identificativo workspace non valido")
+    if writable and workspace.startswith("gestionale_backup_"):
+        raise HTTPException(403, "Fotografia archivio immutabile: scrittura non consentita")
     allowed=con.execute("SELECT can_write FROM vg.workspace_members WHERE workspace_id=%s AND user_id=%s",
                         (workspace,user["id"])).fetchone()
     if not allowed or (writable and not allowed["can_write"]):
