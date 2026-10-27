@@ -1,6 +1,8 @@
 # Varga Gestionale → Oracle: installazione e trasferimento
 
-**Stato:** codice di migrazione e test, non ancora trasferimento dei dati reali. Il gestionale in uso resta su Firebase fino al passaggio effettivo.
+**Stato al 27 ottobre 2026:** backend FastAPI e PostgreSQL isolati installati sulla VM Oracle; backup storici 15 e 19 ottobre importati in due workspace di prova (28 sezioni ciascuno). Export autenticato del 27 ottobre trasferito in cartella privata, integrità SHA256 verificata: 17 sezioni Firebase e 29 sezioni locali browser. L'export del 27 ottobre **non è ancora importato**, i dati locali non sono ancora riconciliati e il frontend usa tuttora Firebase. Non dismettere Firebase né sovrascrivere workspace di produzione.
+
+Per il confronto non distruttivo fra storico, cloud e browser, sulla VM usare `python3 oracle/audit_three_way.py /home/ubuntu/gestionale-private/Varga-Gestionale-backup-2026-10-19.json /home/ubuntu/gestionale-private/Varga-Gestionale-live-2026-10-27.json` dalla radice del clone dopo `git pull --ff-only`. Lo script mostra solo nomi di sezioni e conteggi, non esporta dati. Solo dopo riconciliazione e collaudi si valuta il cutover.
 
 ## Componenti pronti nel branch
 
