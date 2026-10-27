@@ -323,10 +323,10 @@
     if(rowsTitle)rowsTitle.textContent="Raccolte importate da Varga Cantieri";
   }
   function setup(){
-    // Install a dedicated navigation listener before the editing lock, so the
-    // Oracle Cantieri view cannot be swallowed by the read-only click guard.
+    // Handle safe navigation and dashboard links before the read-only editing lock.
+    // Only known routes can be opened; these links never write to Oracle.
     document.querySelector(".app-shell")?.addEventListener("click",event=>{
-      const link=event.target.closest('#openVargaCantieriDesktop, .nav[data-view="cantieriSync"]');
+      const link=event.target.closest('#openVargaCantieriDesktop, .nav[data-view="cantieriSync"], [data-oracle-view]');
       if(!link)return;
       event.preventDefault();
       event.stopImmediatePropagation();
@@ -336,9 +336,11 @@
         explain("Accedi prima con le credenziali Oracle; la sezione Cantieri non è accessibile senza login.",true);
         return;
       }
-      open("cantieriSync");
+      const requestedView=link.dataset.oracleView || "cantieriSync";
+      if(!Object.prototype.hasOwnProperty.call(routes,requestedView))return;
+      open(requestedView);
       // A visible breadcrumb helps distinguish navigation from stalled loading.
-      if($("vcSyncInfo") && !$("vcSyncInfo").textContent.trim())
+      if(requestedView==="cantieriSync" && $("vcSyncInfo") && !$("vcSyncInfo").textContent.trim())
         $("vcSyncInfo").textContent="Schermata aperta. Lettura dei documenti Cantieri da Oracle…";
     },true);
     locks();
