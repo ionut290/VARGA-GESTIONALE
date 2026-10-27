@@ -24,3 +24,12 @@ Ultima verifica read-only dopo la decodifica dei tag storici `{t,v}`:
 - Questo confronto non dimostra ancora che `varga_sync_state` sia alimentato da un writer Cantieri affidabile né che le righe siano già mappate nelle sezioni `vc*` dell'app.
 
 **Stato: nessuna importazione eseguita.** Prima di attivare la sincronizzazione vanno verificati origine, versioni, modello dati e mappatura applicativa; il candidato deve restare isolato dalla produzione.
+
+
+## Primo trasferimento della sorgente corrente in Oracle staging (27 ottobre 2026)
+
+- [x] Lo script incrementale ha letto e validato 3.813 record `source='firebase'` e `pending=false` da `varga_sync_state`.
+- [x] Upsert transazionale in `vg.cantieri_source_stage`: 3.813 righe elaborate; staging totale 6.244. I record presenti solo nello storico sono rimasti.
+- [x] Nessun workspace o sezione `vc*` è stato modificato; nessuna cancellazione eseguita.
+- [ ] Prossimo passaggio: mappare i documenti staging nelle sezioni del workspace candidato su una copia isolata, validare conteggi e associazioni, poi collegare l'anteprima originale a tale copia.
+- [ ] Il trasferimento staging non è ancora sincronizzazione automatica né cutover di produzione.
