@@ -32,7 +32,7 @@ def validate_assets(js: bytes, bridge: bytes, html: bytes, vault: bytes | None =
     if not all(token in js for token in (
         b'const ROOT="gestionale_sandbox_20261027"',
         b'new window.VGOracleSectionBridge.SectionBridge',
-        b'client:api,workspace:ROOT,keys:["clients","jobs","quotes","consuntivi","invoices","priceLists","entries"],writable:true',
+        b'client:api,workspace:ROOT,keys:["clients","jobs","quotes","consuntivi","invoices","priceLists","entries","expenses","deadlines","documents","requests","vcCommesse","vcImpianti","vcOre","vcRecords","company"],writable:true',
         b'bridge.stage(key,updated)',
         b'await bridge.commit(key)',
         b'await saveDemoSection("clients",{',
