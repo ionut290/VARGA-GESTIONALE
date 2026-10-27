@@ -10,7 +10,7 @@ import secrets
 from typing import Annotated, Any
 from argon2 import PasswordHasher
 from argon2.exceptions import VerifyMismatchError, VerificationError
-from fastapi import Depends, FastAPI, Header, HTTPException, Request
+from fastapi import Cookie, Depends, FastAPI, Header, HTTPException, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
@@ -55,6 +55,7 @@ async def body_limit(request: Request, call_next):
 class LoginIn(BaseModel):
     email: str = Field(min_length=3, max_length=255)
     password: str = Field(min_length=1, max_length=512)
+    remember: bool = False
 class WorkspaceIn(BaseModel):
     expected_revision: int = Field(ge=0)
     data: dict[str, Any]
@@ -70,10 +71,11 @@ def health():
         return JSONResponse(status_code=503, content={"service":"varga-gestionale","ready":False})
     return {"service":"varga-gestionale","ready":True}
 
-def bearer_user(authorization: Annotated[str | None, Header()] = None):
-    if not authorization or not authorization.startswith("Bearer "):
+def bearer_user(authorization: Annotated[str | None, Header()] = None,
+                vg_session: Annotated[str | None, Cookie()] = None):
+    token=authorization[7:].strip() if authorization and authorization.startswith("Bearer ") else vg_session
+    if not token:
         raise HTTPException(401, "Autenticazione necessaria")
-    token = authorization[7:].strip()
     if not re.fullmatch(r"[a-f0-9]{64}", token):
         raise HTTPException(401, "Sessione non valida")
     digest = hashlib.sha256(token.encode()).hexdigest()
@@ -87,7 +89,7 @@ def bearer_user(authorization: Annotated[str | None, Header()] = None):
     return user
 
 @app.post("/api/gestionale/v1/auth/login")
-def login(body: LoginIn):
+def login(body: LoginIn, response: Response):
     email = body.email.strip().casefold()
     if "@" not in email:
         raise HTTPException(401, "Credenziali non valide")
@@ -114,7 +116,10 @@ def login(body: LoginIn):
                     (hashlib.sha256(token.encode()).hexdigest(),user["id"],
                     datetime.now(timezone.utc)+timedelta(hours=SESSION_HOURS)))
         con.commit()
-    return {"access_token":token,"token_type":"bearer","expires_in":SESSION_HOURS*3600,
+    response.set_cookie(key="vg_session",value=token,
+        max_age=SESSION_HOURS*3600 if body.remember else None,
+        httponly=True,secure=True,samesite="strict",path="/api/gestionale/v1/")
+    return {"token_type":"cookie","expires_in":SESSION_HOURS*3600,
             "user":{"id":str(user["id"]),"email":user["email"],"display_name":user["display_name"],"role":user["role"]}}
 
 @app.get("/api/gestionale/v1/auth/me")
@@ -122,11 +127,15 @@ def me(user=Depends(bearer_user)):
     return {"id":str(user["id"]),"email":user["email"],"display_name":user["display_name"],"role":user["role"]}
 
 @app.post("/api/gestionale/v1/auth/logout")
-def logout(authorization: Annotated[str | None, Header()] = None, user=Depends(bearer_user)):
-    digest=hashlib.sha256(authorization[7:].strip().encode()).hexdigest()
+def logout(response: Response, authorization: Annotated[str | None, Header()] = None,
+           vg_session: Annotated[str | None, Cookie()] = None, user=Depends(bearer_user)):
+    token=authorization[7:].strip() if authorization and authorization.startswith("Bearer ") else vg_session
+    digest=hashlib.sha256(token.encode()).hexdigest()
     with db() as con:
         con.execute("DELETE FROM vg.sessions WHERE token_sha256=%s AND user_id=%s",(digest,user["id"]))
         con.commit()
+    response.delete_cookie(key="vg_session",path="/api/gestionale/v1/",
+                           httponly=True,secure=True,samesite="strict")
     return {"ok":True}
 
 def assert_workspace(con,user,workspace,writable=False):
