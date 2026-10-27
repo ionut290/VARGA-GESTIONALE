@@ -120,10 +120,10 @@ BEGIN
            COALESCE((
              SELECT jsonb_agg(unique_rows.item ORDER BY unique_rows.item_key)
              FROM (
-               SELECT DISTINCT ON(item_key) item_key,item
+               SELECT DISTINCT ON(incoming.item_key) incoming.item_key,incoming.item
                FROM cantieri_incoming incoming
                WHERE incoming.section=sections.section
-               ORDER BY item_key
+               ORDER BY incoming.item_key
              ) unique_rows
            ),'[]'::jsonb) AS data
     FROM unnest(ARRAY['jobs','clients','vcCommesse','vcImpianti','vcOre',
