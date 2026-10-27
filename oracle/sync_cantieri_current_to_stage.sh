@@ -52,7 +52,7 @@ echo "=== UPSERT TRANSAZIONALE DEL SOLO STAGING ==="
     'CREATE TEMP TABLE cantieri_current_incoming(path text,collection_name text,data jsonb,update_time text) ON COMMIT DROP;' \
     'COPY cantieri_current_incoming(path,collection_name,data,update_time) FROM STDIN WITH (FORMAT csv);'
   cat "$tmp/current.csv"
-  printf '%s\n' '\\.'
+  printf '\\\\.\\n'
   cat <<'SQL'
 INSERT INTO vg.cantieri_source_stage(path,collection_name,data,update_time,source_snapshot)
 SELECT path,collection_name,data,update_time,'current_sync'
