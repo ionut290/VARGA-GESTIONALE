@@ -50,6 +50,7 @@ jobs:
           node --check console.js
           node --check original-preview.js
           node --check original-sandbox.js
+          node tests/verify_original_sandbox_browser.cjs
           bash -n install_on_vm.sh
           bash -n preflight.sh
           bash -n diagnose_vm.sh
