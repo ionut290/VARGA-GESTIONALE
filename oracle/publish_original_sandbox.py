@@ -24,16 +24,20 @@ def main():
     print("=== CLIENTI, COMMESSE E PREVENTIVI ORACLE DEMO, GRAFICA ORIGINALE ===")
     pub.verify_sources()  # Ensure original CSS is identical on the public web container.
     js=(SRC/(NAME+".js")).read_bytes()
+    bridge=(SRC/"section-bridge.js").read_bytes()
     html=pub.load_builder().transform((ROOT/"index.html").read_text(encoding="utf-8"),sandbox=True).encode("utf-8")
-    if len(js)>150_000 or len(html)>150_000:
+    if len(js)>150_000 or len(bridge)>150_000 or len(html)>150_000:
         raise ValueError("Asset oltre limite")
     if b'gestionale_sandbox_20261027' not in js or b'gestionale_backup_20261027' in js:
         raise ValueError("Il client sandbox non usa esclusivamente dati fittizi")
     if b'api.saveSection(ROOT,"clients",updated)' not in js:
         raise ValueError("Gestione salvataggio clienti demo non presente")
-    if b'src="/oracle/original-sandbox.js"' not in html or b"firebasejs" in html:
+    if (b'src="/oracle/original-sandbox.js"' not in html or
+        b'src="/oracle/section-bridge.js"' not in html or b"firebasejs" in html):
         raise ValueError("Il loader sandbox non è isolato da Firebase")
-    for name,data in ((NAME+".js",js),(NAME+".html",html)):
+    if b"gestionale_sandbox_20261027" not in bridge or b"varga-azienda" in bridge:
+        raise ValueError("Adapter Oracle non limitato al laboratorio fittizio")
+    for name,data in (("section-bridge.js",bridge),(NAME+".js",js),(NAME+".html",html)):
         destination=pub.PERSIST/name
         pub.save_atomic(destination,data)
         digest=hashlib.sha256(data).hexdigest()
@@ -57,7 +61,12 @@ def main():
             raise ValueError("JavaScript sandbox HTTPS non valido")
     if hashlib.sha256(script_bytes).hexdigest()!=hashlib.sha256(js).hexdigest():
         raise ValueError("JavaScript pubblico non corrisponde alla nuova versione: controllare cache/proxy")
-    print("HTML e JavaScript pubblici verificati via HTTPS, versione SHA256 corretta.")
+    bridge_url=pub.DOMAIN+"/oracle/section-bridge.js?v="+hashlib.sha256(bridge).hexdigest()[:16]
+    with urllib.request.urlopen(urllib.request.Request(bridge_url,headers={"Cache-Control":"no-cache"}),timeout=12) as response:
+        served_bridge=response.read(150_001)
+        if response.status!=200 or hashlib.sha256(served_bridge).hexdigest()!=hashlib.sha256(bridge).hexdigest():
+            raise ValueError("Adapter Oracle HTTPS non corrisponde alla sorgente")
+    print("HTML, JavaScript e adapter sezionale pubblici verificati via HTTPS e SHA256.")
     print("SUCCESSO: LABORATORIO CLIENTI, COMMESSE E PREVENTIVI ORACLE PUBBLICATO.")
     print("URL: "+url)
     print("Scritture abilitate SOLO nel workspace gestionale_sandbox_20261027, con dati fittizi.")
