@@ -30,8 +30,28 @@ def main():
         raise ValueError("Asset oltre limite")
     if b'gestionale_sandbox_20261027' not in js or b'gestionale_backup_20261027' in js:
         raise ValueError("Il client sandbox non usa esclusivamente dati fittizi")
-    if b'api.saveSection(ROOT,"clients",updated)' not in js:
-        raise ValueError("Gestione salvataggio clienti demo non presente")
+    # Since the 27 October revision-safe refactor, each UI module writes
+    # through SectionBridge, never by calling the API client directly.
+    # Validate the complete synthetic-only chain before copying ANY assets.
+    if not all(token in js for token in (
+        b'const ROOT="gestionale_sandbox_20261027"',
+        b'new window.VGOracleSectionBridge.SectionBridge',
+        b'client:api,workspace:ROOT,keys:["clients","jobs","quotes"],writable:true',
+        b'bridge.stage(key,updated)',
+        b'await bridge.commit(key)',
+        b'await saveDemoSection("clients",{',
+        b'await saveDemoSection("jobs",job,"addJob","commesse")',
+        b'await saveDemoSection("quotes",quote,"saveQuote","preventivi")',
+    )):
+        raise ValueError("Adapter e salvataggi DEMO non corrispondono al codice previsto")
+    if b'api.saveSection(' in js or b'fetch(' in js:
+        raise ValueError("Salvataggi diretti fuori dall'adapter non ammessi")
+    if not all(token in bridge for token in (
+        b'const SANDBOX="gestionale_sandbox_20261027"',
+        b'if(writable && this.workspace!==SANDBOX)',
+        b'this.client.saveSection(this.workspace,key,staged)',
+    )):
+        raise ValueError("Protezione dei dati aziendali non presente nell'adapter")
     if (b'src="/oracle/original-sandbox.js"' not in html or
         b'src="/oracle/section-bridge.js"' not in html or b"firebasejs" in html):
         raise ValueError("Il loader sandbox non è isolato da Firebase")
