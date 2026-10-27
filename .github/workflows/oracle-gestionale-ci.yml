@@ -80,6 +80,15 @@ jobs:
           python -m py_compile build_original_ui_preview.py
           python -m py_compile publish_original_ui_preview.py
           python -m py_compile publish_original_sandbox.py
+          python -m py_compile audit_production_cutover.py
+          python - <<'PY'
+          from audit_production_cutover import audit
+          result=audit()
+          assert not result['cutover_ready'], 'Do not enable production without separate release approval'
+          assert result['checks']['demo_write_isolated']
+          assert 'production_write_enabled' in result['blockers']
+          print('Oracle production cutover remains safely blocked')
+          PY
           python -m py_compile verify_oracle_sandbox.py
           python -m py_compile patch_nginx_oracle.py
       - name: Integration test against temporary PostgreSQL
