@@ -5,7 +5,7 @@ ROOT=Path(__file__).resolve().parents[1]
 class RefreshedPreviewTests(unittest.TestCase):
  def test_targets_refresh_without_saving(self):
   js=(ROOT/"original-preview.js").read_text()
-  self.assertIn('const ROOT="gestionale_backup_20261027_refresh";',js)
+  self.assertIn('const ROOT="gestionale_candidate_20261027";',js)
   self.assertIn("api.readSection(ROOT,key)",js)
   self.assertNotIn("api.saveSection(",js)
   self.assertNotIn("api.save(",js)
