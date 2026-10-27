@@ -36,13 +36,16 @@ La pagina /oracle/console.html è solo un laboratorio di collaudo amministrativo
 - [x] Pubblicatore rafforzato: verifica via HTTPS anche il checksum della nuova versione JavaScript
 - [x] Ripubblicato il JavaScript per Clienti, Commesse e Preventivi DEMO; server ha verificato HTML, JavaScript HTTPS e SHA256; test simulato intero Clienti → Commessa → Preventivo superato
 - [ ] Verificare con account Oracle l'intero flusso anche dal browser reale e da una seconda sessione
-- [ ] Migrare lettura/scrittura e sincronizzazione a sezioni, revisioni, salvataggi locali e dati Cantieri
+- [x] Implementato adapter Oracle separato `oracle/section-bridge.js`: lettura per sezione, scritture limitate a workspace fittizio, versionamento, blocco conflitti HTTP 409, merge solo esplicito, gestione errori rete in memoria. Test Node superati.
+- [x] Collegato l'adapter ai tre moduli DEMO nella stessa HTML/CSS originale e aggiornato il pubblicatore (verifica SHA256 anche dell'adapter); CI completo superato.
+- [ ] Pubblicare sul server l'adapter aggiornato del laboratorio con `sudo python3 oracle/publish_original_sandbox.py`, poi collaudo tramite login nel browser reale.
+- [ ] Migrare lettura/scrittura e sincronizzazione **persistente/offline** a sezioni, revisioni, salvataggi locali e dati Cantieri (l'adapter attuale conserva le bozze solo in RAM)
 - [ ] Collaudare moduli preventivi, consuntivi, commesse, fatture, documenti, stampa PDF e Google Drive
 - [ ] Confrontare aggiornamenti inseriti dopo il backup del 27 ottobre, importare e validare la versione finale
 - [ ] Pianificare cutover e ripristino; rimuovere Firebase solo dopo verifiche complete
 
 ## Prossima azione
-Prossimo collaudo: aprire /oracle/original-sandbox.html, Ctrl+F5, fare login Oracle e verificare da browser reale Cliente DEMO → Commessa DEMO → Preventivo DEMO, poi riaprire la pagina e confrontare i record. Nel frattempo implementare adapter di sincronizzazione sezionale revisionata separato dal frontend originale (grafica intatta). Nessuna modifica ai servizi della radio, a Firebase e ai dati aziendali.
+Prossima azione: una sola esecuzione PowerShell SSH `cd ~/gestionale-oracle-stage && git pull --ff-only && sudo python3 oracle/publish_original_sandbox.py`. Lo script aggiorna SOLO gli asset del laboratorio DEMO, preserva frontend originale, Firebase, PostgreSQL aziendale e radio, e controlla SHA256 via HTTPS. Poi aprire /oracle/original-sandbox.html, Ctrl+F5, accedere Oracle e provare Cliente DEMO → Commessa DEMO → Preventivo DEMO; controllare in due schede i conflitti e che non ci siano sovrascritture. Per la vera produzione restano persistenza offline, autenticazione colleghi/ruoli e cutover finale.
 
 ## Metodo di lavoro per accelerare
 Procedere in parallelo sul codice del frontend e sulle verifiche backend; usare un solo comando per blocco; segnalare a ogni aggiornamento completato/mancante/prossimo passo.
