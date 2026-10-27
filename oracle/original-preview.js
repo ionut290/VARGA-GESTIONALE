@@ -288,6 +288,36 @@
     try{await api.logout();}catch(_){}
     authView(false);explain("");
   }
+  function configureCantieriOraclePanel(){
+    const view=$("cantieriSync");
+    if(!view)return;
+    const subtitle=view.querySelector(".subtitle");
+    if(subtitle)subtitle.textContent="Consultazione dei documenti Cantieri importati su Oracle. Aggiornamento automatico non ancora attivo.";
+    const legacyIds=["vcEndpoint","saveVcEndpoint","vcFile","vcFullFile","syncVcNow"];
+    for(const id of legacyIds){
+      const element=$(id);
+      if(!element)continue;
+      const wrapper=element.closest("label.filebtn")||element;
+      wrapper.hidden=true;
+      wrapper.style.display="none";
+    }
+    const form=view.querySelector(".formgrid");
+    if(form){form.hidden=true;form.style.display="none";}
+    const panel=Array.from(view.querySelectorAll(".panel")).find(x=>x.querySelector("#vcSyncInfo"));
+    if(panel){
+      const title=panel.querySelector("h2");
+      if(title)title.textContent="Sorgente dati Oracle · consultazione";
+      const description=panel.querySelector("p.muted");
+      if(description)description.textContent="Dati aziendali in archivio separato: le 30 sezioni del Gestionale non vengono sovrascritte. Non sono necessarie importazioni manuali in questa anteprima.";
+    }
+    const labels=view.querySelectorAll(".cards .card span");
+    for(const label of labels){
+      if(label.textContent.trim()==="Da verificare")label.textContent="Documenti nello staging Oracle";
+      if(label.textContent.trim()==="Ultima sincronizzazione")label.textContent="Fotografia sorgente";
+    }
+    const rowsTitle=$("vcRowsList")?.closest(".panel")?.querySelector("h2");
+    if(rowsTitle)rowsTitle.textContent="Raccolte importate da Varga Cantieri";
+  }
   function setup(){
     // Install a dedicated navigation listener before the editing lock, so the
     // Oracle Cantieri view cannot be swallowed by the read-only click guard.
@@ -308,6 +338,7 @@
         $("vcSyncInfo").textContent="Schermata aperta. Lettura dei documenti Cantieri da Oracle…";
     },true);
     locks();
+    configureCantieriOraclePanel();
     // Expose the original Cantieri navigation control in the Oracle-only preview.
     const cantieriButton=$("openVargaCantieriDesktop");
     if(cantieriButton){
