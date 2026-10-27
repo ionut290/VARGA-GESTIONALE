@@ -86,13 +86,13 @@
   window.startCloudRealtime=()=>{};window.stopCloudRealtime=()=>{};
   window.cloudDisplayName=()=>window.cloudUser?.display_name||window.cloudUser?.email||"Utente";
   window.authorizeCloudUser=async()=>true;
-  window.VargaCloud=Object.freeze({authToken:async()=>{if(!api.token)throw Error("Accedi al Gestionale Oracle.");return api.token}});
+  window.VargaCloud=Object.freeze({authToken:async()=>{await api.me();return null}});
   async function login(email,password){
     if(!email||!password){message("Inserisci email e password.",true);return}
     setBusy(true,"ACCESSO…");message("Accesso al workspace Oracle…");
     try{
-      const user=await api.login(email,password);
-      window.cloudUser={...user,uid:user.id,displayName:user.display_name,getIdToken:async()=>api.token};
+      const user=await api.login(email,password,$("loginRemember")?.checked!==false);
+      window.cloudUser={...user,uid:user.id,displayName:user.display_name,getIdToken:async()=>null};
       window.cloudUserRole=user.role||"operatore";
       await loadData();refreshAuth(user);message("");
       if(typeof window.nav==="function")window.nav("dashboard");
@@ -105,6 +105,21 @@
     clearTimeout(timer);window.cloudUser=null;window.cloudUserRole="";
     await api.logout().catch(()=>{});location.reload();
   }
+  async function restoreSavedSession(){
+    const loading=$("loginLoading"),form=$("loginForm");
+    if(loading){loading.hidden=false;const label=loading.querySelector("strong");if(label)label.textContent="Ripristino accesso…"}
+    if(form)form.hidden=true;
+    try{
+      const user=await api.me();
+      window.cloudUser={...user,uid:user.id,displayName:user.display_name,getIdToken:async()=>null};
+      window.cloudUserRole=user.role||"operatore";
+      await loadData();refreshAuth(user);
+      if(typeof window.nav==="function")window.nav("dashboard");
+    }catch(error){
+      window.cloudUser=null;window.cloudUserRole="";refreshAuth(null);
+      if(error.status!==401)message("Non riesco a ripristinare la sessione Oracle: "+error.message,true);
+    }
+  }
   $("loginForm")?.addEventListener("submit",event=>{event.preventDefault();login($("loginEmail")?.value.trim(),$("loginPassword")?.value||"");});
   $("loginEmailButton")?.addEventListener("click",event=>{event.preventDefault();login($("loginEmail")?.value.trim(),$("loginPassword")?.value||"")});
   $("loginCloud")?.addEventListener("click",event=>{event.preventDefault();login($("authEmail")?.value.trim(),$("authPassword")?.value||"")});
@@ -114,4 +129,5 @@
   if(typeof window.__vgOracleBootReady==="function")window.__vgOracleBootReady();
   else window.VG_ORACLE_UI_READY=true;
   refreshAuth(null);
+  restoreSavedSession();
 })();
