@@ -131,7 +131,7 @@
     shell.addEventListener("click",event=>{
       const btn=event.target.closest("button,a,input[type=file],label.filebtn");
       if(!btn)return;
-      if(btn.matches(".nav[data-view], [data-go], #sidebarLogout, #addClient, #addJob, #addManual, #newQuote, #saveQuote, #qRows button, #addInvoice, #addPriceList, #addEntry, #recoverDemoDrafts"))return;
+      if(btn.matches(".nav[data-view], [data-go], #sidebarLogout, #addClient, #addJob, #addManual, #newQuote, #saveQuote, #qRows button, #addInvoice, #addPriceList, #addEntry, #exportConsCsv, #recoverDemoDrafts"))return;
       event.preventDefault();event.stopImmediatePropagation();
       if(btn.matches("a"))return;
       const context=btn.closest(".view");
@@ -233,7 +233,12 @@
       stat("cPending",rows.filter(x=>statusValue(x).includes("verific")).length);
       stat("cApproved",rows.filter(x=>statusValue(x).includes("approv")).length);
       stat("cPosted",rows.filter(x=>statusValue(x).includes("contabil")).length);
-      fillList("consList",rows.slice(-200).reverse(),x=>[
+      const state=String($("consFilter")?.value||"").toLowerCase();
+      const search=String($("consSearch")?.value||"").trim().toLowerCase();
+      const filtered=rows.filter(x=>(!state||statusValue(x)===state.toLowerCase())&&
+        (!search||["title","description","commessa","impianto","operatore","idSap","id"]
+          .some(k=>String(x[k]||"").toLowerCase().includes(search))));
+      fillList("consList",filtered.slice(-200).reverse(),x=>[
         x.title||x.description||x.commessa||"Consuntivo",
         (x.date||x.data||"")+" · "+(x.status||""),
         x.total!==undefined?eur(x.total):""]);
@@ -279,6 +284,24 @@
       if(epoch!==model.epoch)return;
       status(view,"Dati non disponibili: "+err.message);
     }
+  }
+  async function refreshDemoConsuntivi(){
+    if(!model.user)return;
+    await open("consuntivi");
+  }
+  function exportDemoConsuntivi(){
+    if(!model.user||ROOT!=="gestionale_sandbox_20261027")return;
+    const rows=list(model.cache.get("consuntivi"));
+    const cols=["id","title","description","commessa","status","date","total"];
+    const safe=v=>{
+      const value=String(v??"").replace(/[\\r\\n]/g," ").replace(/"/g,'""');
+      return '"'+(/^[=+@-]/.test(value)?"'"+value:value)+'"';
+    };
+    const csv=[cols.join(";"),...rows.map(x=>cols.map(k=>safe(x[k])).join(";"))].join("\\r\\n");
+    const blob=new Blob(["\\uFEFF",csv],{type:"text/csv;charset=utf-8"});
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement("a");a.href=url;a.download="consuntivi-demo-oracle.csv";
+    a.click();URL.revokeObjectURL(url);
   }
   function fillDemoClientOptions(clients,elementId){
     const field=$(elementId);if(!field)return;
@@ -557,6 +580,9 @@
     $("addInvoice")?.addEventListener("click",addDemoInvoice);
     $("addPriceList")?.addEventListener("click",addDemoPriceList);
     $("addEntry")?.addEventListener("click",addDemoPriceEntry);
+    $("consFilter")?.addEventListener("change",refreshDemoConsuntivi);
+    $("consSearch")?.addEventListener("input",refreshDemoConsuntivi);
+    $("exportConsCsv")?.addEventListener("click",exportDemoConsuntivi);
     $("addManual")?.addEventListener("click",()=>{
       if(demoLines.length>=20)return alert("Massimo 20 voci DEMO.");
       demoLines.push({code:"VOCE",description:"DEMO Voce prova",unit:"cad",qty:1,price:10});
