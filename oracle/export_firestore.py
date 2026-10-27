@@ -1,5 +1,6 @@
 """Export an authorized Firestore workspace. Private output, never commit real data."""
 import argparse
+from datetime import datetime, timezone
 import json
 import os
 from pathlib import Path
@@ -73,7 +74,10 @@ def main():
     from firebase_admin import firestore
     firebase_admin.initialize_app()
     data,mode=load_workspace(firestore.client(),a.workspace)
-    wrapper={"app":"Varga Gestionale","workspace":a.workspace,"source_mode":mode,"data":data}
+    wrapper={"app":"Varga Gestionale","workspace":a.workspace,
+             "exported_at":datetime.now(timezone.utc).isoformat(),
+             "purpose":"Oracle migration private backup",
+             "source_mode":mode,"data":data}
     raw=json.dumps(wrapper,ensure_ascii=False,allow_nan=False,indent=2)
     fd=os.open(output,os.O_WRONLY|os.O_CREAT|os.O_EXCL,0o600)
     with os.fdopen(fd,"w",encoding="utf-8") as stream:stream.write(raw+"\n")
