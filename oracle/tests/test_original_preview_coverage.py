@@ -41,6 +41,7 @@ class OriginalPreviewCoverage(unittest.TestCase):
         self.assertIn('id="vcRecordResults"',js)
         self.assertIn("body.textContent=",js)
         self.assertIn("model.cache.get(key)",js)
+        self.assertIn('event.target.closest("#vcRecordExplorer")',js)
 
 if __name__=="__main__":
     unittest.main()
