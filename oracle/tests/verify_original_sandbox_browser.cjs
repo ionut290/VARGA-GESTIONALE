@@ -97,13 +97,13 @@ const API=class{
   }
   async manifest(space){
     assert.equal(space,demo);
-    return {sections:Object.fromEntries(Object.keys(db).map(x=>[x,{revision:rev[x],count:db[x].length}]))};
+    return {workspace:space,sections:Object.fromEntries(Object.keys(db).map(x=>[x,{revision:rev[x],count:db[x].length}]))};
   }
   async readSection(space,key){
     assert.equal(space,demo);
     assert.ok(Object.hasOwn(db,key),"unexpected section "+key);
     this.revs[key]=rev[key];
-    return {data:clone(db[key]),revision:rev[key]};
+    return {workspace:space,section:key,data:clone(db[key]),revision:rev[key]};
   }
   async saveSection(space,key,items){
     assert.equal(space,demo,"wrong workspace!");
