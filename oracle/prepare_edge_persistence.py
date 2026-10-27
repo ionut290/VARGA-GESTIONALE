@@ -71,7 +71,10 @@ def patch_compose(raw):
     # Refuse any existing volumes: normalised inspect confirmed none in live config.
     if re.search(r"(?m)^    volumes\s*:", "".join(lines[service+1:end])):
         raise ValueError("Volumi web già definiti: serve revisione manuale")
-    section=find_key(lines,"networks",4,service+1,end)
+    sections=[i for i in range(service+1,end) if re.match(r"^    networks\s*:",lines[i])]
+    if len(sections)!=1:
+        raise ValueError("Sezione networks web non riconosciuta")
+    section=sections[0]
     network_line=lines[section]
     if re.fullmatch(r"    networks:\s*\[(?:\s*public_proxy\s*)\]\s*\n?",network_line):
         lines[section]="    networks: [public_proxy, gestionale_edge]\n"
@@ -118,7 +121,9 @@ def patch_compose(raw):
     return "".join(lines)
 
 def compose_config(file):
-    data=json.loads(shell(["docker","compose","--project-directory",str(WEB_DIR),
+    # Each Compose project resolves its own private .env relative to its folder.
+    project_dir=Path(file).parent
+    data=json.loads(shell(["docker","compose","--project-directory",str(project_dir),
                           "-f",str(file),"config","--format","json"],timeout=25))
     return data
 
