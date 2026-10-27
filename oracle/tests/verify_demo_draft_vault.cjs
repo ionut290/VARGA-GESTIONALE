@@ -1,7 +1,8 @@
 "use strict";
 const assert=require("node:assert/strict");
-const {DemoDraftVault,WORKSPACE}=require("../demo-draft-vault.js");
+const {DemoDraftVault,WORKSPACE,openBrowserStore}=require("../demo-draft-vault.js");
 (async()=>{
+ assert.throws(()=>openBrowserStore(null),/IndexedDB non disponibile/);
  const entries=new Map();
  const store={async get(k){return entries.get(k)},async put(k,v){entries.set(k,v)},async delete(k){entries.delete(k)}};
  assert.throws(()=>new DemoDraftVault({store,userId:"tester@example.com",workspace:"varga-azienda"}),/non ammesso/);
