@@ -123,8 +123,18 @@ def main():
         if browser_cloud_differences:print("Sezioni:",", ".join(browser_cloud_differences))
         print("Non equivale a autorizzazione a unire o sostituire dati: nessuna modifica eseguita.")
         return 0
-    except (OSError,ValueError,TypeError,UnicodeError):
-        print("CONTROLLO FALLITO: dati non letti o incoerenti (nessun dato mostrato).",file=sys.stderr)
+    except (OSError,ValueError,TypeError,UnicodeError) as exc:
+        # Only fixed error labels: do not accidentally print private JSON, paths or identifiers.
+        known={
+            "archivio assente o troppo grande",
+            "formato backup Varga Gestionale non valido",
+            "data nuova esportazione non valida",
+            "data esportazione fuori intervallo atteso",
+            "workspace differente",
+            "archivio locale browser non presente",
+        }
+        reason=str(exc) if isinstance(exc,ValueError) and str(exc) in known else type(exc).__name__
+        print("CONTROLLO FALLITO ("+reason+"): nessun dato aziendale mostrato o modificato.",file=sys.stderr)
         return 2
 
 if __name__=="__main__":
