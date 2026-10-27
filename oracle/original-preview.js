@@ -277,6 +277,19 @@
     authView(false);explain("");
   }
   function setup(){
+    // Install a dedicated navigation listener before the editing lock, so the
+    // Oracle Cantieri view cannot be swallowed by the read-only click guard.
+    document.querySelector(".app-shell")?.addEventListener("click",event=>{
+      const link=event.target.closest('#openVargaCantieriDesktop, .nav[data-view="cantieriSync"]');
+      if(!link)return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      if(!model.user){
+        explain("Accedi con l'account Oracle per consultare Varga Cantieri.",true);
+        return;
+      }
+      open("cantieriSync");
+    },true);
     locks();
     // Expose the original Cantieri navigation control in the Oracle-only preview.
     const cantieriButton=$("openVargaCantieriDesktop");
@@ -285,7 +298,6 @@
       cantieriButton.removeAttribute("hidden");
       cantieriButton.style.display="block";
       cantieriButton.textContent="🏗️ Varga Cantieri · Oracle";
-      cantieriButton.addEventListener("click",()=>open("cantieriSync"));
     }
     const syncNav=document.querySelector('.nav[data-view="cantieriSync"]');
     if(syncNav){
