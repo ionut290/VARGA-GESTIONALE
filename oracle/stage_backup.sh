@@ -23,7 +23,9 @@ echo "=== CONTROLLO API ORACLE ==="
 curl --fail --silent --show-error --max-time 8 http://127.0.0.1:18098/api/gestionale/v1/health
 printf '\n'
 echo "=== PREVENZIONE SOVRASCRITTURA ==="
-old="$(docker compose -p vg-gestionale-oracle exec -T db sh -c 'psql -X -U "$POSTGRES_USER" -d "$POSTGRES_DB" -Atqc "SELECT count(*) FROM vg.workspace_sections WHERE workspace_id=\x27gestionale_backup_20261015\x27"' | tr -d '\r\n')"
+old="$(docker compose -p vg-gestionale-oracle exec -T db \
+  psql -X -U varga_gestionale -d varga_gestionale -Atqc \
+  "SELECT count(*) FROM vg.workspace_sections WHERE workspace_id='gestionale_backup_20261015'" | tr -d '\\r\\n')"
 if [[ "$old" != 0 ]]; then
   echo "Esiste gia un archivio nella destinazione di prova: non importo." >&2
   exit 1
@@ -37,6 +39,7 @@ docker compose -p vg-gestionale-oracle exec -T api \
   python -m backend.admin import-snapshot --workspace "$workspace" --file - \
   --confirm-sha256 "$sum" < "$backup"
 echo "=== SEZIONI IMPORTATE (SOLO CONTEGGIO) ==="
-docker compose -p vg-gestionale-oracle exec -T db sh -c \
-  'psql -X -U "$POSTGRES_USER" -d "$POSTGRES_DB" -P pager=off -c "SELECT section, CASE WHEN jsonb_typeof(data)=\x27array\x27 THEN jsonb_array_length(data) ELSE NULL END AS elementi FROM vg.workspace_sections WHERE workspace_id=\x27gestionale_backup_20261015\x27 ORDER BY section"'
+docker compose -p vg-gestionale-oracle exec -T db \
+  psql -X -U varga_gestionale -d varga_gestionale -P pager=off -c \
+  "SELECT section, CASE WHEN jsonb_typeof(data)='array' THEN jsonb_array_length(data) ELSE NULL END AS elementi FROM vg.workspace_sections WHERE workspace_id='gestionale_backup_20261015' ORDER BY section"
 echo "IMPORT COMPLETATO SOLO SU COPIA DI PROVA. Nessun account, Firebase o servizio esistente cambiato."
