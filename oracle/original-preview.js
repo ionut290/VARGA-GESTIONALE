@@ -195,6 +195,7 @@
       fillList("vcRowsList",collections,x=>[x.name,
         x.name==="vcOre"||x.name==="rapportini"?"Ore lavorate e rapportini":"Raccolta Cantieri",
         x.count+" documenti"]);
+      renderCantieriRecords("vcCommesse");
     } else if(view==="consuntivi"){
       const rows=combine(["consuntivi","depurazioneConsuntivi","discaricheConsuntivi","wteModenaConsuntivi","economicEntries"]);
       const statusValue=x=>String(x.status||"").toLowerCase();
@@ -276,6 +277,7 @@
           fillList("vcRowsList",sourceRows,x=>[x.name,
             x.snapshot==="current_sync"?"Sorgente corrente":x.snapshot==="workspace"?"Dati del Gestionale":"Archivio storico "+x.snapshot,
             x.count+" documenti"],100);
+          renderCantieriRecords($("vcRecordCollection")?.value||"vcCommesse");
         }catch(error){
           if($("vcSyncInfo"))$("vcSyncInfo").textContent=
             "Archivio staging non disponibile: "+error.message;
@@ -342,6 +344,44 @@
     }
     const rowsTitle=$("vcRowsList")?.closest(".panel")?.querySelector("h2");
     if(rowsTitle)rowsTitle.textContent="Raccolte importate da Varga Cantieri";
+    const explorer=document.createElement("section");
+    explorer.className="panel";explorer.id="vcRecordExplorer";
+    const title=document.createElement("h2");title.textContent="Esplora i record Cantieri";
+    const intro=document.createElement("p");intro.className="muted";
+    intro.textContent="Ricerca locale nei dati già caricati da Oracle. I campi sono mostrati come archiviati, senza modificarli.";
+    const controls=document.createElement("div");controls.className="formgrid";
+    const collection=document.createElement("select");collection.id="vcRecordCollection";collection.setAttribute("aria-label","Raccolta Cantieri");
+    for(const [key,label] of [["vcCommesse","Commesse"],["vcImpianti","Impianti"],["vcOre","Ore lavorate"],["rapportini","Rapportini"],["vcSquadre","Squadre"],["vcUtenti","Operatori"],["vcSegnalazioni","Segnalazioni"],["vcRecords","Record importati"],["cantieriRows","Righe importate"]]){
+      const option=document.createElement("option");option.value=key;option.textContent=label;collection.append(option);
+    }
+    const search=document.createElement("input");search.id="vcRecordSearch";search.type="search";search.placeholder="Cerca nei campi dei record";search.setAttribute("aria-label","Cerca nei record Cantieri");
+    const results=document.createElement("div");results.id="vcRecordResults";results.className="list";results.setAttribute("aria-live","polite");
+    controls.append(collection,search);explorer.append(title,intro,controls,results);view.append(explorer);
+    collection.addEventListener("change",()=>renderCantieriRecords(collection.value));
+    search.addEventListener("input",()=>renderCantieriRecords(collection.value));
+  }
+  function renderCantieriRecords(key){
+    const target=$("vcRecordResults");if(!target)return;
+    const raw=model.cache.get(key);
+    const rows=Array.isArray(raw)?raw:raw&&typeof raw==="object"?Object.entries(raw).map(([id,value])=>value&&typeof value==="object"?{id,...value}:{id,value}):[];
+    const query=String($("vcRecordSearch")?.value||"").trim().toLocaleLowerCase("it");
+    const matches=rows.filter(row=>!query||JSON.stringify(row).toLocaleLowerCase("it").includes(query));
+    target.replaceChildren();
+    if(!matches.length){const empty=document.createElement("div");empty.className="empty";empty.textContent="Nessun record corrispondente.";target.append(empty);return;}
+    const fragment=document.createDocumentFragment();
+    for(const [index,row] of matches.slice(0,100).entries()){
+      const item=document.createElement("details");item.className="item";
+      const summary=document.createElement("summary");summary.className="item-title";
+      const source=row&&typeof row==="object"?row:{};
+      const headline=source.codice||source.code||source.commessa||source.titolo||source.title||source.nome||source.name||source.id||"Record "+(index+1);
+      summary.textContent=String(headline);
+      const body=document.createElement("pre");body.className="item-sub";
+      let serialized;try{serialized=JSON.stringify(row,null,2);}catch(_){serialized=String(row);}
+      body.textContent=(serialized||String(row)).slice(0,12000);
+      item.append(summary,body);fragment.append(item);
+    }
+    target.append(fragment);
+    if(matches.length>100){const note=document.createElement("p");note.className="muted";note.textContent="Visualizzati i primi 100 risultati; restringi la ricerca per trovare altri record.";target.append(note);}
   }
   function setup(){
     // Handle safe navigation and dashboard links before the read-only editing lock.
