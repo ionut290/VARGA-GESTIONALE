@@ -28,7 +28,7 @@ def patch(src):
         raise ValueError("Route Oracle già presente: nessuna modifica")
     if "location" not in src or "try_files" not in src:
         raise ValueError("Non è la configurazione SPA riconosciuta")
-    if re.search(r"(?m)^\s*proxy_pass\s+",src):
+    if re.search(r"\bproxy_pass\s+",src):
         raise ValueError("Esiste già un proxy: controllare manualmente")
     if re.search(r"(?m)^\s*location\s+.*?/api/gestionale",src):
         raise ValueError("Route API esistente non prevista")
