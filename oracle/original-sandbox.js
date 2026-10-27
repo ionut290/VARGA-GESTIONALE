@@ -448,8 +448,10 @@
     try{
       const user=await api.login(email,password);
       const response=await api.manifest(ROOT);
-      if(Object.keys(response.sections||{}).sort().join(",")!=="clients,consuntivi,entries,invoices,jobs,priceLists,quotes")
-        throw Error("Questo ambiente non contiene soltanto le quattro sezioni demo previste.");
+      const requiredDemo=["clients","consuntivi","entries","invoices","jobs","priceLists","quotes"];
+      const missingDemo=requiredDemo.filter(key=>!Object.prototype.hasOwnProperty.call(response.sections||{},key));
+      if(response.workspace!==ROOT||missingDemo.length)
+        throw Error("Archivio DEMO non compatibile. Sezioni mancanti: "+(missingDemo.join(", ")||"nessuna")+"; workspace verificato: "+String(response.workspace===ROOT));
       if(!response.sections?.clients)throw Error("Archivio di prova non autorizzato");
       await bridge.initialize();
       model.user=user;model.sections=response.sections;
