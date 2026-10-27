@@ -58,13 +58,14 @@
     }
     nav.dataset.oracleGrouped='2';
   }
+  let welcomeDismissed=false;
   function welcomePanel(){
     const dashboard=$('dashboard'),top=dashboard?.querySelector('.topline');
-    if(!top||$('vgWelcome'))return;
+    if(!top||welcomeDismissed||$('vgWelcome'))return;
     const panel=document.createElement('section');panel.id='vgWelcome';panel.className='panel vg-welcome';
     panel.innerHTML='<div class="vg-welcome-grid"><div><h2>Benvenuto in Varga Gestionale</h2><p><strong>1.</strong> Controlla scadenze e attività dalla Home. <strong>2.</strong> Apri una commessa per trovare tutto il lavoro collegato. <strong>3.</strong> Usa le altre sezioni solo quando ti servono.</p></div><div class="vg-welcome-actions"><button type="button" data-oracle-view="commesse" class="primary">APRI COMMESSE</button><button type="button" class="ghost" data-oracle-dismiss-welcome>HO CAPITO</button></div></div>';
     top.insertAdjacentElement('afterend',panel);
-    panel.querySelector('[data-oracle-dismiss-welcome]').addEventListener('click',()=>panel.remove());
+    panel.querySelector('[data-oracle-dismiss-welcome]').addEventListener('click',()=>{welcomeDismissed=true;panel.remove()});
   }
 
   function quickPanel(){
