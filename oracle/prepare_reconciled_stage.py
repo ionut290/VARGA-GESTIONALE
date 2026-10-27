@@ -60,11 +60,11 @@ def index(section,value):
         mapping[key]=item
     return mapping
 
-def validate_sect(data):
+def validate_sect(data, allow_historical_review=False):
     if not all(isinstance(k,str) and SECTION.fullmatch(k) for k in data):
         raise ValueError("Nome sezione non sicuro")
-    if "migrationReview" in data:
-        raise ValueError("Sezione migrationReview già presente: evitare collisioni")
+    if "migrationReview" in data and not allow_historical_review:
+        raise ValueError("Sezione migrationReview già presente nella fonte attuale")
 
 def build(old,live):
     if live.get("workspace") != "varga-azienda":
@@ -78,7 +78,7 @@ def build(old,live):
     local=live.get("local_browser_archive")
     if not isinstance(local,dict) or not local:
         raise ValueError("Archivio locale assente: procedura interrotta")
-    validate_sect(hist);validate_sect(cloud);validate_sect(local)
+    validate_sect(hist,allow_historical_review=True);validate_sect(cloud);validate_sect(local)
     current={}
     # Canonical current Firestore for every section present in cloud.
     # Only-local sections come from the exporting browser.
@@ -93,12 +93,12 @@ def build(old,live):
             review["cloudBrowserConflict"][section]={"browserCopy":local[section]}
             conflicts[section]+=1
     # Preserve entire historic section when neither current source has it.
-    for section in sorted(set(hist)-set(current)):
+    for section in sorted(set(hist)-set(current)-{"migrationReview"}):
         review["historicalSectionAbsent"][section]=hist[section]
         absent[section]+=1
     # When historic individual rows vanish from active data, quarantine those
     # rows rather than silently resurrecting possibly intentional deletions.
-    for section in sorted(set(hist)&set(current)):
+    for section in sorted((set(hist)&set(current))-{"migrationReview"}):
         if not isinstance(hist[section],list) or not isinstance(current[section],list):
             if section not in cloud and section in local and hist[section]!=current[section]:
                 # Old object preserved in historical backup; never auto-replace.
@@ -118,6 +118,8 @@ def build(old,live):
                 absent[section]+=len(rows)
     # Explicit review section is not interpreted by the current frontend.
     # Staging only; never treat migrationReview as production signoff.
+    if "migrationReview" in hist:
+        review["previousReview"]=hist["migrationReview"]
     review["sourceDates"]={"historical":date_of(old),"current":date_of(live)}
     review["notes"]="Separate historical evidence and current cloud/browser conflicts. Do not automatically restore or remove."
     current["migrationReview"]=review
@@ -237,8 +239,9 @@ def main():
         print("Bytes:",length,"SHA256:",digest)
         print("NON importare in produzione senza ulteriore verifica funzionale")
         return 0
-    except (OSError,ValueError,TypeError,UnicodeError):
-        print("ERRORE: riconciliazione interrotta, nessuna modifica al database.",file=sys.stderr)
+    except (OSError,ValueError,TypeError,UnicodeError) as exc:
+        # Do not print exception values: they may contain private paths/data.
+        print("ERRORE: riconciliazione interrotta ("+type(exc).__name__+"). Nessuna modifica al database.",file=sys.stderr)
         return 2
 
 if __name__=="__main__":
