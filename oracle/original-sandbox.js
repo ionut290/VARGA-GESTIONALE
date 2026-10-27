@@ -6,7 +6,7 @@
   const ROOT="gestionale_sandbox_20261027";
   const api=new window.VGOraclePilot();
   const bridge=new window.VGOracleSectionBridge.SectionBridge({
-    client:api,workspace:ROOT,keys:["clients","jobs","quotes","consuntivi","invoices","priceLists","entries"],writable:true
+    client:api,workspace:ROOT,keys:["clients","jobs","quotes","consuntivi","invoices","priceLists","entries","expenses","deadlines","documents","requests","vcCommesse","vcImpianti","vcOre","vcRecords","company"],writable:true
   });
   // Optional DEMO draft vault. Never write business workspaces or auto-retry.
   let draftVault=null;
@@ -161,7 +161,7 @@
     if(!model.sections||!Object.prototype.hasOwnProperty.call(model.sections,key)){
       return key==="company"?{}:[];
     }
-    const value=["clients","jobs","quotes","consuntivi","invoices","priceLists","entries"].includes(key)
+    const value=["clients","jobs","quotes","consuntivi","invoices","priceLists","entries","expenses","deadlines","documents","requests","vcCommesse","vcImpianti","vcOre","vcRecords","company"].includes(key)
       ?await bridge.load(key)
       :(await api.readSection(ROOT,key)).data;
     model.cache.set(key,value);
@@ -531,7 +531,7 @@
     try{
       const user=await api.login(email,password);
       const response=await api.manifest(ROOT);
-      const requiredDemo=["clients","consuntivi","entries","invoices","jobs","priceLists","quotes"];
+      const requiredDemo=["clients","consuntivi","entries","invoices","jobs","priceLists","quotes","expenses","deadlines","documents","requests","vcCommesse","vcImpianti","vcOre","vcRecords","company"];
       const missingDemo=requiredDemo.filter(key=>!Object.prototype.hasOwnProperty.call(response.sections||{},key));
       if(response.workspace!==ROOT||missingDemo.length)
         throw Error("Archivio DEMO non compatibile. Sezioni mancanti: "+(missingDemo.join(", ")||"nessuna")+"; workspace verificato: "+String(response.workspace===ROOT));
