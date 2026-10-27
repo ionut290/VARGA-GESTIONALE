@@ -50,7 +50,7 @@ BEGIN
     FROM jsonb_array_elements(value) WITH ORDINALITY AS rows(item,ordinality);
     RETURN result;
   ELSIF jsonb_typeof(value)='object' THEN
-    IF jsonb_object_length(value)=2
+    IF (value-'t'-'v')='{}'::jsonb
        AND value ? 't' AND value ? 'v'
        AND jsonb_typeof(value->'t')='string' THEN
       tag:=value->>'t';
