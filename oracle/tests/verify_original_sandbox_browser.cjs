@@ -82,7 +82,8 @@ const db={
   clients:[{id:"demo-cl-01",name:"DEMO Existing"}],
   jobs:[{id:"demo-job-01",title:"DEMO Existing job",clientId:"demo-cl-01",status:"Da avviare",value:0}],
   quotes:[{id:"demo-q-01",subject:"DEMO Existing quote",clientName:"DEMO Existing",total:12}],
-  consuntivi:[{id:"demo-c-01",title:"DEMO existing consuntivo"}]
+  consuntivi:[{id:"demo-c-01",title:"DEMO existing consuntivo"}],
+  invoices:[],priceLists:[],entries:[]
 };
 const rev=Object.fromEntries(Object.keys(db).map(x=>[x,1]));
 const writes=[],alerts=[];
