@@ -218,8 +218,10 @@
     }
     model.epoch+=1;
     const epoch=model.epoch;
-    document.querySelectorAll(".view").forEach(x=>x.classList.toggle("active-view",x.id===view));
+    document.querySelectorAll(".view").forEach(x=>{const active=x.id===view;x.classList.toggle("active-view",active);x.style.display=active?"block":"none";});
+    if(view==="cantieriSync" && location.hash!=="#cantieriSync")history.replaceState(null,"","#cantieriSync");
     document.querySelectorAll(".nav[data-view]").forEach(x=>x.classList.toggle("active",x.dataset.view===view));
+    $("openVargaCantieriDesktop")?.classList.toggle("active",view==="cantieriSync");
     const needed=routes[view]||[];
     if(view==="cantieriSync"){
       if($("vcSyncInfo"))$("vcSyncInfo").textContent="Sezione Varga Cantieri aperta · caricamento riepilogo Oracle…";
