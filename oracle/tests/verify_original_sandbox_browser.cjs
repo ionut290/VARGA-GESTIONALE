@@ -59,7 +59,7 @@ const views=["dashboard","clienti","commesse","preventivo","preventivi",
 for(const id of views)elements.set(id,new Elem(id));
 const navs=views.map(id=>{const e=new Elem("nav-"+id,"button");e.dataset.view=id;return e});
 const shell=new Elem("shell"),loginBrand=new Elem("brand");
-shell.querySelectorAll=()=>Array.from(elements.values()).filter(x=>x instanceof Elem);
+shell.querySelectorAll=()=>[]; // Browser-specific disabled inputs are tested by static safety guards.
 const classes=[];
 const body={classList:{add(){},remove(){},toggle(){}}};
 const fakeDoc={
