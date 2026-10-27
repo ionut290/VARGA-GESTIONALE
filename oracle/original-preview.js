@@ -125,6 +125,8 @@
     const get=k=>list(data[k]);
     if(view==="dashboard"){
       const jobs=get("jobs"),invoices=get("invoices"),deadlines=get("deadlines");
+      window.VGOraclePreviewData={jobs,clients:get("clients"),priceLists:get("priceLists"),deadlines};
+      window.dispatchEvent(new Event("vg-oracle-preview-data"));
       stat("kPrev",get("quotes").length);
       stat("kCli",get("clients").length);
       stat("kJobs",jobs.filter(x=>x.status!=="Terminata").length);
