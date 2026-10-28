@@ -21,10 +21,15 @@
     $("loginForm")?.querySelector(".login-divider")?.setAttribute("hidden","");
     const cloudIntro=document.querySelector("#cloud .subtitle");
     if(cloudIntro)cloudIntro.textContent="Account Oracle del Gestionale, separato dall'accesso Varga Cantieri.";
-    const cloudTitle=document.querySelector("#cloud .panel h2");
-    if(cloudTitle)cloudTitle.textContent="Account Oracle";
-    const cloudHelp=document.querySelector("#cloud .panel p.muted");
-    if(cloudHelp)cloudHelp.textContent="Gli account Oracle vengono creati e autorizzati dall'amministratore. L'accesso a Varga Cantieri resta separato.";
+    document.querySelectorAll("#cloud .panel h2").forEach(node=>{
+      if(node.textContent.trim()==="Account condiviso")node.textContent="Accesso Oracle";
+    });
+    document.querySelectorAll("#cloud .panel p.muted").forEach(node=>{
+      if(node.textContent.includes("stesso account usato in Varga Cantieri"))
+        node.textContent="Gli account Oracle vengono creati e autorizzati dall'amministratore. L'accesso a Varga Cantieri resta separato.";
+    });
+    if($("authEmail"))$("authEmail").placeholder="email Oracle";
+    if($("authPassword"))$("authPassword").placeholder="Password Oracle";
     if($("pushCloud"))$("pushCloud").textContent="SALVA SU ORACLE";
     if($("pullCloud"))$("pullCloud").textContent="RILEGGI DA ORACLE";
   }
