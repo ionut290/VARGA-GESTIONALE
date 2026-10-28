@@ -18,7 +18,7 @@ Il bootstrap Oracle esclude questi moduli o collegamenti, quindi il loro comport
 | `app-cloud.js` | Login Firebase, snapshot Firestore, sincronizzazione realtime e salvataggi cloud | Login Oracle, ruoli, sezioni revisionate, backup e recupero sessione |
 | `cloud-users.js`, `user-document-assets.js` | Approvazioni, profili e asset utente da Firestore | Migrare utenti/ruoli/profili ad Oracle e stabilire un flusso di amministrazione |
 | `cloud-incremental-sync.js` | Manifest e sezioni aggiornati da Cloud Functions | Usare l'API Oracle per lettura/scrittura, revisioni e recupero |
-| `app-sync.js` con Cloud Functions | Import incrementale dei dati Cantieri dal progetto Firebase | Leggere lo staging Oracle aggiornato dal sincronizzatore Cantieri; non interrogare Firebase dal browser Gestionale |
+| Pulsante Cantieri nell'adapter Oracle (lotto aggiunto nel ramo) | Rilegge `jobs`, `clients` e le sezioni `vc*` dall'API Oracle, senza scartare modifiche locali non salvate | Verificare su VM che il ciclo sorgente Cantieri→staging→workspace resti aggiornato; le scritture di ritorno a Cantieri restano da migrare |
 | `job-management-sync.js` | Scrittura delle commesse del Gestionale in Firestore Cantieri | Definire un endpoint controllato Cantieri↔Oracle per la replica richiesta |
 | `job-plant-management.js` | Scrittura diretta degli impianti nelle raccolte Firestore Cantieri | Spostare le modifiche su API/contratto di integrazione senza SDK Firebase nel Gestionale |
 | `squadre-management-sync.js` | Scrittura di squadre e storico in Firestore Cantieri | Spostare le modifiche su API/contratto di integrazione e gestire conflitti/permessi |
