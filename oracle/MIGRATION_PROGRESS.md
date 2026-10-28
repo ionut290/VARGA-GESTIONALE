@@ -112,3 +112,18 @@ Non pubblicare backup/credenziali; non toccare Varga Cantieri né AzuraCast.
 - [x] Browser carica la pagina originale, testi account Oracle separato e pulsanti Salva/Rileggi.
 - [x] Due riletture complete riuscite senza scrivere dati; un primo errore HTML del proxy si è risolto al tentativo successivo.
 - [ ] Testare scrittura e bozze soltanto su un workspace sintetico separato. L'attuale workspace di prova contiene una copia di dati aziendali e non è stato modificato durante queste verifiche.
+
+
+## Amministrazione account Oracle e stato CI — 28 ottobre 2026
+- [x] Aggiunti comandi CLI amministrativi per elenco account, reimpostazione password, cambio ruolo e accesso ai workspace.
+- [x] Reimpostazione password e cambi di ruolo/accesso revocano le sessioni esistenti; l'unico amministratore attivo non può essere declassato.
+- [x] Accesso in scrittura a workspace backup/candidate rifiutato dalla CLI; le operazioni richiedono conferma interattiva e non mostrano password.
+- [x] CI sul commit `6f4d98883bc1d0433b298af9c52ec56c21caf682` superata: run 40737487230.
+- [ ] I comandi sono nel branch, ma non è stata verificata la gestione degli account sul server live; nessun utente o permesso è stato modificato.
+
+## Stato decisionale — 28 ottobre 2026
+- [x] Anteprima dell'app originale raggiungibile su Oracle; due riletture browser complete riuscite.
+- [x] Il deploy pilota aggiorna API e asset isolati, verifica la salute e prevede rollback; non applica migrazioni né modifica dati aziendali.
+- [ ] Scritture, recupero bozza offline e conflitti devono essere collaudati su un workspace sintetico dedicato; il workspace preview attuale contiene una copia di dati aziendali e resta non modificato.
+- [ ] La sincronizzazione Cantieri deve ancora dimostrare completezza e freschezza: il timer è regolare, ma 973 record annidati restano senza corrispondenza esatta negli snapshot e l'identità/freschezza dei figli non è provata.
+- [ ] Prima di trasferire l'app a uso aziendale servono prova controllata di scrittura su dati sintetici, test account/ruoli, riconciliazione dei dati, backup e ripristino. Firebase e la produzione corrente restano attivi fino al superamento dei controlli.
