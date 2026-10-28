@@ -43,7 +43,7 @@ candidates AS (
          EXISTS (
            SELECT 1
            FROM vg.cantieri_source_stage s
-           CROSS JOIN LATERAL string_to_array(s.path,'/') AS p(parts)
+           CROSS JOIN LATERAL (SELECT string_to_array(s.path,'/') AS parts) AS p
            WHERE s.source_snapshot='current_sync'
              AND cardinality(p.parts)>=4
              AND p.parts[1]='commesse'
@@ -54,7 +54,7 @@ candidates AS (
          EXISTS (
            SELECT 1
            FROM vg.cantieri_source_stage s
-           CROSS JOIN LATERAL string_to_array(s.path,'/') AS p(parts)
+           CROSS JOIN LATERAL (SELECT string_to_array(s.path,'/') AS parts) AS p
            WHERE s.source_snapshot='previous_sync'
              AND cardinality(p.parts)>=4
              AND p.parts[1]='commesse'
