@@ -26,6 +26,8 @@ SESSION_HOURS = max(1, min(24, int(os.getenv("VG_SESSION_HOURS", "12"))))
 MAX_BODY = 16 * 1024 * 1024
 WORKSPACE_PATTERN = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
 SECTION_PATTERN = re.compile(r"^[A-Za-z][A-Za-z0-9_]{0,63}$")
+# Mirror high-impact admin-only controls enforced by the original UI.
+ADMIN_ONLY_WRITE_SECTIONS = frozenset({"company", "vcCommesse", "vcImpianti", "vcOre", "vcRecords", "vcSegnalazioni", "vcSquadre", "vcUtenti"})
 PH = PasswordHasher(time_cost=3, memory_cost=65536, parallelism=2)
 app = FastAPI(title="Varga Gestionale Oracle API", version="0.1.0", docs_url=None, redoc_url=None)
 app.add_middleware(CORSMiddleware, allow_origins=ALLOWED_ORIGINS, allow_credentials=False,
@@ -169,6 +171,8 @@ def put_workspace(workspace: str, body: WorkspaceIn, user=Depends(bearer_user)):
         raise HTTPException(413, "Archivio troppo grande")
     with db() as con:
         assert_workspace(con,user,workspace,writable=True)
+        if user["role"] != "admin":
+            raise HTTPException(403, "La sostituzione completa del workspace è riservata agli amministratori")
         con.execute("INSERT INTO vg.workspaces(id,revision,snapshot) VALUES(%s,0,%s::jsonb) ON CONFLICT DO NOTHING",
                     (workspace,"{}"))
         if con.execute("SELECT 1 FROM vg.workspace_sections WHERE workspace_id=%s LIMIT 1",(workspace,)).fetchone():
@@ -224,6 +228,8 @@ def put_section(workspace: str, section: str, body: WorkspaceIn, user=Depends(be
     if len(serialized.encode("utf-8"))>MAX_BODY:raise HTTPException(413,"Sezione troppo grande")
     with db() as con:
         assert_workspace(con,user,workspace,writable=True)
+        if section in ADMIN_ONLY_WRITE_SECTIONS and user["role"] != "admin":
+            raise HTTPException(403, "Questa sezione può essere modificata solo da un amministratore")
         con.execute("INSERT INTO vg.workspaces(id,revision,snapshot) VALUES(%s,0,'{}'::jsonb) ON CONFLICT DO NOTHING",(workspace,))
         existing=con.execute("""SELECT revision FROM vg.workspace_sections
                                    WHERE workspace_id=%s AND section=%s FOR UPDATE""",(workspace,section)).fetchone()
