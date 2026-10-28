@@ -59,3 +59,14 @@ Ultima verifica read-only dopo la decodifica dei tag storici `{t,v}`:
 - [x] Preparati ciclo ripetibile e timer systemd ogni 5 minuti, con lock, timeout e script di rimozione reversibile.
 - [x] Timer systemd installato e verificato attivo ogni cinque minuti; l'ultimo ciclo osservato è terminato con codice 0.
 - [ ] Rimangono esclusi dal cutover produzione e dallo spegnimento Firebase; il workspace di sincronizzazione è una preview isolata e in sola lettura.
+
+
+## Dettaglio dei record annidati senza corrispondenza esatta (28 ottobre 2026)
+
+L'audit `oracle/audit_cantieri_reconciliation.sql` è stato eseguito in transazione di sola lettura e ha prodotto 973 righe di dettaglio:
+- Tutti i 973 percorsi appartengono a quattro commesse presenti in `current_sync`; nessuno dei percorsi figli ha corrispondenza esatta in `current_sync` o `previous_sync`.
+- Ripartizione per sottoraccolta: `impiantoChangeIndex` 463, `prezziario` 208, `impiantiFisici` 107, `fattoVisualEvidence` 83, `lavorazioni` 62, `impianti` 50.
+- I timestamp delle quattro commesse radice nel staging vanno dal 26 al 27 ottobre 2026. Sono timestamp del record radice e non provano che i figli siano correnti o completi.
+- L'audit non ha letto i payload dei figli né li ha modificati. La presenza della commessa radice non dimostra che i relativi figli siano ancora attivi. Perciò i 973 elementi restano conservati in staging e fuori da qualsiasi procedura di cancellazione o cutover.
+- Il risultato rafforza la necessità di verificare quali sottoraccolte il writer Cantieri esporta davvero e come l'applicazione usa `impiantoChangeIndex`, `prezziario` e `fattoVisualEvidence`, prima di mappare o archiviare tali elementi.
+- La CI per lo script di audit corretto è passata: [run 40725344541](https://github.com/ionut290/VARGA-GESTIONALE/actions/runs/40725344541).
