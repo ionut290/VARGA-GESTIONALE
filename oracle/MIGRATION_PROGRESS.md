@@ -96,3 +96,10 @@ Non pubblicare backup/credenziali; non toccare Varga Cantieri né AzuraCast.
 - [x] API batch e anteprima originale pubblicate sul server Oracle il 28 ottobre 2026; il deploy ha verificato CSS, scene, bundle e salute API.
 - [x] Pubblicatore controllato: aggiorna solo l'API pilota e gli asset sotto `/oracle/`, verifica il database prima del rilascio, conserva il sorgente precedente e ripristina l'API se la salute fallisce; nessuna migrazione DB o modifica ai dati.
 - [ ] Verificare dal browser l'accesso Oracle, il salvataggio di più sezioni e il comportamento in conflitto. La produzione Gestionale e Firebase restano invariati.
+
+## Recupero locale offline dell'app originale Oracle — 28 ottobre 2026
+- [x] Bozze delle sole sezioni modificate salvate in IndexedDB isolata per utente e workspace; nessuna password o sessione viene memorizzata.
+- [x] Recupero solo su azione esplicita e solo se la revisione Oracle non è cambiata; in caso di conflitto il recupero viene bloccato e la bozza può essere esportata.
+- [x] Invio riuscito rimuove solo le bozze corrispondenti alla versione effettivamente salvata; le modifiche successive restano collegate alla revisione aggiornata.
+- [x] La CI completa sul commit `4847c802` è riuscita (run 40734899708).
+- [ ] Nuovo adapter non ancora pubblicato dopo quest'ultima modifica; verificare bozza, recupero e conflitto nel browser prima di estendere oltre il workspace pilota.
