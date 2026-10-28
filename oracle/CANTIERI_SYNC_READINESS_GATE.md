@@ -72,3 +72,16 @@ I log confermano che `gestionale_candidate_20261027` non è stato modificato. Qu
 - [x] Preparato `oracle/audit_cantieri_nested_gaps.sql`: transazione read-only che raggruppa i percorsi `vcRecords` per raccolta figlia, profondità, presenza nello snapshot corrente/precedente e commessa genitrice corrente. L'output contiene solo conteggi, senza ID o payload.
 - [ ] Lo script non è ancora stato eseguito sul server; i 973 record annidati senza corrispondenza esatta restano da classificare prima di decidere una regola di importazione o archiviazione.
 - [ ] La scheda DEMO dell'app è ancora sulla schermata di accesso Oracle; non sono state fatte scritture UI. Dopo l'accesso di test si potrà collaudare il salvataggio senza coinvolgere il workspace con dati aziendali.
+
+
+## Esito inventario dei record annidati — 28 ottobre 2026
+
+Eseguito `oracle/audit_cantieri_nested_gaps.sql` sul workspace isolato. Tra i percorsi sotto una commessa presente nello snapshot corrente, 973 record non hanno un percorso esatto né nello snapshot corrente né in quello precedente:
+- `impiantoChangeIndex`: 463
+- `prezziario`: 208
+- `impiantiFisici`: 107
+- `fattoVisualEvidence`: 83
+- `lavorazioni`: 62
+- `impianti`: 50
+
+L'audit conta inoltre 231 percorsi senza corrispondenza esatta e senza una commessa genitrice corrente. Sono stati solo conteggiati: nessun dato è stato rimosso o modificato. Il confronto precedente prova che i 3.830 record presenti nella sorgente `varga_sync_state` sono arrivati identici nello staging; non prova che la sorgente contenga tutti i figli attuali di Firebase. Prima di archiviare o importare questi 1.204 record conservati occorre verificare la loro presenza e il loro ciclo di vita nel sistema Cantieri.
