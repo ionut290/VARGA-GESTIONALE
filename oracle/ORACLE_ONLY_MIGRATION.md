@@ -1,12 +1,12 @@
 # Migrazione Varga Gestionale a Oracle (ADR)
 
 Data: 28 ottobre 2026  
-Stato: in preparazione su `migration/gestionale-oracle-only`; produzione invariata.
+Stato: lavoro isolato sul ramo `migration/gestionale-oracle-only`; produzione invariata.
 
 ## Decisione e perimetro
 
 - Varga Gestionale userà Oracle PostgreSQL e l'API Oracle come unico backend applicativo, archivio e autenticazione.
-- Il codice e l'applicazione Varga Gestionale non inizializzeranno Firebase né Firestore una volta completata la migrazione.
+- Al termine, il bundle Gestionale non inizializzerà né chiamerà Firebase o Firestore.
 - Varga Cantieri resta invariato e può continuare a usare Firebase Authentication e Firestore.
 - Le due app possono avere collegamenti diretti lato utente. Lo scambio persistente dei dati Cantieri destinati al Gestionale avviene tramite Oracle: Cantieri/Firebase → writer o sincronizzatore controllato → Oracle → Gestionale.
 - L'interfaccia originale del Gestionale, inclusi schermate, menu, CSS e flussi, resta invariata. La console Oracle separata è solo diagnostica.
@@ -15,10 +15,11 @@ Stato: in preparazione su `migration/gestionale-oracle-only`; produzione invaria
 ## Stato verificato nel repository
 
 - Esiste un backend FastAPI/PostgreSQL Oracle con login locale, cookie HttpOnly, workspace, sezioni e revisioni.
-- Esiste un adapter per l'interfaccia originale che carica le sezioni e invia gli aggiornamenti a Oracle.
-- L'adapter è confinato a un workspace sintetico di prova; l'anteprima Oracle pubblicata è in sola lettura.
+- Esistono builder e bootstrap per una copia Oracle della UI originale: escludono gli script cloud originali, isolano lo storage del browser e caricano un adapter Oracle.
+- L'adapter Oracle originale effettua login, lettura e scrittura revisionata delle sezioni, ma usa esclusivamente un workspace sintetico.
+- L'anteprima pubblicata dei dati Cantieri resta sola lettura; la copia completa dell'app per il collaudo è distinta e non rappresenta produzione.
 - Il bootstrap di produzione `app.js` inizializza ancora Firebase e avvia i moduli cloud. La produzione non è Oracle-only.
-- La sincronizzazione Cantieri→Gestionale ha un workspace candidato e uno staging. La documentazione segnala ancora verifiche da completare su mapping, riconciliazione e fonte dei dati; questo non costituisce ancora un collegamento operativo certificato.
+- La sincronizzazione Cantieri→Gestionale ha un workspace candidato e uno staging. La documentazione segnala verifiche ancora aperte su mapping, riconciliazione e fonte dei dati; non è quindi ancora una base certificata per il cutover.
 
 ## Fasi di realizzazione
 
@@ -26,7 +27,7 @@ Stato: in preparazione su `migration/gestionale-oracle-only`; produzione invaria
    Rilevare le sezioni usate da ogni modulo, gli account/ruoli, i flussi di login, i riferimenti ai documenti e gli aggiornamenti successivi all'ultima esportazione. Creare e verificare una nuova fotografia Oracle senza sovrascrivere gli archivi esistenti.
 
 2. **Backend Oracle per l'app originale**  
-   Separare bootstrap e servizi Oracle dai moduli Firebase. Riutilizzare i moduli UI originali; aggiungere persistenza per tutte le sezioni, autorizzazioni per ruolo, revisioni/conflitti, sessione, recupero credenziali e audit.
+   Portare progressivamente i flussi dell'interfaccia originale all'API Oracle, senza cambiare la UI. Coprire tutte le letture/scritture, autorizzazioni per ruolo, revisioni/conflitti, sessioni, recupero credenziali, documenti e audit. Restare su workspace DEMO finché ogni lotto non è collaudato.
 
 3. **Sincronizzazione Cantieri attraverso Oracle**  
    Verificare writer e dati correnti Cantieri, mappature e chiavi stabili. Rendere l'upsert idempotente, registrare checkpoint/errori e quarantena dei conflitti; non cancellare automaticamente record mancanti. Consentire al Gestionale di leggere/scrivere i soli dati di propria competenza.
@@ -45,8 +46,18 @@ Stato: in preparazione su `migration/gestionale-oracle-only`; produzione invaria
 - Il Gestionale funziona con rete disponibile e recupera modifiche in modo documentato dopo un'interruzione; i conflitti non sovrascrivono silenziosamente dati.
 - La sincronizzazione Cantieri→Oracle è aggiornata, tracciabile, idempotente e non altera i record sorgente Cantieri.
 - Backup/ripristino e rollback sono stati provati.
-- Il build finale non inizializza Firebase/Firestore dal Gestionale e i flussi Cantieri restano funzionanti.
+- Il build finale del Gestionale non inizializza o chiama Firebase/Firestore; i flussi Cantieri restano funzionanti.
 
-## Primo lotto del ramo
+## Lotto 1 — Copia originale e adapter Oracle isolati
 
-Implementare e collaudare in ambiente isolato un bootstrap Oracle per l'app originale, riusando la UI e l'API esistenti; aggiungere test che bloccano l'inizializzazione Firebase nel bundle Oracle e dimostrano che i dati restano confinati nel workspace di prova. Non collegare ancora l'adapter al workspace aziendale né pubblicare il lotto come produzione.
+La base tecnica è già presente nel repository: builder della copia originale, bootstrap Oracle che esclude i moduli Firebase, namespace separato per localStorage/IndexedDB, login Oracle e adapter a sezioni revisionate. I test automatici controllano parità del markup, esclusione degli script cloud originali, uso dell'API e confinamento al workspace DEMO.
+
+Il commit di questo documento ha attivato la workflow Oracle CI sul ramo: esito `success` il 28 ottobre 2026 alle 15:10 UTC. Questo prova i controlli automatizzati del repository; non equivale a collaudo di tutti i flussi nel browser reale o a una migrazione produzione.
+
+## Prossimo lotto
+
+- Inventariare i moduli e le funzioni del Gestionale che ancora dipendono da Firebase, Cloud Functions, Drive o sincronizzazioni cloud.
+- Verificare nell'anteprima completa login, ruoli, lettura/scrittura e conflitti dal browser reale e in due sessioni.
+- Completare la copertura Oracle delle funzioni non ancora migrate, inclusi documenti, richieste email, stampa/PDF e recupero delle modifiche offline.
+- Mantenere tutte le scritture nel workspace DEMO fino a backup, riconciliazione, autorizzazioni e prova di ripristino.
+- Non collegare l'adapter al workspace aziendale e non pubblicare questo lotto come produzione finché i criteri di accettazione non sono soddisfatti.
