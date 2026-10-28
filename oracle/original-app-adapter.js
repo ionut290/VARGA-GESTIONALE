@@ -86,7 +86,7 @@
       sections[section]={expected_revision:revision,value:JSON.parse(serialized)};
     }
     if(!Object.keys(sections).length){
-      await draftAction("delete",key);
+      // Never discard a previously persisted draft from a routine no-op queue.
       await refreshOfflineDraftControls();
       return true;
     }
