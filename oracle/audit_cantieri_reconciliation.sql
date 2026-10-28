@@ -73,7 +73,7 @@ SELECT missing.item_path,
        'commesse/' || missing.parent_id AS parent_commessa_path,
        MAX(parent.update_time) FILTER (WHERE parent.source_snapshot = 'current_sync')
          AS current_parent_update_time,
-       MAX(previous.update_time) FILTER (WHERE previous.source_snapshot = 'previous_sync')
+       MAX(parent.update_time) FILTER (WHERE parent.source_snapshot = 'previous_sync')
          AS previous_parent_update_time,
        COUNT(DISTINCT child.source_snapshot) FILTER (WHERE child.source_snapshot = 'current_sync')
          AS current_exact_path_matches,
