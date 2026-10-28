@@ -75,9 +75,9 @@ SELECT missing.item_path,
          AS current_parent_update_time,
        MAX(previous.update_time) FILTER (WHERE previous.source_snapshot = 'previous_sync')
          AS previous_parent_update_time,
-       COUNT(child.path) FILTER (WHERE child.source_snapshot = 'current_sync')
+       COUNT(DISTINCT child.source_snapshot) FILTER (WHERE child.source_snapshot = 'current_sync')
          AS current_exact_path_matches,
-       COUNT(child.path) FILTER (WHERE child.source_snapshot = 'previous_sync')
+       COUNT(DISTINCT child.source_snapshot) FILTER (WHERE child.source_snapshot = 'previous_sync')
          AS previous_exact_path_matches
 FROM missing
 LEFT JOIN vg.cantieri_source_stage parent
