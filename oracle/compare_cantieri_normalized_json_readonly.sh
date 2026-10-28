@@ -88,7 +88,8 @@ for key in matched:
             for field in previous.keys()|current.keys():
                 if field not in previous or field not in current or not json_equal(previous[field],current[field]):
                     different_fields[(group,field)]+=1
-                    field_shapes[(group,field,shape(previous.get(field)),shape(current.get(field)))]+=1
+                    field_shapes[(group,field,shape(previous[field]) if field in previous else 'missing',
+                                  shape(current[field]) if field in current else 'missing')]+=1
 print('Raccolta | Comuni | Uguali normalizzati | Differenti normalizzati')
 for group,nums in sorted(stats.items()):
     print(f'{group} | {nums[0]} | {nums[1]} | {nums[2]}')
