@@ -20,11 +20,11 @@ class LivePgApi(unittest.TestCase):
             cls.user_id=connection.execute("""INSERT INTO vg.users(email,role,password_hash,display_name)
                       VALUES (%s,'admin',%s,'Test CI') RETURNING id""",(cls.email,PH.hash(cls.password))).fetchone()[0]
             cls.operator_email="operator-"+secrets.token_hex(8)+"@example.test"
-        cls.operator_password="CI-only-operator-password!"
-        cls.operator_id=connection.execute("""INSERT INTO vg.users(email,role,password_hash,display_name)
-                    VALUES (%s,'operatore',%s,'Test Operatore') RETURNING id""",
-                    (cls.operator_email,PH.hash(cls.operator_password))).fetchone()[0]
-        connection.execute("""INSERT INTO vg.workspace_members(workspace_id,user_id,can_write)
+            cls.operator_password="CI-only-operator-password!"
+            cls.operator_id=connection.execute("""INSERT INTO vg.users(email,role,password_hash,display_name)
+                      VALUES (%s,'operatore',%s,'Test Operatore') RETURNING id""",
+                      (cls.operator_email,PH.hash(cls.operator_password))).fetchone()[0]
+            connection.execute("""INSERT INTO vg.workspace_members(workspace_id,user_id,can_write)
                     VALUES (%s,%s,TRUE),(%s,%s,TRUE)""",
                     (cls.workspace,cls.user_id,cls.workspace,cls.operator_id))
             connection.commit()
