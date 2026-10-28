@@ -85,3 +85,9 @@ Eseguito `oracle/audit_cantieri_nested_gaps.sql` sul workspace isolato. Tra i pe
 - `impianti`: 50
 
 L'audit conta inoltre 231 percorsi senza corrispondenza esatta e senza una commessa genitrice corrente. Sono stati solo conteggiati: nessun dato è stato rimosso o modificato. Il confronto precedente prova che i 3.830 record presenti nella sorgente `varga_sync_state` sono arrivati identici nello staging; non prova che la sorgente contenga tutti i figli attuali di Firebase. Prima di archiviare o importare questi 1.204 record conservati occorre verificare la loro presenza e il loro ciclo di vita nel sistema Cantieri.
+
+
+## Corrispondenza candidata per chiave figlia — 28 ottobre 2026
+
+- [x] Preparato `oracle/audit_cantieri_child_key_candidates.sql`, read-only: per i record annidati senza percorso esatto sotto una commessa attuale, conta eventuali chiavi finali uguali in altri percorsi correnti o storici della stessa raccolta.
+- [ ] L'uguaglianza della sola chiave finale non prova che due documenti siano lo stesso record. Nessun remapping o aggiornamento viene effettuato; eseguire il rapporto e poi verificare il significato nel modello Cantieri.
