@@ -93,4 +93,6 @@ Non pubblicare backup/credenziali; non toccare Varga Cantieri né AzuraCast.
 - [x] L'API controlla tutte le revisioni prima di salvare; in caso di conflitto rifiuta l'intero gruppo.
 - [x] Scritture batch e singole sono serializzate sul workspace e ogni sezione salva il proprio audit nella stessa transazione.
 - [x] CI completa riuscita sul branch di migrazione: run 40729560000.
-- [ ] La versione nuova non è ancora distribuita sul server Oracle; produzione e Firebase non sono stati modificati.
+- [x] API batch e anteprima originale pubblicate sul server Oracle il 28 ottobre 2026; il deploy ha verificato CSS, scene, bundle e salute API.
+- [x] Pubblicatore controllato: aggiorna solo l'API pilota e gli asset sotto `/oracle/`, verifica il database prima del rilascio, conserva il sorgente precedente e ripristina l'API se la salute fallisce; nessuna migrazione DB o modifica ai dati.
+- [ ] Verificare dal browser l'accesso Oracle, il salvataggio di più sezioni e il comportamento in conflitto. La produzione Gestionale e Firebase restano invariati.
