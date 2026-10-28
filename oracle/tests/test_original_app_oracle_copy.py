@@ -45,6 +45,13 @@ class OriginalAppOracleCopyTest(unittest.TestCase):
         bootstrap=(ROOT/"oracle"/"original-app-bootstrap.js").read_text(encoding="utf-8")
         self.assertIn('src.replaceAll("/","__")',bootstrap)
 
+    def test_oracle_preview_login_does_not_claim_cantieri_identity(self):
+        adapter=(ROOT/"oracle"/"original-app-adapter.js").read_text(encoding="utf-8")
+        self.assertIn("Accesso Oracle per Varga Gestionale.",adapter)
+        self.assertIn("L'accesso al Gestionale è separato da quello di Varga Cantieri.",adapter)
+        self.assertIn("Inserisci le credenziali Oracle assegnate.",adapter)
+        self.assertNotIn("stesso account di Varga Cantieri",adapter)
+
     def test_auth_screen_cannot_remain_on_the_loading_spinner(self):
         adapter=(ROOT/"oracle"/"original-app-adapter.js").read_text(encoding="utf-8")
         self.assertIn('$("loginLoading").hidden=true',adapter)
