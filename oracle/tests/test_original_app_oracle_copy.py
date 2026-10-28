@@ -32,9 +32,12 @@ class OriginalAppOracleCopyTest(unittest.TestCase):
         adapter=(ROOT/"oracle"/"original-app-adapter.js").read_text(encoding="utf-8")
         self.assertIn("api.manifest(ROOT)",adapter)
         self.assertIn("api.readSection(ROOT,key)",adapter)
-        self.assertIn("api.saveSection(ROOT,key,value)",adapter)
+        self.assertIn("api.saveSections(ROOT,changed)",adapter)
+        self.assertNotIn("api.saveSection(",adapter)
         self.assertNotIn("firebase.firestore",adapter)
         self.assertNotIn("api.save(",adapter)
+        client=(ROOT/"oracle"/"client.js").read_text(encoding="utf-8")
+        self.assertIn('"/sections/batch"',client)
 
     def test_deployment_bundles_the_oracle_api_client_with_the_adapter(self):
         publisher=(ROOT/"oracle"/"publish_original_app_preview.py").read_text(encoding="utf-8")
