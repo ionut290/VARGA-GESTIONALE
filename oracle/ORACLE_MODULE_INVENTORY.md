@@ -49,6 +49,13 @@ Il bootstrap Oracle esclude questi moduli o collegamenti, quindi il loro comport
 5. **Backup/offline**: bozze persistenti protette in IndexedDB, riconciliazione dopo rete assente, conflitti espliciti e prova di ripristino server.
 6. **Verifica finale**: ogni schermata e pulsante, due sessioni, dispositivi, aggiornamento Cantieri→Oracle e ritorno richiesto, assenza di richieste Firebase/Firestore dal Gestionale, backup e rollback.
 
+## Evidenza operativa VM Oracle — 28 ottobre 2026
+
+- Il timer `varga-cantieri-sync.timer` risulta attivo con intervallo di cinque minuti. Dopo la correzione mirata della query PL/pgSQL nel file operativo, le esecuzioni delle 15:42 e 15:47 UTC sono terminate con `Result=success`; lo staging e i workspace di prova sono stati aggiornati. Il workspace candidato originale è rimasto invariato.
+- Nel confronto aggregato, `vcRecords` ha 5.120 elementi nel workspace di sincronizzazione e 5.116 nella copia UI. I quattro elementi assenti dalla sezione `vcRecords` provengono da `oreReports` (2) e `squadreStorico` (2), esclusi dal filtro delle sole commesse; i conteggi delle sezioni dedicate `vcOre` (421) e `vcSquadre` (422) corrispondono tra workspace di sincronizzazione e copia UI. Il conteggio da solo non prova l'identità semantica di ogni record.
+- Dei 5.120 elementi `vcRecords`, 3.830 hanno un percorso esatto nello staging `current_sync`; 1.290 non hanno una corrispondenza esatta. Potrebbero essere record annidati sotto commesse, ma serve verificare il percorso della commessa genitrice e la freschezza dei dati prima di certificare la riconciliazione. I quattro elementi non presenti nella copia UI hanno invece tutti una corrispondenza esatta nello staging corrente.
+- Questa verifica riguarda il flusso verso workspace isolati; non costituisce migrazione né cutover del Gestionale live.
+
 ## Limiti del risultato
 
 Questo inventario è una scansione statica del codice nel repository. Non prova che i timer sulla VM Oracle siano attivi in questo momento, che i payload Cantieri siano semanticamente corretti, o che gli utenti possano accedere alla copia Oracle. Nessun deploy o cambio ai dati aziendali è stato eseguito.
