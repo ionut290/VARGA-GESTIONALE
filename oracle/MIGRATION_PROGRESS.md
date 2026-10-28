@@ -95,11 +95,20 @@ Non pubblicare backup/credenziali; non toccare Varga Cantieri né AzuraCast.
 - [x] CI completa riuscita sul branch di migrazione: run 40729560000.
 - [x] API batch e anteprima originale pubblicate sul server Oracle il 28 ottobre 2026; il deploy ha verificato CSS, scene, bundle e salute API.
 - [x] Pubblicatore controllato: aggiorna solo l'API pilota e gli asset sotto `/oracle/`, verifica il database prima del rilascio, conserva il sorgente precedente e ripristina l'API se la salute fallisce; nessuna migrazione DB o modifica ai dati.
-- [ ] Verificare dal browser l'accesso Oracle, il salvataggio di più sezioni e il comportamento in conflitto. La produzione Gestionale e Firebase restano invariati.
+- [x] Anteprima originale aggiornata e browser Oracle verificati; “Cloud e utenti” dichiara accesso separato, “Salva su Oracle” e “Rileggi da Oracle” sono collegati.
+- [x] Rilettura di tutte le sezioni dal browser completata due volte; non sono state effettuate scritture.
+- [ ] Verificare salvataggio su dati sintetici, conflitto tra due sessioni e recupero bozza dopo perdita di rete. La produzione Gestionale e Firebase restano invariati.
 
 ## Recupero locale offline dell'app originale Oracle — 28 ottobre 2026
 - [x] Bozze delle sole sezioni modificate salvate in IndexedDB isolata per utente e workspace; nessuna password o sessione viene memorizzata.
 - [x] Recupero solo su azione esplicita e solo se la revisione Oracle non è cambiata; in caso di conflitto il recupero viene bloccato e la bozza può essere esportata.
 - [x] Invio riuscito rimuove solo le bozze corrispondenti alla versione effettivamente salvata; le modifiche successive restano collegate alla revisione aggiornata.
 - [x] La CI completa sul commit `4847c802` è riuscita (run 40734899708).
-- [ ] Nuovo adapter non ancora pubblicato dopo quest'ultima modifica; verificare bozza, recupero e conflitto nel browser prima di estendere oltre il workspace pilota.
+- [x] Adapter aggiornato e pubblicato il 28 ottobre 2026; recupero UI appare solo quando esiste una bozza pendente.
+- [ ] Nessuna bozza artificiale creata nel workspace pilota: il recupero resta da provare su dati sintetici isolati prima di estenderlo.
+
+## Verifica anteprima Oracle — 28 ottobre 2026
+- [x] Rilascio del commit `22b200fd` completato con publisher protetto; API già aggiornata e salute verificata.
+- [x] Browser carica la pagina originale, testi account Oracle separato e pulsanti Salva/Rileggi.
+- [x] Due riletture complete riuscite senza scrivere dati; un primo errore HTML del proxy si è risolto al tentativo successivo.
+- [ ] Testare scrittura e bozze soltanto su un workspace sintetico separato. L'attuale workspace di prova contiene una copia di dati aziendali e non è stato modificato durante queste verifiche.
