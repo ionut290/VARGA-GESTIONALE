@@ -39,6 +39,20 @@ def unwrap(x):
         return {'t':tag,'v':unwrap(value)}
     return {k:unwrap(v) for k,v in x.items()}
 
+def json_equal(a,b):
+    # Python equates True with 1; JSON booleans and numbers are distinct types.
+    if isinstance(a,bool) or isinstance(b,bool):
+        return isinstance(a,bool) and isinstance(b,bool) and a==b
+    if isinstance(a,(int,float)) or isinstance(b,(int,float)):
+        return isinstance(a,(int,float)) and isinstance(b,(int,float)) and a==b
+    if type(a) is not type(b):
+        return False
+    if isinstance(a,dict):
+        return a.keys()==b.keys() and all(json_equal(a[k],b[k]) for k in a)
+    if isinstance(a,list):
+        return len(a)==len(b) and all(json_equal(x,y) for x,y in zip(a,b))
+    return a==b
+
 def shape(x):
     if x is None: return 'null'
     if isinstance(x,bool): return 'boolean'
@@ -66,13 +80,13 @@ for key in matched:
     current=unwrap(live[key])
     group=key.split('/')[0]
     stats[group][0]+=1
-    if previous==current:
+    if json_equal(previous,current):
         stats[group][1]+=1
     else:
         stats[group][2]+=1
         if isinstance(previous,dict) and isinstance(current,dict):
             for field in previous.keys()|current.keys():
-                if previous.get(field)!=current.get(field):
+                if field not in previous or field not in current or not json_equal(previous[field],current[field]):
                     different_fields[(group,field)]+=1
                     field_shapes[(group,field,shape(previous.get(field)),shape(current.get(field)))]+=1
 print('Raccolta | Comuni | Uguali normalizzati | Differenti normalizzati')
