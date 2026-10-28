@@ -45,6 +45,19 @@ class OriginalAppOracleCopyTest(unittest.TestCase):
         bootstrap=(ROOT/"oracle"/"original-app-bootstrap.js").read_text(encoding="utf-8")
         self.assertIn('src.replaceAll("/","__")',bootstrap)
 
+    def test_cantieri_refresh_reads_only_revisioned_oracle_sections(self):
+        adapter=(ROOT/"oracle"/"original-app-adapter.js").read_text(encoding="utf-8")
+        for section in ("jobs","clients","vcCommesse","vcImpianti","vcOre",
+                        "vcSquadre","vcRecords","vcUtenti","vcSegnalazioni"):
+            with self.subTest(section=section):
+                self.assertIn('"'+section+'"',adapter)
+        self.assertIn('api.readSection(ROOT,key)',adapter)
+        self.assertIn('if($("syncVcNow"))$("syncVcNow").onclick=async event=>',adapter)
+        self.assertIn("Nessuna modifica è stata ricaricata.",adapter)
+        self.assertIn("workspace Oracle. La sincronizzazione Cantieri aggiorna questo workspace ogni cinque minuti.",adapter)
+        self.assertNotIn("syncVargaFromCloud",adapter)
+        self.assertNotIn("cloudFunctions",adapter)
+
     def test_oracle_preview_login_does_not_claim_cantieri_identity(self):
         adapter=(ROOT/"oracle"/"original-app-adapter.js").read_text(encoding="utf-8")
         self.assertIn("Accesso Oracle per Varga Gestionale.",adapter)
