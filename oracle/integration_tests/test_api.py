@@ -65,8 +65,10 @@ class LivePgApi(unittest.TestCase):
     def test_operator_writes_only_non_admin_sections(self):
         headers={"Authorization":"Bearer "+self.token(self.operator_email,self.operator_password)}
         base=f"/api/gestionale/v1/workspaces/{self.workspace}"
+        current=self.client.get(base+"/sections/clients",headers=headers)
+        self.assertEqual(current.status_code,200,current.text)
         allowed=self.client.put(base+"/sections/clients",headers=headers,
-            json={"expected_revision":0,"data":{"value":[{"id":"operator-client","name":"Allowed"}]}})
+            json={"expected_revision":current.json()["revision"],"data":{"value":[{"id":"operator-client","name":"Allowed"}]}})
         self.assertEqual(allowed.status_code,200,allowed.text)
         for section,value in (("company",{"driveBridge":{"token":"must-not-save"}}),
                               ("vcCommesse",[]),("vcImpianti",[]),("vcOre",[]),
