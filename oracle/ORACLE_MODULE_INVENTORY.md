@@ -26,6 +26,13 @@ Il bootstrap Oracle esclude questi moduli o collegamenti, quindi il loro comport
 
 `accounting-round-history-v2.js` contiene chiamate a helper `firebase.firestore.FieldValue`, ma nel bundle Oracle è presente solo uno shim locale inerte per timestamp/delete. Va mantenuto coperto dal test per impedire l'introduzione di chiamate SDK o scritture Firestore.
 
+## Protezioni API Oracle aggiunte nel ramo
+
+- Le scritture delle sezioni `company`, `vcCommesse`, `vcImpianti`, `vcOre`, `vcRecords`, `vcSegnalazioni`, `vcSquadre` e `vcUtenti` richiedono ruolo `admin` anche lato server.
+- La sostituzione monolitica dell'intero workspace è riservata agli amministratori; la UI Oracle usa endpoint sezionali con revisioni.
+- La CI di integrazione verifica che un operatore con permesso workspace possa aggiornare Clienti ma riceva HTTP 403 sulle sezioni amministrative e sulla sostituzione globale.
+- Il controllo di ruolo è un primo livello. Prima della produzione restano da definire permessi completi per sezione e verificare che la mappatura degli account rispecchi i ruoli aziendali.
+
 ## Proprietà già presenti nella copia di collaudo
 
 - L'HTML pubblicato per il test è generato dalla pagina originale, senza i tag SDK Firebase e senza il loader di produzione `app.js`.
