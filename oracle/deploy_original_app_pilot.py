@@ -126,7 +126,9 @@ def main() -> int:
                 raise
             print("API aggiornata; database e dati applicativi non modificati.")
         publisher = SRC / "publish_original_app_preview.py"
-        result = subprocess.run([sys.executable, str(publisher)], check=False, timeout=180)
+        publisher_env = os.environ.copy()
+        publisher_env["PYTHONDONTWRITEBYTECODE"] = "1"
+        result = subprocess.run([sys.executable, str(publisher)], check=False, timeout=180, env=publisher_env)
         if result.returncode:
             print("API aggiornata; pubblicazione anteprima non completata.")
             return result.returncode
