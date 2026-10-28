@@ -87,3 +87,10 @@ Prossima azione: i tre salvataggi DEMO sono confermati dall'utente nel browser r
 ## Metodo di lavoro per accelerare
 Procedere in parallelo sul codice del frontend e sulle verifiche backend; usare un solo comando per blocco; segnalare a ogni aggiornamento completato/mancante/prossimo passo.
 Non pubblicare backup/credenziali; non toccare Varga Cantieri né AzuraCast.
+
+## Salvataggio atomico dell'app originale Oracle — 28 ottobre 2026
+- [x] L'adapter dell'app raccoglie tutte le sezioni cambiate e le invia con una richiesta batch.
+- [x] L'API controlla tutte le revisioni prima di salvare; in caso di conflitto rifiuta l'intero gruppo.
+- [x] Scritture batch e singole sono serializzate sul workspace e ogni sezione salva il proprio audit nella stessa transazione.
+- [x] CI completa riuscita sul branch di migrazione: run 40729560000.
+- [ ] La versione nuova non è ancora distribuita sul server Oracle; produzione e Firebase non sono stati modificati.
