@@ -19,12 +19,19 @@ class LivePgApi(unittest.TestCase):
             connection.execute(Path("schema.sql").read_text(encoding="utf-8"))
             cls.user_id=connection.execute("""INSERT INTO vg.users(email,role,password_hash,display_name)
                       VALUES (%s,'admin',%s,'Test CI') RETURNING id""",(cls.email,PH.hash(cls.password))).fetchone()[0]
-            connection.execute("""INSERT INTO vg.workspace_members(workspace_id,user_id,can_write)
-                    VALUES (%s,%s,TRUE)""",(cls.workspace,cls.user_id))
+            cls.operator_email="operator-"+secrets.token_hex(8)+"@example.test"
+        cls.operator_password="CI-only-operator-password!"
+        cls.operator_id=connection.execute("""INSERT INTO vg.users(email,role,password_hash,display_name)
+                    VALUES (%s,'operatore',%s,'Test Operatore') RETURNING id""",
+                    (cls.operator_email,PH.hash(cls.operator_password))).fetchone()[0]
+        connection.execute("""INSERT INTO vg.workspace_members(workspace_id,user_id,can_write)
+                    VALUES (%s,%s,TRUE),(%s,%s,TRUE)""",
+                    (cls.workspace,cls.user_id,cls.workspace,cls.operator_id))
             connection.commit()
         cls.client=TestClient(app,base_url="https://testserver")
-    def token(self):
-        response=self.client.post("/api/gestionale/v1/auth/login",json={"email":self.email,"password":self.password})
+    def token(self,email=None,password=None):
+        response=self.client.post("/api/gestionale/v1/auth/login",
+            json={"email":email or self.email,"password":password or self.password})
         self.assertEqual(response.status_code,200,response.text)
         return response.json()["access_token"]
     def test_health(self):
@@ -55,6 +62,23 @@ class LivePgApi(unittest.TestCase):
         out=self.client.post("/api/gestionale/v1/auth/logout",headers=headers)
         self.assertEqual(out.status_code,200,out.text)
         self.assertEqual(self.client.get(base+"/manifest",headers=headers).status_code,401)
+    def test_operator_writes_only_non_admin_sections(self):
+        headers={"Authorization":"Bearer "+self.token(self.operator_email,self.operator_password)}
+        base=f"/api/gestionale/v1/workspaces/{self.workspace}"
+        allowed=self.client.put(base+"/sections/clients",headers=headers,
+            json={"expected_revision":0,"data":{"value":[{"id":"operator-client","name":"Allowed"}]}})
+        self.assertEqual(allowed.status_code,200,allowed.text)
+        for section,value in (("company",{"driveBridge":{"token":"must-not-save"}}),
+                              ("vcCommesse",[]),("vcImpianti",[]),("vcOre",[]),
+                              ("vcRecords",[]),("vcSegnalazioni",[]),("vcSquadre",[]),("vcUtenti",[])):
+            with self.subTest(section=section):
+                response=self.client.put(base+"/sections/"+section,headers=headers,
+                    json={"expected_revision":0,"data":{"value":value}})
+                self.assertEqual(response.status_code,403,response.text)
+        whole=self.client.put(base,headers=headers,
+            json={"expected_revision":0,"data":{"clients":[]}})
+        self.assertEqual(whole.status_code,403,whole.text)
+
     def test_anonymous_denied(self):
         self.assertEqual(self.client.get("/api/gestionale/v1/workspaces/a/manifest").status_code,401)
         self.assertEqual(self.client.put("/api/gestionale/v1/workspaces/a/sections/clients",
