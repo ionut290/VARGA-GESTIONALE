@@ -65,3 +65,10 @@ Dopo il fast-forward del checkout Oracle alla versione `1e4051d`, due cicli del 
 - 17:50 UTC — completato alle 17:50:50 UTC.
 
 I log confermano che `gestionale_candidate_20261027` non è stato modificato. Questi cicli attestano l'esecuzione ripetuta dello staging e mapper isolati; non attestano ancora completezza della sorgente Cantieri rispetto a Firebase né parità completa delle sezioni dell'app.
+
+
+## Prossimo audit dei record annidati e prova applicativa — 28 ottobre 2026
+
+- [x] Preparato `oracle/audit_cantieri_nested_gaps.sql`: transazione read-only che raggruppa i percorsi `vcRecords` per raccolta figlia, profondità, presenza nello snapshot corrente/precedente e commessa genitrice corrente. L'output contiene solo conteggi, senza ID o payload.
+- [ ] Lo script non è ancora stato eseguito sul server; i 973 record annidati senza corrispondenza esatta restano da classificare prima di decidere una regola di importazione o archiviazione.
+- [ ] La scheda DEMO dell'app è ancora sulla schermata di accesso Oracle; non sono state fatte scritture UI. Dopo l'accesso di test si potrà collaudare il salvataggio senza coinvolgere il workspace con dati aziendali.
