@@ -56,3 +56,12 @@ Eseguito sul server dopo il fast-forward del branch `main`; la modifica locale a
 - Raccolte confrontate: calendarEvents, commesse, mezzi, neve_squadre, neve_squadre_storico, oreApprovalRequests, oreReports, personale, servizioNeveClienti, squadreCommesse, squadreStorico, verdeLevatoCommesse, verdeLevatoRecords.
 
 Questo dimostra la parità dei payload fra la sorgente Oracle `varga_sync_state` e lo staging alla data dell'esecuzione. Non prova da solo che la sorgente sia completa o aggiornata rispetto a Firebase/Cantieri, né risolve la mappatura applicativa dei 973 percorsi annidati già rilevati senza corrispondenza esatta. La sincronizzazione dell'interfaccia resta quindi da riconciliare prima del cutover.
+
+
+## Cicli automatici successivi all'aggiornamento — 28 ottobre 2026
+
+Dopo il fast-forward del checkout Oracle alla versione `1e4051d`, due cicli del servizio `varga-cantieri-sync.service` sono terminati con `Result=success`, `ExecMainStatus=0` e messaggio `MAPPATURA COMPLETATA`:
+- 17:45 UTC — completato alle 17:45:29 UTC.
+- 17:50 UTC — completato alle 17:50:50 UTC.
+
+I log confermano che `gestionale_candidate_20261027` non è stato modificato. Questi cicli attestano l'esecuzione ripetuta dello staging e mapper isolati; non attestano ancora completezza della sorgente Cantieri rispetto a Firebase né parità completa delle sezioni dell'app.
