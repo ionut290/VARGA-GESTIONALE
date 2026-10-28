@@ -108,19 +108,27 @@
     if(busy||!window.cloudUser)return;
     busy=true;
     try{
+      const changed={};
+      const serializedByKey=new Map();
       for(const key of keys){
         const value=db[key]??defaults[key],serialized=JSON.stringify(value);
         if(serialized===baseline.get(key))continue;
-        const revision=revisions.get(key);
-        if(revision===undefined)throw Error("Rileggi la sezione "+key+" prima di salvarla.");
-        const result=await api.saveSection(ROOT,key,value);
-        revisions.set(key,result.revision);baseline.set(key,serialized);
+        if(revisions.get(key)===undefined)throw Error("Rileggi la sezione "+key+" prima di salvarla.");
+        changed[key]=value;
+        serializedByKey.set(key,serialized);
       }
-      status("Modifiche salvate nel workspace Oracle di prova.");
+      const names=Object.keys(changed);
+      if(!names.length)return;
+      const result=await api.saveSections(ROOT,changed);
+      for(const key of names){
+        revisions.set(key,result.revisions[key]);
+        baseline.set(key,serializedByKey.get(key));
+      }
+      status("Modifiche salvate insieme nel workspace Oracle di prova.");
     }catch(error){
       console.error("Salvataggio Oracle non riuscito",error);
-      status("Salvataggio Oracle non riuscito: "+error.message);
-      if(error.status===409)status("Conflitto di revisione: ricarica i dati Oracle prima di riprovare.");
+      if(error.status===409)status("Conflitto di revisione: nessuna sezione del gruppo è stata salvata. Rileggi i dati Oracle prima di riprovare.");
+      else status("Salvataggio Oracle non riuscito: nessuna sezione del gruppo è stata salvata. "+error.message);
     }finally{busy=false}
   }
   window.queueCloudPush=function(){if(!window.cloudUser)return;clearTimeout(timer);timer=setTimeout(pushChanged,650)};
