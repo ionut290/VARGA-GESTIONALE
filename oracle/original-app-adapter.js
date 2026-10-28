@@ -4,6 +4,23 @@
   const ROOT="gestionale_varga_ui_sandbox_20261027";
   const api=new window.VGOraclePilot();
   const $=id=>document.getElementById(id);
+  function setOracleLoginCopy(){
+    const brand=document.querySelector(".login-brand-copy");
+    if(brand){
+      const title=brand.querySelector("h1");
+      const paragraphs=brand.querySelectorAll("p");
+      if(title)title.textContent="Accesso Oracle per Varga Gestionale.";
+      if(paragraphs[1])paragraphs[1].textContent="Usa le credenziali Oracle assegnate. L'accesso al Gestionale è separato da quello di Varga Cantieri.";
+    }
+    const intro=document.querySelector("#loginForm .login-intro");
+    if(intro)intro.textContent="Inserisci le credenziali Oracle assegnate.";
+    const help=document.querySelector("#loginForm .login-help");
+    if(help)help.textContent="Gli account Oracle vengono creati e autorizzati dall'amministratore. Varga Cantieri continua a usare il proprio accesso.";
+    if($("loginEmail"))$("loginEmail").placeholder="nome@azienda.it · account Oracle";
+    if($("loginPassword"))$("loginPassword").placeholder="Password Oracle";
+    $("loginForm")?.querySelector(".login-divider")?.setAttribute("hidden","");
+  }
+  setOracleLoginCopy();
   const keys=["priceLists","entries","clients","quotes","jobs","invoices","expenses",
     "economicEntries","deadlines","documents","requests","dismissedRequestReceiptIds",
     "cantieriRows","consuntivi","meta",
