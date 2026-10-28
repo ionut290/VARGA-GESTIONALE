@@ -87,3 +87,43 @@ Prossima azione: i tre salvataggi DEMO sono confermati dall'utente nel browser r
 ## Metodo di lavoro per accelerare
 Procedere in parallelo sul codice del frontend e sulle verifiche backend; usare un solo comando per blocco; segnalare a ogni aggiornamento completato/mancante/prossimo passo.
 Non pubblicare backup/credenziali; non toccare Varga Cantieri né AzuraCast.
+
+## Salvataggio atomico dell'app originale Oracle — 28 ottobre 2026
+- [x] L'adapter dell'app raccoglie tutte le sezioni cambiate e le invia con una richiesta batch.
+- [x] L'API controlla tutte le revisioni prima di salvare; in caso di conflitto rifiuta l'intero gruppo.
+- [x] Scritture batch e singole sono serializzate sul workspace e ogni sezione salva il proprio audit nella stessa transazione.
+- [x] CI completa riuscita sul branch di migrazione: run 40729560000.
+- [x] API batch e anteprima originale pubblicate sul server Oracle il 28 ottobre 2026; il deploy ha verificato CSS, scene, bundle e salute API.
+- [x] Pubblicatore controllato: aggiorna solo l'API pilota e gli asset sotto `/oracle/`, verifica il database prima del rilascio, conserva il sorgente precedente e ripristina l'API se la salute fallisce; nessuna migrazione DB o modifica ai dati.
+- [x] Anteprima originale aggiornata e browser Oracle verificati; “Cloud e utenti” dichiara accesso separato, “Salva su Oracle” e “Rileggi da Oracle” sono collegati.
+- [x] Rilettura di tutte le sezioni dal browser completata due volte; non sono state effettuate scritture.
+- [ ] Verificare salvataggio su dati sintetici, conflitto tra due sessioni e recupero bozza dopo perdita di rete. La produzione Gestionale e Firebase restano invariati.
+
+## Recupero locale offline dell'app originale Oracle — 28 ottobre 2026
+- [x] Bozze delle sole sezioni modificate salvate in IndexedDB isolata per utente e workspace; nessuna password o sessione viene memorizzata.
+- [x] Recupero solo su azione esplicita e solo se la revisione Oracle non è cambiata; in caso di conflitto il recupero viene bloccato e la bozza può essere esportata.
+- [x] Invio riuscito rimuove solo le bozze corrispondenti alla versione effettivamente salvata; le modifiche successive restano collegate alla revisione aggiornata.
+- [x] La CI completa sul commit `4847c802` è riuscita (run 40734899708).
+- [x] Adapter aggiornato e pubblicato il 28 ottobre 2026; recupero UI appare solo quando esiste una bozza pendente.
+- [ ] Nessuna bozza artificiale creata nel workspace pilota: il recupero resta da provare su dati sintetici isolati prima di estenderlo.
+
+## Verifica anteprima Oracle — 28 ottobre 2026
+- [x] Rilascio del commit `22b200fd` completato con publisher protetto; API già aggiornata e salute verificata.
+- [x] Browser carica la pagina originale, testi account Oracle separato e pulsanti Salva/Rileggi.
+- [x] Due riletture complete riuscite senza scrivere dati; un primo errore HTML del proxy si è risolto al tentativo successivo.
+- [ ] Testare scrittura e bozze soltanto su un workspace sintetico separato. L'attuale workspace di prova contiene una copia di dati aziendali e non è stato modificato durante queste verifiche.
+
+
+## Amministrazione account Oracle e stato CI — 28 ottobre 2026
+- [x] Aggiunti comandi CLI amministrativi per elenco account, reimpostazione password, cambio ruolo e accesso ai workspace.
+- [x] Reimpostazione password e cambi di ruolo/accesso revocano le sessioni esistenti; l'unico amministratore attivo non può essere declassato.
+- [x] Accesso in scrittura a workspace backup/candidate rifiutato dalla CLI; le operazioni richiedono conferma interattiva e non mostrano password.
+- [x] CI sul commit `6f4d98883bc1d0433b298af9c52ec56c21caf682` superata: run 40737487230.
+- [ ] I comandi sono nel branch, ma non è stata verificata la gestione degli account sul server live; nessun utente o permesso è stato modificato.
+
+## Stato decisionale — 28 ottobre 2026
+- [x] Anteprima dell'app originale raggiungibile su Oracle; due riletture browser complete riuscite.
+- [x] Il deploy pilota aggiorna API e asset isolati, verifica la salute e prevede rollback; non applica migrazioni né modifica dati aziendali.
+- [ ] Scritture, recupero bozza offline e conflitti devono essere collaudati su un workspace sintetico dedicato; il workspace preview attuale contiene una copia di dati aziendali e resta non modificato.
+- [ ] La sincronizzazione Cantieri deve ancora dimostrare completezza e freschezza: il timer è regolare, ma 973 record annidati restano senza corrispondenza esatta negli snapshot e l'identità/freschezza dei figli non è provata.
+- [ ] Prima di trasferire l'app a uso aziendale servono prova controllata di scrittura su dati sintetici, test account/ruoli, riconciliazione dei dati, backup e ripristino. Firebase e la produzione corrente restano attivi fino al superamento dei controlli.

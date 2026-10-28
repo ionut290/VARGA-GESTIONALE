@@ -26,6 +26,8 @@ SESSION_HOURS = max(1, min(24, int(os.getenv("VG_SESSION_HOURS", "12"))))
 MAX_BODY = 16 * 1024 * 1024
 WORKSPACE_PATTERN = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
 SECTION_PATTERN = re.compile(r"^[A-Za-z][A-Za-z0-9_]{0,63}$")
+# Mirror high-impact admin-only controls enforced by the original UI.
+ADMIN_ONLY_WRITE_SECTIONS = frozenset({"company", "vcCommesse", "vcImpianti", "vcOre", "vcRecords", "vcSegnalazioni", "vcSquadre", "vcUtenti"})
 PH = PasswordHasher(time_cost=3, memory_cost=65536, parallelism=2)
 app = FastAPI(title="Varga Gestionale Oracle API", version="0.1.0", docs_url=None, redoc_url=None)
 app.add_middleware(CORSMiddleware, allow_origins=ALLOWED_ORIGINS, allow_credentials=False,
@@ -59,6 +61,11 @@ class LoginIn(BaseModel):
 class WorkspaceIn(BaseModel):
     expected_revision: int = Field(ge=0)
     data: dict[str, Any]
+class SectionBatchItem(BaseModel):
+    expected_revision: int = Field(ge=0)
+    value: Any
+class SectionBatchIn(BaseModel):
+    sections: dict[str, SectionBatchItem] = Field(min_length=1, max_length=40)
 
 @app.get("/api/gestionale/v1/health")
 def health():
@@ -169,6 +176,8 @@ def put_workspace(workspace: str, body: WorkspaceIn, user=Depends(bearer_user)):
         raise HTTPException(413, "Archivio troppo grande")
     with db() as con:
         assert_workspace(con,user,workspace,writable=True)
+        if user["role"] != "admin":
+            raise HTTPException(403, "La sostituzione completa del workspace è riservata agli amministratori")
         con.execute("INSERT INTO vg.workspaces(id,revision,snapshot) VALUES(%s,0,%s::jsonb) ON CONFLICT DO NOTHING",
                     (workspace,"{}"))
         if con.execute("SELECT 1 FROM vg.workspace_sections WHERE workspace_id=%s LIMIT 1",(workspace,)).fetchone():
@@ -224,7 +233,10 @@ def put_section(workspace: str, section: str, body: WorkspaceIn, user=Depends(be
     if len(serialized.encode("utf-8"))>MAX_BODY:raise HTTPException(413,"Sezione troppo grande")
     with db() as con:
         assert_workspace(con,user,workspace,writable=True)
+        if section in ADMIN_ONLY_WRITE_SECTIONS and user["role"] != "admin":
+            raise HTTPException(403, "Questa sezione può essere modificata solo da un amministratore")
         con.execute("INSERT INTO vg.workspaces(id,revision,snapshot) VALUES(%s,0,'{}'::jsonb) ON CONFLICT DO NOTHING",(workspace,))
+        con.execute("SELECT id FROM vg.workspaces WHERE id=%s FOR UPDATE",(workspace,)).fetchone()
         existing=con.execute("""SELECT revision FROM vg.workspace_sections
                                    WHERE workspace_id=%s AND section=%s FOR UPDATE""",(workspace,section)).fetchone()
         current=existing["revision"] if existing else 0
@@ -244,6 +256,63 @@ def put_section(workspace: str, section: str, body: WorkspaceIn, user=Depends(be
                     (workspace,section,user["id"],next_revision,hashlib.sha256(serialized.encode()).hexdigest()))
         con.commit()
     return {"workspace":workspace,"section":section,"revision":next_revision}
+
+@app.put("/api/gestionale/v1/workspaces/{workspace}/sections/batch")
+def put_sections_batch(workspace: str, body: SectionBatchIn, user=Depends(bearer_user)):
+    sections = body.sections
+    if any(not SECTION_PATTERN.fullmatch(name) for name in sections):
+        raise HTTPException(400, "Nome sezione non valido")
+    if user["role"] != "admin" and any(name in ADMIN_ONLY_WRITE_SECTIONS for name in sections):
+        raise HTTPException(403, "Una o più sezioni possono essere modificate solo da un amministratore")
+    try:
+        serialized = {
+            name: json.dumps(item.value, ensure_ascii=False, separators=(",", ":"), allow_nan=False)
+            for name, item in sections.items()
+        }
+    except (TypeError, ValueError):
+        raise HTTPException(422, "Dati sezione non validi") from None
+    if sum(len(value.encode("utf-8")) for value in serialized.values()) > MAX_BODY:
+        raise HTTPException(413, "Salvataggio troppo grande")
+    with db() as con:
+        assert_workspace(con, user, workspace, writable=True)
+        con.execute("INSERT INTO vg.workspaces(id,revision,snapshot) VALUES(%s,0,'{}'::jsonb) ON CONFLICT DO NOTHING",
+                    (workspace,))
+        # Shared lock point also used by individual section writes, so revision
+        # checks and the whole batch serialize against every writer.
+        con.execute("SELECT id FROM vg.workspaces WHERE id=%s FOR UPDATE", (workspace,)).fetchone()
+        existing_rows = con.execute(
+            "SELECT section,revision FROM vg.workspace_sections WHERE workspace_id=%s AND section = ANY(%s) FOR UPDATE",
+            (workspace, list(sections)),
+        ).fetchall()
+        current = {row["section"]: row["revision"] for row in existing_rows}
+        conflicts = {
+            name: current.get(name, 0)
+            for name, item in sections.items()
+            if current.get(name, 0) != item.expected_revision
+        }
+        if conflicts:
+            con.rollback()
+            raise HTTPException(409, {"reason": "revision_conflict", "current_revisions": conflicts})
+        revisions_out = {}
+        for name in sorted(sections):
+            item = sections[name]
+            next_revision = current.get(name, 0) + 1
+            if name in current:
+                con.execute("""UPDATE vg.workspace_sections
+                               SET revision=%s,data=%s::jsonb,updated_at=now(),updated_by=%s
+                               WHERE workspace_id=%s AND section=%s""",
+                            (next_revision, serialized[name], user["id"], workspace, name))
+            else:
+                con.execute("""INSERT INTO vg.workspace_sections(workspace_id,section,revision,data,updated_by)
+                               VALUES(%s,%s,%s,%s::jsonb,%s)""",
+                            (workspace, name, next_revision, serialized[name], user["id"]))
+            con.execute("""INSERT INTO vg.workspace_section_audit(workspace_id,section,user_id,revision,sha256)
+                           VALUES(%s,%s,%s,%s,%s)""",
+                        (workspace, name, user["id"], next_revision,
+                         hashlib.sha256(serialized[name].encode()).hexdigest()))
+            revisions_out[name] = next_revision
+        con.commit()
+    return {"workspace": workspace, "revisions": revisions_out}
 
 # Isolated, authenticated Cantieri staging read API. It never edits existing
 # Varga Gestionale sections and intentionally exposes only business collections.

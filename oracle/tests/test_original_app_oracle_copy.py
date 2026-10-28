@@ -32,9 +32,12 @@ class OriginalAppOracleCopyTest(unittest.TestCase):
         adapter=(ROOT/"oracle"/"original-app-adapter.js").read_text(encoding="utf-8")
         self.assertIn("api.manifest(ROOT)",adapter)
         self.assertIn("api.readSection(ROOT,key)",adapter)
-        self.assertIn("api.saveSection(ROOT,key,value)",adapter)
+        self.assertIn("api.saveSections(ROOT,changed)",adapter)
+        self.assertNotIn("api.saveSection(",adapter)
         self.assertNotIn("firebase.firestore",adapter)
         self.assertNotIn("api.save(",adapter)
+        client=(ROOT/"oracle"/"client.js").read_text(encoding="utf-8")
+        self.assertIn('"/sections/batch"',client)
 
     def test_deployment_bundles_the_oracle_api_client_with_the_adapter(self):
         publisher=(ROOT/"oracle"/"publish_original_app_preview.py").read_text(encoding="utf-8")
@@ -44,6 +47,26 @@ class OriginalAppOracleCopyTest(unittest.TestCase):
         self.assertIn("asset_response.status!=200",publisher)
         bootstrap=(ROOT/"oracle"/"original-app-bootstrap.js").read_text(encoding="utf-8")
         self.assertIn('src.replaceAll("/","__")',bootstrap)
+
+    def test_cantieri_refresh_reads_only_revisioned_oracle_sections(self):
+        adapter=(ROOT/"oracle"/"original-app-adapter.js").read_text(encoding="utf-8")
+        for section in ("jobs","clients","vcCommesse","vcImpianti","vcOre",
+                        "vcSquadre","vcRecords","vcUtenti","vcSegnalazioni"):
+            with self.subTest(section=section):
+                self.assertIn('"'+section+'"',adapter)
+        self.assertIn('api.readSection(ROOT,key)',adapter)
+        self.assertIn('if($("syncVcNow"))$("syncVcNow").onclick=async event=>',adapter)
+        self.assertIn("Nessuna modifica è stata ricaricata.",adapter)
+        self.assertIn("workspace Oracle. La sincronizzazione Cantieri aggiorna questo workspace ogni cinque minuti.",adapter)
+        self.assertNotIn("syncVargaFromCloud",adapter)
+        self.assertNotIn("cloudFunctions",adapter)
+
+    def test_oracle_preview_login_does_not_claim_cantieri_identity(self):
+        adapter=(ROOT/"oracle"/"original-app-adapter.js").read_text(encoding="utf-8")
+        self.assertIn("Accesso Oracle per Varga Gestionale.",adapter)
+        self.assertIn("L'accesso al Gestionale è separato da quello di Varga Cantieri.",adapter)
+        self.assertIn("Inserisci le credenziali Oracle assegnate.",adapter)
+        self.assertNotIn("stesso account di Varga Cantieri",adapter)
 
     def test_auth_screen_cannot_remain_on_the_loading_spinner(self):
         adapter=(ROOT/"oracle"/"original-app-adapter.js").read_text(encoding="utf-8")

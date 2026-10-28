@@ -22,9 +22,79 @@ def main():
     imp.add_argument("--workspace",default="varga-azienda")
     imp.add_argument("--dry-run",action="store_true")
     imp.add_argument("--confirm-sha256",default="",help="Required for non-interactive import from stdin")
+    actions.add_parser("list-users")
+    rp=actions.add_parser("reset-password")
+    rp.add_argument("--email",required=True)
+    sr=actions.add_parser("set-role")
+    sr.add_argument("--email",required=True)
+    sr.add_argument("--role",choices=["admin","ufficio","operatore"],required=True)
+    sm=actions.add_parser("set-membership")
+    sm.add_argument("--email",required=True)
+    sm.add_argument("--workspace",required=True)
+    sm.add_argument("--access",choices=["read-only","read-write"],required=True)
     args=ap.parse_args()
-    if not WORKSPACE_PATTERN.fullmatch(args.workspace):ap.error("Workspace non valido")
-    if args.action=="create-user":
+    if hasattr(args,"workspace") and not WORKSPACE_PATTERN.fullmatch(args.workspace):ap.error("Workspace non valido")
+    if args.action=="list-users":
+        with db() as con:
+            rows=con.execute("""SELECT u.email,u.display_name,u.role,u.active,u.locked_until,
+                       COALESCE(jsonb_agg(jsonb_build_object('workspace',m.workspace_id,'can_write',m.can_write)
+                         ORDER BY m.workspace_id) FILTER (WHERE m.workspace_id IS NOT NULL),'[]'::jsonb) AS workspaces
+                       FROM vg.users u LEFT JOIN vg.workspace_members m ON m.user_id=u.id
+                       GROUP BY u.id ORDER BY u.email""").fetchall()
+        print(json.dumps([dict(row) for row in rows],ensure_ascii=False,default=str,indent=2))
+    elif args.action=="reset-password":
+        email=args.email.strip().casefold()
+        if "@" not in email:ap.error("Email non valida")
+        password=getpass("Nuova password Oracle (12+ caratteri): ")
+        if len(password)<12:ap.error("Password troppo breve")
+        if password!=getpass("Ripeti password: "):ap.error("Le password sono diverse")
+        if input("Per revocare tutte le sessioni e reimpostare la password, digita RESET: ")!="RESET":
+            print("Annullato");return
+        digest=PasswordHasher(time_cost=3,memory_cost=65536,parallelism=2).hash(password)
+        with db() as con:
+            user=con.execute("SELECT id FROM vg.users WHERE email=%s FOR UPDATE",(email,)).fetchone()
+            if not user:ap.error("Utente non trovato")
+            con.execute("UPDATE vg.users SET password_hash=%s,failed_attempts=0,locked_until=NULL WHERE id=%s",
+                        (digest,user["id"]))
+            con.execute("DELETE FROM vg.sessions WHERE user_id=%s",(user["id"],))
+            con.commit()
+        print("Password aggiornata; tutte le sessioni dell'utente sono state revocate.")
+    elif args.action=="set-role":
+        email=args.email.strip().casefold()
+        if "@" not in email:ap.error("Email non valida")
+        if input(f"Per assegnare il ruolo {args.role} a {email} e revocare tutte le sessioni, digita RUOLO: ")!="RUOLO":
+            print("Annullato");return
+        with db() as con:
+            user=con.execute("SELECT id,role,active FROM vg.users WHERE email=%s FOR UPDATE",(email,)).fetchone()
+            if not user:ap.error("Utente non trovato")
+            if user["role"]=="admin" and user["active"] and args.role!="admin":
+                admins=con.execute("SELECT count(*) AS n FROM vg.users WHERE role='admin' AND active=TRUE").fetchone()["n"]
+                if admins<=1:ap.error("Impossibile rimuovere l'unico amministratore attivo")
+            con.execute("UPDATE vg.users SET role=%s WHERE id=%s",(args.role,user["id"]))
+            con.execute("DELETE FROM vg.sessions WHERE user_id=%s",(user["id"],))
+            con.commit()
+        print("Ruolo aggiornato; tutte le sessioni dell'utente sono state revocate.")
+    elif args.action=="set-membership":
+        email=args.email.strip().casefold()
+        if "@" not in email:ap.error("Email non valida")
+        writable=args.access=="read-write"
+        if writable and args.workspace.startswith(("gestionale_backup_","gestionale_candidate_")):
+            ap.error("Gli archivi backup/candidate non possono ricevere accesso in scrittura")
+        verb="concedere scrittura" if writable else "concedere sola lettura"
+        if input(f"Per {verb} a {email} nel workspace {args.workspace}, digita ACCESSO: ")!="ACCESSO":
+            print("Annullato");return
+        with db() as con:
+            user=con.execute("SELECT id FROM vg.users WHERE email=%s FOR UPDATE",(email,)).fetchone()
+            if not user:ap.error("Utente non trovato")
+            workspace=con.execute("SELECT 1 FROM vg.workspaces WHERE id=%s",(args.workspace,)).fetchone()
+            if not workspace:ap.error("Workspace non trovato")
+            con.execute("""INSERT INTO vg.workspace_members(workspace_id,user_id,can_write) VALUES(%s,%s,%s)
+                           ON CONFLICT(workspace_id,user_id) DO UPDATE SET can_write=EXCLUDED.can_write""",
+                        (args.workspace,user["id"],writable))
+            con.execute("DELETE FROM vg.sessions WHERE user_id=%s",(user["id"],))
+            con.commit()
+        print("Accesso workspace aggiornato; tutte le sessioni dell'utente sono state revocate.")
+    elif args.action=="create-user":
         email=args.email.strip().casefold()
         if "@" not in email:ap.error("Email non valida")
         password=getpass("Nuova password Oracle (12+ caratteri): ")

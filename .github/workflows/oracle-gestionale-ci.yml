@@ -49,6 +49,7 @@ jobs:
           node --check browser-export.js
           node --check console.js
           node --check original-preview.js
+          node --check original-app-adapter.js
           node --check original-sandbox.js
           node --check section-bridge.js
           node tests/verify_original_sandbox_browser.cjs
