@@ -19,6 +19,14 @@
     if($("loginEmail"))$("loginEmail").placeholder="nome@azienda.it · account Oracle";
     if($("loginPassword"))$("loginPassword").placeholder="Password Oracle";
     $("loginForm")?.querySelector(".login-divider")?.setAttribute("hidden","");
+    const cloudIntro=document.querySelector("#cloud .subtitle");
+    if(cloudIntro)cloudIntro.textContent="Account Oracle del Gestionale, separato dall'accesso Varga Cantieri.";
+    const cloudTitle=document.querySelector("#cloud .panel h2");
+    if(cloudTitle)cloudTitle.textContent="Account Oracle";
+    const cloudHelp=document.querySelector("#cloud .panel p.muted");
+    if(cloudHelp)cloudHelp.textContent="Gli account Oracle vengono creati e autorizzati dall'amministratore. L'accesso a Varga Cantieri resta separato.";
+    if($("pushCloud"))$("pushCloud").textContent="SALVA SU ORACLE";
+    if($("pullCloud"))$("pullCloud").textContent="RILEGGI DA ORACLE";
   }
   setOracleLoginCopy();
   const keys=["priceLists","entries","clients","quotes","jobs","invoices","expenses",
@@ -234,6 +242,25 @@
     await refreshOfflineDraftControls();
     if($("cloudInfo"))$("cloudInfo").textContent="Dati caricati dal workspace Oracle di prova. Firebase del Gestionale originale resta separato.";
   }
+  async function reloadWorkspaceFromOracle(){
+    if(busy)throw Error("Attendi la fine del salvataggio in corso.");
+    const dirty=keys.filter(key=>baseline.has(key)&&JSON.stringify(db[key]??defaults[key])!==baseline.get(key));
+    if(dirty.length)throw Error("Prima salva o esporta le modifiche locali a: "+dirty.join(", ")+". Nessun dato è stato ricaricato.");
+    const loaded=await Promise.all(keys.map(async key=>[key,await api.readSection(ROOT,key)]));
+    for(const [key,raw] of loaded){
+      const value=raw.data===null||raw.data===undefined?defaults[key]:raw.data;
+      db[key]=value;
+      revisions.set(key,raw.revision||0);
+      baseline.set(key,JSON.stringify(value));
+    }
+    if(typeof window.companyToForm==="function")window.companyToForm();
+    if(typeof window.clearQuote==="function")window.clearQuote();
+    if(typeof window.refresh==="function")window.refresh();
+    if(typeof window.refreshVcCounts==="function")window.refreshVcCounts();
+    await refreshOfflineDraftControls();
+    status("Dati riletti dal workspace Oracle. Le bozze locali restano separate e non vengono inviate.");
+    return true;
+  }
   const cantieriSections=["jobs","clients","vcCommesse","vcImpianti","vcOre","vcSquadre","vcRecords","vcUtenti","vcSegnalazioni"];
   async function reloadCantieriFromOracle(){
     const button=$("syncVcNow"),info=$("vcSyncInfo");
@@ -343,6 +370,18 @@
       if(error.status!==401)message("Non riesco a ripristinare la sessione Oracle: "+error.message,true);
     }
   }
+  if($("pushCloud"))$("pushCloud").onclick=async event=>{
+    event?.preventDefault();
+    if(busy){status("Attendi la fine del salvataggio Oracle.");return}
+    clearTimeout(timer);clearTimeout(draftTimer);
+    try{await persistOfflineDraft()}catch(error){draftWarning=error.message}
+    await pushChanged();
+  };
+  if($("pullCloud"))$("pullCloud").onclick=async event=>{
+    event?.preventDefault();
+    try{await reloadWorkspaceFromOracle()}
+    catch(error){status("Rilettura Oracle non completata: "+error.message)}
+  };
   if($("syncVcNow"))$("syncVcNow").onclick=async event=>{
     event?.preventDefault();
     const info=$("vcSyncInfo");
