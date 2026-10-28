@@ -45,3 +45,14 @@ Ultima verifica read-only dopo la decodifica dei tag storici `{t,v}`:
 - [x] Preparati ciclo ripetibile e timer systemd ogni 5 minuti, con lock, timeout e script di rimozione reversibile.
 - [x] Timer systemd installato e verificato attivo ogni cinque minuti; l'ultimo ciclo osservato è terminato con codice 0.
 - [ ] Rimangono esclusi dal cutover produzione e dallo spegnimento Firebase; il workspace di sincronizzazione è una preview isolata e in sola lettura.
+
+
+## Confronto JSON normalizzato sorgente–staging — 28 ottobre 2026
+
+Eseguito sul server dopo il fast-forward del branch `main`; la modifica locale al mapper è stata conservata in uno stash prima dell'aggiornamento. Output del confronto in sola lettura:
+- 3.830 percorsi correnti comuni tra `public.varga_sync_state` e `vg.cantieri_source_stage`.
+- 3.830 payload uguali dopo la decodifica dei valori legacy; 0 payload differenti e 0 record presenti soltanto nella sorgente.
+- 2.431 percorsi presenti soltanto nello staging storico, conservati senza sovrascrittura o cancellazione.
+- Raccolte confrontate: calendarEvents, commesse, mezzi, neve_squadre, neve_squadre_storico, oreApprovalRequests, oreReports, personale, servizioNeveClienti, squadreCommesse, squadreStorico, verdeLevatoCommesse, verdeLevatoRecords.
+
+Questo dimostra la parità dei payload fra la sorgente Oracle `varga_sync_state` e lo staging alla data dell'esecuzione. Non prova da solo che la sorgente sia completa o aggiornata rispetto a Firebase/Cantieri, né risolve la mappatura applicativa dei 973 percorsi annidati già rilevati senza corrispondenza esatta. La sincronizzazione dell'interfaccia resta quindi da riconciliare prima del cutover.
