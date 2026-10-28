@@ -80,6 +80,30 @@
       if(typeof window.refreshVcCounts==="function")window.refreshVcCounts();
     if($("cloudInfo"))$("cloudInfo").textContent="Dati caricati dal workspace Oracle di prova. Firebase del Gestionale originale resta separato.";
   }
+  const cantieriSections=["jobs","clients","vcCommesse","vcImpianti","vcOre","vcSquadre","vcRecords","vcUtenti","vcSegnalazioni"];
+  async function reloadCantieriFromOracle(){
+    const button=$("syncVcNow"),info=$("vcSyncInfo");
+    if(busy)throw Error("Attendi la fine del salvataggio in corso.");
+    const dirty=cantieriSections.filter(key=>baseline.has(key)
+      &&JSON.stringify(db[key]??defaults[key])!==baseline.get(key));
+    if(dirty.length)throw Error("Prima salva le modifiche locali a: "+dirty.join(", ")+". Nessuna modifica è stata ricaricata.");
+    if(button){button.disabled=true;button.dataset.oracleOldText=button.textContent;button.textContent="LETTURA ORACLE…"}
+    try{
+      const loaded=await Promise.all(cantieriSections.map(async key=>[key,await api.readSection(ROOT,key)]));
+      for(const [key,raw] of loaded){
+        const value=raw.data===null||raw.data===undefined?defaults[key]:raw.data;
+        db[key]=value;
+        revisions.set(key,raw.revision||0);
+        baseline.set(key,JSON.stringify(value));
+      }
+      if(typeof window.refresh==="function")window.refresh();
+      if(typeof window.refreshVcCounts==="function")window.refreshVcCounts();
+      if(info)info.textContent="Dati riletti dal workspace Oracle. La sincronizzazione Cantieri aggiorna questo workspace ogni cinque minuti.";
+      return true;
+    }finally{
+      if(button){button.disabled=false;button.textContent=button.dataset.oracleOldText||"SINCRONIZZA";delete button.dataset.oracleOldText}
+    }
+  }
   async function pushChanged(){
     if(busy||!window.cloudUser)return;
     busy=true;
@@ -137,6 +161,12 @@
       if(error.status!==401)message("Non riesco a ripristinare la sessione Oracle: "+error.message,true);
     }
   }
+  if($("syncVcNow"))$("syncVcNow").onclick=async event=>{
+    event?.preventDefault();
+    const info=$("vcSyncInfo");
+    try{if(info)info.textContent="Leggo gli aggiornamenti Cantieri già sincronizzati su Oracle…";await reloadCantieriFromOracle()}
+    catch(error){if(info)info.textContent="Lettura Oracle non completata: "+error.message}
+  };
   $("loginForm")?.addEventListener("submit",event=>{event.preventDefault();login($("loginEmail")?.value.trim(),$("loginPassword")?.value||"");});
   $("loginEmailButton")?.addEventListener("click",event=>{event.preventDefault();login($("loginEmail")?.value.trim(),$("loginPassword")?.value||"")});
   $("loginCloud")?.addEventListener("click",event=>{event.preventDefault();login($("authEmail")?.value.trim(),$("authPassword")?.value||"")});
