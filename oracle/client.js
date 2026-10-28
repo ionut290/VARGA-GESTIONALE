@@ -68,6 +68,23 @@
       this.revisions.set(key,result.revision);
       return result;
     }
+    async saveSections(name,sections){
+      this.validWorkspace(name);
+      if(!sections||typeof sections!=="object"||Array.isArray(sections))throw Error("Sezioni non valide.");
+      const bodySections={};
+      for(const [section,value] of Object.entries(sections)){
+        this.validWorkspace(section);
+        const key=name+":"+section;
+        if(!this.revisions.has(key))throw Error("Leggere la sezione "+section+" prima di modificarla.");
+        bodySections[section]={expected_revision:this.revisions.get(key),value};
+      }
+      const result=await this.request("workspaces/"+this.validWorkspace(name)+"/sections/batch",{
+        method:"PUT",body:JSON.stringify({sections:bodySections})
+      });
+      for(const [section,revision] of Object.entries(result.revisions||{}))
+        this.revisions.set(name+":"+section,revision);
+      return result;
+    }
     async read(name){
       const data=await this.request("workspaces/"+this.validWorkspace(name));
       this.revisions.set(name,data.revision);
