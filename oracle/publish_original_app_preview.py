@@ -31,7 +31,8 @@ SKIP={"app-sync.js","shared-auth-policy.js","cloud-users.js","password-recovery-
       "drive-manager.js","drive-document-lifecycle.js","user-document-assets.js"}
 
 def run(args,timeout=30):
-    result=subprocess.run(args,check=False,capture_output=True,timeout=timeout)
+    command=["sudo","-n",*args] if args and args[0]=="docker" else args
+    result=subprocess.run(command,check=False,capture_output=True,timeout=timeout)
     if result.returncode:raise ValueError("Operazione Docker non riuscita; dettagli omessi")
     return result.stdout.decode("utf-8","replace")
 
@@ -124,7 +125,7 @@ def publish_bundle(bundle,digest,files):
     public_names={rel:name+"-"+rel.replace("/","__") for rel in files}
     for rel,path in files.items():
         dest=WEB_ROOT+"/oracle/"+public_names[rel]
-        exists=subprocess.run(["docker","exec",WEB,"test","-f",dest],check=False,capture_output=True).returncode==0
+        exists=subprocess.run(["sudo","-n","docker","exec",WEB,"test","-f",dest],check=False,capture_output=True).returncode==0
         if exists:
             got=run(["docker","exec",WEB,"sha256sum",dest]).split()[0]
             if got!=checksum(path):raise ValueError("Asset versionato già presente ma diverso: "+rel)
@@ -152,7 +153,7 @@ def publish_page(digest):
     # A file present inside nginx's container can still be inaccessible if the
     # persistent mount or /oracle routing is stale; never report publish success
     # based on docker-internal checks alone.
-    for rel in ("client.js","original-app-bootstrap.js","app-core.js","original-app-adapter.js"):
+    for rel in ("client.js","original-app-bootstrap.js","app-core.js","original-app-adapter.js","oracle-drive-backup.js"):
         asset_url=DOMAIN+"/oracle/original-app-"+digest+"-"+rel.replace("/","__")
         request=urllib.request.Request(asset_url,headers={"Cache-Control":"no-cache"})
         with urllib.request.urlopen(request,timeout=15) as asset_response:
@@ -167,7 +168,7 @@ def main():
     verify_sources();files,digest=bundle_sources();bundle=prepare_bundle(files,digest)
     publish_bundle(bundle,digest,files);publish_page(digest)
     print("Markup e CSS originali; dati e memoria browser isolati; salvataggi sul workspace Oracle di prova.")
-    print("Firebase, Firestore, Drive e Calendar di produzione non vengono inizializzati da questa copia.")
+    print("Firebase, Firestore e Calendar di produzione non vengono inizializzati. Il backup Drive è manuale e usa il ponte Apps Script configurato dall'utente.")
 
 if __name__=="__main__":
     try:main()

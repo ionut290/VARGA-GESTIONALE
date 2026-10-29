@@ -34,7 +34,7 @@ def transform(raw:str)->str:
     result=raw[:first]+LOADER+raw[raw.index(HTML_END):]
     if result.count("<head>")!=1 or "<base " in result:
         raise ValueError("Head HTML inatteso")
-    result=result.replace("<head>",'<head><base href="/"><meta http-equiv="Content-Security-Policy" content="default-src \'self\' https: data: blob:; connect-src \'self\'; script-src \'self\' \'unsafe-inline\' https:; style-src \'self\' \'unsafe-inline\' https:; img-src \'self\' data: blob: https:; object-src \'none\'; base-uri \'self\'; form-action \'self\'">',1)
+    result=result.replace("<head>",'<head><base href="/"><meta http-equiv="Content-Security-Policy" content="default-src \'self\' https: data: blob:; connect-src \'self\' https://script.google.com https://script.googleusercontent.com; script-src \'self\' \'unsafe-inline\' https:; style-src \'self\' \'unsafe-inline\' https:; img-src \'self\' data: blob: https:; object-src \'none\'; base-uri \'self\'; form-action \'self\'">',1)
     low=result.lower()
     if "firebasejs" in low or "src=\"app.js" in low or "src=\"/app.js" in low:
         raise ValueError("Script Firebase/originale non escluso dalla copia Oracle")

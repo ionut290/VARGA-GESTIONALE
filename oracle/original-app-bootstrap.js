@@ -54,7 +54,8 @@
     "wte-modena-consuntivi.js","cadriano-documenti.js","discariche-consuntivi.js",
     "stradelli-guelfi-consuntivi.js","job-workspace.js","job-plant-progress-summary.js",
     "job-plant-progress-excel-style.js","commesse-packages.js","view-scenes.js",
-    "ui-overhaul.js","dashboard-company-economics.js","desktop-varga-navigation.js"];
+    "ui-overhaul.js","dashboard-company-economics.js","desktop-varga-navigation.js",
+    "oracle-drive-backup.js"];
   document.write('<script src="'+assetPath("vendor/exceljs.min.js")+'?v=oracle-sandbox-20261027"></scr'+'ipt>');
   for(const src of modules){
     if(skip.has(src))continue;
