@@ -31,7 +31,8 @@ SKIP={"app-sync.js","shared-auth-policy.js","cloud-users.js","password-recovery-
       "drive-manager.js","drive-document-lifecycle.js","user-document-assets.js"}
 
 def run(args,timeout=30):
-    result=subprocess.run(args,check=False,capture_output=True,timeout=timeout)
+    command=["sudo","-n",*args] if args and args[0]=="docker" else args
+    result=subprocess.run(command,check=False,capture_output=True,timeout=timeout)
     if result.returncode:raise ValueError("Operazione Docker non riuscita; dettagli omessi")
     return result.stdout.decode("utf-8","replace")
 
@@ -124,7 +125,7 @@ def publish_bundle(bundle,digest,files):
     public_names={rel:name+"-"+rel.replace("/","__") for rel in files}
     for rel,path in files.items():
         dest=WEB_ROOT+"/oracle/"+public_names[rel]
-        exists=subprocess.run(["docker","exec",WEB,"test","-f",dest],check=False,capture_output=True).returncode==0
+        exists=subprocess.run(["sudo","-n","docker","exec",WEB,"test","-f",dest],check=False,capture_output=True).returncode==0
         if exists:
             got=run(["docker","exec",WEB,"sha256sum",dest]).split()[0]
             if got!=checksum(path):raise ValueError("Asset versionato già presente ma diverso: "+rel)
