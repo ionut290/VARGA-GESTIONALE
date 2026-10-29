@@ -76,13 +76,23 @@
         revisions.set(key,result.revision);baseline.set(key,serialized);
       }
       status("Modifiche salvate nel workspace Oracle di prova.");
+      return true;
     }catch(error){
       console.error("Salvataggio Oracle non riuscito",error);
       status("Salvataggio Oracle non riuscito: "+error.message);
       if(error.status===409)status("Conflitto di revisione: ricarica i dati Oracle prima di riprovare.");
+      return false;
     }finally{busy=false}
   }
-  window.queueCloudPush=function(){if(!window.cloudUser)return;clearTimeout(timer);timer=setTimeout(pushChanged,650)};
+  async function flush(){
+    if(!window.cloudUser)throw Error("Accedi al workspace Oracle prima di salvare.");
+    clearTimeout(timer);
+    while(busy)await new Promise(resolve=>setTimeout(resolve,50));
+    const saved=await pushChanged();
+    if(saved!==true)throw Error("Salvataggio Oracle non confermato.");
+  }
+  window.queueCloudPush=function(){if(!window.cloudUser)return;clearTimeout(timer);timer=setTimeout(()=>pushChanged(),650)};
+  window.VGOraclePersistence=Object.freeze({flush,keys:Object.freeze([...keys]),workspace:ROOT});
   window.startCloudRealtime=()=>{};window.stopCloudRealtime=()=>{};
   window.cloudDisplayName=()=>window.cloudUser?.display_name||window.cloudUser?.email||"Utente";
   window.authorizeCloudUser=async()=>true;
@@ -95,6 +105,7 @@
       window.cloudUser={...user,uid:user.id,displayName:user.display_name,getIdToken:async()=>null};
       window.cloudUserRole=user.role||"operatore";
       await loadData();refreshAuth(user);message("");
+      window.VargaOracleDriveBackup?.mount?.(db);
       if(typeof window.nav==="function")window.nav("dashboard");
     }catch(error){
       window.cloudUser=null;window.cloudUserRole="";await api.logout().catch(()=>{});
@@ -114,6 +125,7 @@
       window.cloudUser={...user,uid:user.id,displayName:user.display_name,getIdToken:async()=>null};
       window.cloudUserRole=user.role||"operatore";
       await loadData();refreshAuth(user);
+      window.VargaOracleDriveBackup?.mount?.(db);
       if(typeof window.nav==="function")window.nav("dashboard");
     }catch(error){
       window.cloudUser=null;window.cloudUserRole="";refreshAuth(null);

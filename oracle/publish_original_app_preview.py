@@ -152,7 +152,7 @@ def publish_page(digest):
     # A file present inside nginx's container can still be inaccessible if the
     # persistent mount or /oracle routing is stale; never report publish success
     # based on docker-internal checks alone.
-    for rel in ("client.js","original-app-bootstrap.js","app-core.js","original-app-adapter.js"):
+    for rel in ("client.js","original-app-bootstrap.js","app-core.js","original-app-adapter.js","oracle-drive-backup.js"):
         asset_url=DOMAIN+"/oracle/original-app-"+digest+"-"+rel.replace("/","__")
         request=urllib.request.Request(asset_url,headers={"Cache-Control":"no-cache"})
         with urllib.request.urlopen(request,timeout=15) as asset_response:
@@ -167,7 +167,7 @@ def main():
     verify_sources();files,digest=bundle_sources();bundle=prepare_bundle(files,digest)
     publish_bundle(bundle,digest,files);publish_page(digest)
     print("Markup e CSS originali; dati e memoria browser isolati; salvataggi sul workspace Oracle di prova.")
-    print("Firebase, Firestore, Drive e Calendar di produzione non vengono inizializzati da questa copia.")
+    print("Firebase, Firestore e Calendar di produzione non vengono inizializzati. Il backup Drive è manuale e usa il ponte Apps Script configurato dall'utente.")
 
 if __name__=="__main__":
     try:main()

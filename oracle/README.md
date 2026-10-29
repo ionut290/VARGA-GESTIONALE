@@ -13,6 +13,7 @@ Per il confronto non distruttivo fra storico, cloud e browser, sulla VM usare `p
 - `oracle/browser-export.js`: esportazione alternativa dal **browser autorizzato come admin**, per archivi cloud e dati locali. Viene caricato solo dalla versione del sito che include `app.js` aggiornato e solo con `?oracle-export=1`. L'esportazione deve essere avviata manualmente con click e salva un file locale: non effettua upload automatici.
 - `oracle/backend/admin.py`: bootstrap di utenti locali e importazione dello snapshot su database nuovo/non utilizzato con controllo hash SHA256.
 - `oracle/pilot.html` + `client.js`: pagina di collaudo API con login Oracle e sola lettura delle quantità dei record. Questa pagina **non** è la nuova app Gestionale completa.
+- La copia completa `/oracle/original-app.html` salva i dati nel workspace Oracle di prova; il pannello Backup può caricare una copia compressa su Drive tramite il ponte Apps Script esistente, solo dopo configurazione esplicita URL/chiave e click manuale. Il backup non scrive in Firebase/Firestore.
 
 ## VM Oracle: comandi del proprietario
 
