@@ -58,6 +58,16 @@ test('legacy operational plants are retained exactly and adapted for archived ac
  const input=seed();for(const p of Object.keys(input))if(p.startsWith('commesse/bo/lavorazioni/')||p.startsWith('commesse/bo/impiantiFisici/'))delete input[p];input['commesse/bo/impianti/p1']={done:true,nome:'Legacy',totale:50,codicePrezzo:'SFALCIO',operatore:'Cris'};
  const f=fake(input),r=await load(f)();assert.deepEqual(f.data.get(r.roundPath+'/impianti/p1'),input['commesse/bo/impianti/p1']);assert.equal(f.data.get(r.roundPath+'/lavorazioni/p1').operatoreNome,'Cris');assert.equal(r.header.totalRows,2);assert.equal(r.header.totalAmount,50);assert.equal(f.data.has('commesse/bo/impianti/p1'),false);
 });
+test('physical-only plants are archived and cleared instead of blocking the selected INRETE commessa',async()=>{
+ const input=seed();for(const p of Object.keys(input))if(p.startsWith('commesse/bo/lavorazioni/')||p.startsWith('commesse/bo/impianti/'))delete input[p];
+ const f=fake(input),r=await load(f)();
+ assert.equal(r.header.totalRows,2);
+ assert.equal(f.data.has('commesse/bo/impiantiFisici/p1'),false);
+ assert.equal(f.data.has('commesse/bo/impiantiFisici/p2'),false);
+ assert.deepEqual(f.data.get(r.roundPath+'/impiantiFisici/p1'),input['commesse/bo/impiantiFisici/p1']);
+ assert.equal(f.data.get(r.roundPath+'/lavorazioni/p1').impiantoId,'p1');
+ assert.equal(r.header.clearStatus,'COMPLETED');
+});
 test('large lists cross Firestore batch limits without losing rows',async()=>{
  const input={'commesse/bo':{nome:'INRETE BOLOGNA'}};for(let i=0;i<620;i++){input['commesse/bo/lavorazioni/w'+i]={stato:'FATTO',totale:1,impiantoId:'p'+i};input['commesse/bo/impianti/p'+i]={done:true}}
  const f=fake(input),r=await load(f)();assert.equal(r.header.totalRows,620);assert.equal(r.header.totalAmount,620);assert.equal(r.header.remainingActiveRows,0);assert.equal([...f.data.keys()].filter(p=>p.startsWith(r.roundPath+'/lavorazioni/')).length,620);
