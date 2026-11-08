@@ -123,11 +123,11 @@ async function closeRound(){
   if(String(e?.message||'').includes('Non ci sono impianti o lavorazioni da archiviare.')){
    try{
     const base=closingJob.vcSourceId;
-    const [work,plants]=await Promise.all(['lavorazioni','impianti'].map(name=>cloudStore.doc(base).collection(name).get({source:'server'})));
-    if(work.docs.length||plants.docs.length)throw Error('Sul server sono ancora presenti '+work.docs.length+' lavorazioni e '+plants.docs.length+' impianti. Sincronizza il cloud prima di intervenire.');
-    const stale=(db.vcRecords||[]).filter(r=>['lavorazioni','impianti'].some(name=>String(r.sourcePath||'').startsWith(base+'/'+name+'/')));
+    const [work,plants,physicalPlants]=await Promise.all(['lavorazioni','impianti','impiantiFisici'].map(name=>cloudStore.doc(base).collection(name).get({source:'server'})));
+    if(work.docs.length||plants.docs.length||physicalPlants.docs.length)throw Error('Sul server sono ancora presenti '+work.docs.length+' lavorazioni e '+(plants.docs.length+physicalPlants.docs.length)+' impianti. Sincronizza il cloud prima di intervenire.');
+    const stale=(db.vcRecords||[]).filter(r=>['lavorazioni','impianti','impiantiFisici'].some(name=>String(r.sourcePath||'').startsWith(base+'/'+name+'/')));
     if(stale.length&&confirm('Su Firebase non risultano lavorazioni o impianti operativi per questa commessa, ma il PC mostra '+stale.length+' record vecchi. Rimuoverli SOLO dalla memoria locale del gestionale? Il database cloud e i giri archiviati non verranno modificati.')){
-     db.vcRecords=(db.vcRecords||[]).filter(r=>!['lavorazioni','impianti'].some(name=>String(r.sourcePath||'').startsWith(base+'/'+name+'/')));
+     db.vcRecords=(db.vcRecords||[]).filter(r=>!['lavorazioni','impianti','impiantiFisici'].some(name=>String(r.sourcePath||'').startsWith(base+'/'+name+'/')));
      save({skipCloud:true});
      window.dispatchEvent(new Event('varga-round-closed'));
      alert('Elenco locale aggiornato: lavorazioni attive 0. Nessun nuovo giro creato e nessun archivio cancellato.');
