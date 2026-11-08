@@ -28,8 +28,12 @@ async function close(options){
  }
  if(!header?.archiveComplete){
   source=await read(store,base);
-  if(!source.lavorazioni.length&&!source.impianti.length)throw Error('Non ci sono impianti o lavorazioni da archiviare.');
-  const work=source.lavorazioni.length?source.lavorazioni:source.impianti.map(legacyWork),completed=work.filter(x=>done(x.data));
+  // Alcune commesse INRETE create con il modello attuale hanno soltanto gli
+  // impianti fisici: devono poter chiudere il giro esattamente come le
+  // commesse legacy, senza lasciare residui nell'elenco operativo.
+  const legacyPlants=source.impianti.length?source.impianti:source.impiantiFisici;
+  if(!source.lavorazioni.length&&!legacyPlants.length)throw Error('Non ci sono impianti o lavorazioni da archiviare.');
+  const work=source.lavorazioni.length?source.lavorazioni:legacyPlants.map(legacyWork),completed=work.filter(x=>done(x.data));
   // Allow closing an entirely DA FARE round; completed accounting then totals zero.
   const previous=await commessa.collection('giriContabili').get({source:'server'});let number=header?.numeroGiro||Math.max(0,...previous.docs.map(d=>numeric(d.data().numeroGiro)))+1;
   const total=completed.reduce((sum,x)=>sum+numeric(x.data.totale??x.data.importo),0);
