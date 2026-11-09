@@ -115,14 +115,33 @@ function renderWorkspace(){
   ensureWorkspace();const job=currentJob(),body=document.getElementById('vgWorkspaceBody');if(!body)return;
   if(!job){body.innerHTML=`<div class="topline"><div><h1>Commessa</h1><p class="subtitle">Seleziona una commessa dalla Home.</p></div><button class="ghost" data-back-jobs>TORNA ALLE COMMESSE</button></div>`;bindWorkspace();return}
   const L=linked(job),c=client(job),openReq=L.requests.filter(x=>!['Completata','Archiviata'].includes(x.status)).length;
-  body.innerHTML=`<div class="vg-work-head"><div class="topline"><div><div class="vg-job-code">${E(job.code||'COMMESSA')}</div><h1>${E(job.title||'Commessa')}</h1><p class="subtitle">${E(c?.name||'Cliente non associato')} ${job.site?'• '+E(job.site):''}</p></div><div>${statusBadge(job.status)}</div></div><div class="vg-work-actions"><button data-back-jobs>← COMMESSE</button><button class="primary" data-job-action="economics">ENTRATE E USCITE</button><button data-job-action="quote">+ PREVENTIVO</button><button data-job-action="document">+ DOCUMENTO</button><button data-job-action="report">+ RAPPORTINO</button><button data-job-plants-manage="${E(job.id)}">GESTISCI</button></div></div>${roundSummary(job,L)}
+  body.innerHTML=`<div class="vg-work-head"><div class="topline"><div><div class="vg-job-code">${E(job.code||'COMMESSA')}</div><h1>${E(job.title||'Commessa')}</h1><p class="subtitle">${E(c?.name||'Cliente non associato')} ${job.site?'• '+E(job.site):''}</p></div><div>${statusBadge(job.status)}</div></div><div class="vg-work-actions"><button data-back-jobs>← COMMESSE</button><button class="primary" data-job-action="economics">ENTRATE E USCITE</button><button data-job-action="quote">+ PREVENTIVO</button><button data-job-action="document">+ DOCUMENTO</button><button data-job-action="report">+ RAPPORTINO</button><button data-job-plants-manage="${E(job.id)}">GESTISCI</button><button class="ghost" data-refresh-job-from-cantieri>↻ ALLINEA CANTIERI</button></div></div>${roundSummary(job,L)}
   <div class="vg-summary"><div class="vg-stat"><span>Richieste aperte</span><strong>${openReq}</strong></div><div class="vg-stat"><span>Scadenze aperte</span><strong>${countOpen(L.deadlines)}</strong></div><div class="vg-stat"><span>Documenti</span><strong>${L.documents.length}</strong></div><div class="vg-stat"><span>Preventivi</span><strong>${L.quotes.length}</strong></div><div class="vg-stat"><span>Impianti / attività</span><strong>${Math.max(L.plants.length,L.rows.length,accountingRows(job).length)}</strong></div><div class="vg-stat"><span>Rapportini</span><strong>${L.reports.length}</strong></div></div>
   <div class="vg-tabs">${tabs.map(([id,label])=>`<button class="vg-tab ${id===activeTab?'active':''}" data-job-tab="${id}">${label}</button>`).join('')}</div>
   <div class="vg-pane ${activeTab==='overview'?'active':''}" data-pane="overview">${renderOverview(job,L)}</div><div class="vg-pane ${activeTab==='economics'?'active':''}" data-pane="economics">${window.VargaJobEconomics?.render(job)||empty('Modulo economico non disponibile.')}</div><div class="vg-pane ${activeTab==='requests'?'active':''}" data-pane="requests">${renderRequests(job,L)}</div><div class="vg-pane ${activeTab==='deadlines'?'active':''}" data-pane="deadlines">${renderDeadlines(job,L)}</div><div class="vg-pane ${activeTab==='quotes'?'active':''}" data-pane="quotes">${renderQuotes(job,L)}</div><div class="vg-pane ${activeTab==='documents'?'active':''}" data-pane="documents">${renderDocuments(job,L)}</div><div class="vg-pane ${activeTab==='accounting'?'active':''}" data-pane="accounting">${renderAccounting(job,L)}</div><div class="vg-pane ${activeTab==='sites'?'active':''}" data-pane="sites">${renderSites(job,L)}</div><div class="vg-pane ${activeTab==='reports'?'active':''}" data-pane="reports">${renderReports(job,L)}</div><div class="vg-pane ${activeTab==='timeline'?'active':''}" data-pane="timeline">${renderTimeline(job,L)}</div>`;
   bindWorkspace();
 }
 
-function openJob(id){if(!arr(db.jobs).some(j=>j.id===id))return;activeJobId=id;activeTab='overview';localStorage.setItem(ACTIVE_KEY,id);renderWorkspace();nav('jobWorkspace');window.scrollTo({top:0,behavior:'smooth'})}
+let workspaceSyncRunning=false;
+async function syncWorkspaceWithCantieri(showErrors=false){
+ if(workspaceSyncRunning||typeof syncVargaFromCloud!=='function'||typeof cloudUser==='undefined'||!cloudUser||typeof cloudFunctions==='undefined'||!cloudFunctions)return;
+ workspaceSyncRunning=true;
+ const id=activeJobId;
+ const button=document.querySelector('[data-refresh-job-from-cantieri]');
+ if(button){button.disabled=true;button.textContent='ALLINEAMENTO...'}
+ try{
+  await syncVargaFromCloud({forceRebuild:true});
+  if(activeJobId===id)renderWorkspace();
+ }catch(error){
+  console.warn('Aggiornamento dati Varga Cantieri non riuscito',error);
+  if(showErrors)alert('Impossibile allineare Varga Cantieri: '+(error?.message||error));
+ }finally{
+  workspaceSyncRunning=false;
+  const current=document.querySelector('[data-refresh-job-from-cantieri]');
+  if(current){current.disabled=false;current.textContent='↻ ALLINEA CANTIERI'}
+ }
+}
+function openJob(id){if(!arr(db.jobs).some(j=>j.id===id))return;activeJobId=id;activeTab='overview';localStorage.setItem(ACTIVE_KEY,id);renderWorkspace();nav('jobWorkspace');window.scrollTo({top:0,behavior:'smooth'});void syncWorkspaceWithCantieri(false)}
 function openModule(view,after){nav(view);setTimeout(()=>{try{after?.()}catch(_){}},50)}
 function jobAction(action){const j=currentJob();if(!j)return;
   if(action==='economics'){activeTab='economics';renderWorkspace();return;}
@@ -152,6 +171,7 @@ async function setQuoteStatus(id,status,scheduledDate=''){
   save();
 }
 function bindWorkspace(){
+  document.querySelectorAll('[data-refresh-job-from-cantieri]').forEach(b=>b.onclick=()=>syncWorkspaceWithCantieri(true));
   document.querySelectorAll('[data-back-jobs]').forEach(b=>b.onclick=()=>nav('commesse'));
   document.querySelectorAll('[data-toggle-job-client]').forEach(b=>b.onclick=()=>{const form=b.parentElement?.querySelector('[data-job-client-form]');if(!form)return;const opening=form.hidden;form.hidden=!opening;b.setAttribute('aria-expanded',String(opening));b.textContent=opening?'CHIUDI DATI ANAGRAFICI':'DATI ANAGRAFICI'});
   document.querySelectorAll('[data-job-tab]').forEach(b=>b.onclick=()=>{activeTab=b.dataset.jobTab;document.querySelectorAll('.vg-tab').forEach(x=>x.classList.toggle('active',x===b));document.querySelectorAll('.vg-pane').forEach(x=>x.classList.toggle('active',x.dataset.pane===activeTab))});
