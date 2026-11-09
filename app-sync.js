@@ -1,7 +1,31 @@
 function rawRecordKey(r){return String(r?.sourcePath||`${r?.rootCollection||'unknown'}/${r?.id||''}`)}
 function stableData(v){if(Array.isArray(v))return v.map(stableData);if(v&&typeof v==='object'){let o={};Object.keys(v).sort().forEach(k=>{if(k!=='syncedAt')o[k]=stableData(v[k])});return o}return v}
 function mergeRawVcRecords(records){let map=new Map((db.vcRecords||[]).map(r=>[rawRecordKey(r),r])),created=0,updated=0,unchanged=0,archived=0;(records||[]).forEach(r=>{let k=rawRecordKey(r);if(!k)return;let old=map.get(k),isDeleted=r?.deleted===true||r?.operation==='delete';if(isDeleted){let next={...(old||{}),...r,sourcePath:k,vcArchived:true,vcDeletedAt:r.deletedAt||new Date().toISOString(),syncedAt:new Date().toISOString()};map.set(k,next);archived++;return}let next={...r,sourcePath:k,deleted:false,vcArchived:false,vcDeletedAt:'',syncedAt:new Date().toISOString()};if(!old){map.set(k,next);created++;return}if(JSON.stringify(stableData(old.data))!==JSON.stringify(stableData(next.data))||old.vcArchived){map.set(k,next);updated++}else unchanged++});db.vcRecords=[...map.values()];return{created,updated,unchanged,archived,changed:created+updated+archived}}
-function archiveVcMappedRecords(records){let archived=0,paths=new Set((records||[]).filter(r=>r?.deleted===true||r?.operation==='delete').map(rawRecordKey).filter(Boolean));if(!paths.size)return 0;let collections=[db.vcImpianti,db.vcUtenti,db.vcOre,db.vcSquadre,db.documents,db.vcSegnalazioni,db.vcCommesse,db.jobs,db.consuntivi];collections.forEach(list=>(list||[]).forEach(item=>{let path=String(item?.vcSourceId||item?.sourceId||'');if(!paths.has(path))return;item.vcArchived=true;item.vcDeletedAt=new Date().toISOString();archived++}));return archived}
+function archiveVcMappedRecords(records){
+ const deletedPaths=new Set((records||[]).filter(r=>r?.deleted===true||r?.operation==='delete').map(rawRecordKey));
+ if(!deletedPaths.size)return 0;
+ const now=new Date().toISOString();
+ let count=0;
+ const match=path=>[...deletedPaths].some(deleted=>path===deleted||path.startsWith(deleted+'/'));
+ // For operational data, deleted means deleted in Gestionale too, not just hidden.
+ db.vcRecords=(db.vcRecords||[]).filter(r=>!match(rawRecordKey(r)));
+ db.consuntivi=(db.consuntivi||[]).filter(c=>{
+  const path=String(c.sourceId||c.vcSourceId||'');
+  if(!match(path))return true;
+  if(c.status==='Contabilizzato'){c.vcArchived=true;c.vcDeletedAt=now;return true}
+  count++;return false;
+ });
+ ['vcImpianti','vcCommesse','vcSegnalazioni'].forEach(key=>{
+  const before=(db[key]||[]).length;
+  db[key]=(db[key]||[]).filter(x=>!match(String(x.vcSourceId||x.sourceId||'')));
+  count+=before-db[key].length;
+ });
+ // Jobs are removed only when the source commessa itself was deleted.
+ const beforeJobs=db.jobs.length;
+ db.jobs=db.jobs.filter(j=>!deletedPaths.has(String(j.vcSourceId||'')));
+ count+=beforeJobs-db.jobs.length;
+ return count;
+}
 function firstVal(o,names){for(const n of names){let k=Object.keys(o||{}).find(x=>norm(x)===norm(n));if(k!=null&&o[k]!=null&&String(o[k]).trim()!=='')return o[k]}return''}
 function vcNumber(v){if(typeof v==='number')return Number.isFinite(v)?v:0;let s=String(v??'').trim();if(!s)return 0;s=s.replace(/\s/g,'').replace(/\.(?=\d{3}(?:\D|$))/g,'').replace(',','.').replace(/[^0-9.-]/g,'');let n=Number(s);return Number.isFinite(n)?n:0}
 function sourceCommessaPath(path){let p=String(path||'').split('/');let i=p.indexOf('commesse');return i>=0&&p[i+1]?`commesse/${p[i+1]}`:''}
@@ -14,28 +38,30 @@ async function mapSnapshotRecords(records,manifest={}){
  if(window.VGCantieriArchive)await window.VGCantieriArchive.ready;
  const previousMeta={...db.meta};
  let activeRecords=(records||[]).filter(r=>r?.deleted!==true&&r?.operation!=='delete'),groups={};activeRecords.forEach(r=>(groups[r.rootCollection]??=[]).push(r));const unpack=list=>(list||[]).map(r=>({...(r.data||{}),id:(r.data&&r.data.id)||r.id,vcSourceId:r.sourcePath,vcRootCollection:r.rootCollection,vcArchived:false,vcDeletedAt:''}));let delta=mergeRawVcRecords(records),archivedMapped=archiveVcMappedRecords(records),mapped=0,newCons=0,updatedCons=0,accountingRows=0;
- // A complete snapshot is authoritative for operational commessa rows; incremental
- // pages are not complete and must never be used for pruning.
- if(manifest.snapshotId && manifest.mode!=='incremental'){
-  const snapshotPaths=new Set((records||[]).filter(r=>r?.deleted!==true&&r?.operation!=='delete').map(rawRecordKey));
-  const operational=/^commesse\/[^/]+\/(lavorazioni|impianti|impiantiFisici)\/[^/]+$/;
+ // Reconcile only complete snapshots. Never remove records absent from an incremental page.
+ if(manifest.snapshotId&&manifest.mode!=='incremental'){
+  const snapshotPaths=new Set(activeRecords.map(rawRecordKey));
+  const operational=/^commesse\\/[^/]+\\/(lavorazioni|impianti|impiantiFisici)\\/[^/]+$/;
   const before=db.vcRecords.length;
   db.vcRecords=db.vcRecords.filter(r=>!operational.test(rawRecordKey(r))||snapshotPaths.has(rawRecordKey(r)));
   delta.reconciled=before-db.vcRecords.length;
-  // A full Cantieri snapshot is authoritative: old draft accounting entries
-  // must not remain active when their source row disappeared or is no longer FATTO.
-  const activeWork=new Map(db.vcRecords.filter(r=>operational.test(rawRecordKey(r))&&/\\/lavorazioni\\//.test(rawRecordKey(r))&&!r.vcArchived&&!r.deleted).map(r=>[rawRecordKey(r),r]));
-  let reconciledConsuntivi=0;
-  (db.consuntivi||[]).forEach(c=>{
+  const liveWork=new Map(db.vcRecords.filter(r=>rawRecordKey(r).includes('/lavorazioni/')&&!r.vcArchived&&!r.deleted).map(r=>[rawRecordKey(r),r]));
+  const removed=[];
+  db.consuntivi=db.consuntivi.filter(c=>{
    const path=String(c.sourceId||'');
-   if(!/^commesse\\/[^/]+\\/lavorazioni\\/[^/]+$/.test(path))return;
-   const source=activeWork.get(path);
-   const valid=!!source&&norm(String(source.data?.stato||''))==='fatto';
-   if(valid){if(c.vcArchived){c.vcArchived=false;c.vcDeletedAt='';reconciledConsuntivi++}return}
-   if(c.status==='Contabilizzato')return; // preserve posted accounting history
-   if(!c.vcArchived){c.vcArchived=true;c.vcDeletedAt=new Date().toISOString();reconciledConsuntivi++}
+   if(!/^commesse\\/[^/]+\\/lavorazioni\\/[^/]+$/.test(path))return true;
+   const source=liveWork.get(path);
+   if(source&&norm(String(source.data?.stato||''))==='fatto'){
+    if(c.vcArchived){c.vcArchived=false;c.vcDeletedAt=''}
+    return true;
+   }
+   if(c.status==='Contabilizzato'){
+    c.vcArchived=true;c.vcDeletedAt=c.vcDeletedAt||new Date().toISOString();
+    return true;
+   }
+   removed.push(path);return false;
   });
-  delta.reconciledConsuntivi=reconciledConsuntivi;
+  delta.reconciledConsuntivi=removed.length;
  }
  const mappings=[['impianti','vcImpianti'],['personale','vcUtenti'],['oreReports','vcOre'],['oreApprovalRequests','vcOre'],['squadre','vcSquadre'],['squadreCommesse','vcSquadre'],['squadreStorico','vcSquadre']];mappings.forEach(([root,key])=>{if(groups[root])mapped+=upsertBySource(db[key],unpack(groups[root]))});
  ['documents','posDocuments'].forEach(root=>{if(groups[root])mapped+=upsertBySource(db.documents,unpack(groups[root]).map(d=>({id:d.id||uid(),name:d.name||d.fileName||d.title||'Documento Varga Cantieri',category:d.category||d.type||root,driveUrl:d.driveUrl||d.url||d.webViewLink||'',notes:d.notes||'',clientId:'',jobId:'',addedBy:d.addedBy||d.userName||'Varga Cantieri',vcSourceId:d.vcSourceId,vcRootCollection:root}))) });Object.entries(groups).filter(([root])=>/segnal/i.test(root)).forEach(([,rows])=>{mapped+=upsertBySource(db.vcSegnalazioni,unpack(rows))});
