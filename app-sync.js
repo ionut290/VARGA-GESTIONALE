@@ -41,7 +41,7 @@ async function mapSnapshotRecords(records,manifest={}){
  // Reconcile only complete snapshots. Never remove records absent from an incremental page.
  if(manifest.snapshotId&&manifest.mode!=='incremental'){
   const snapshotPaths=new Set(activeRecords.map(rawRecordKey));
-  const operational=/^commesse\\/[^/]+\\/(lavorazioni|impianti|impiantiFisici)\\/[^/]+$/;
+  const operational=/^commesse\/[^/]+\/(lavorazioni|impianti|impiantiFisici)\/[^/]+$/;
   const before=db.vcRecords.length;
   db.vcRecords=db.vcRecords.filter(r=>!operational.test(rawRecordKey(r))||snapshotPaths.has(rawRecordKey(r)));
   delta.reconciled=before-db.vcRecords.length;
@@ -49,7 +49,7 @@ async function mapSnapshotRecords(records,manifest={}){
   const removed=[];
   db.consuntivi=db.consuntivi.filter(c=>{
    const path=String(c.sourceId||'');
-   if(!/^commesse\\/[^/]+\\/lavorazioni\\/[^/]+$/.test(path))return true;
+   if(!/^commesse\/[^/]+\/lavorazioni\/[^/]+$/.test(path))return true;
    const source=liveWork.get(path);
    if(source&&norm(String(source.data?.stato||''))==='fatto'){
     if(c.vcArchived){c.vcArchived=false;c.vcDeletedAt=''}
