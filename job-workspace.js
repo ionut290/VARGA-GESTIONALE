@@ -122,6 +122,70 @@ function renderWorkspace(){
   bindWorkspace();
 }
 
+// Live Firestore listeners keep the displayed commessa aligned on every add,
+// edit and delete, independently of the periodic full-snapshot safety check.
+let livePlantUnsubs=[],livePlantPath='',livePlantUid='',livePlantDebounce=null;
+function stopLivePlantSync(){
+ livePlantUnsubs.forEach(unsub=>{try{unsub()}catch(error){console.warn(error)}});
+ livePlantUnsubs=[];livePlantPath='';livePlantUid='';
+ if(livePlantDebounce){clearTimeout(livePlantDebounce);livePlantDebounce=null}
+}
+function startLivePlantSync(){
+ const job=currentJob(),path=String(job?.vcSourceId||''),uid=typeof cloudUser!=='undefined'&&cloudUser?.uid||'';
+ if(!path||!/^commesse\\/[^/]+$/.test(path)||typeof cloudStore==='undefined'||!cloudStore||!uid){stopLivePlantSync();return}
+ if(livePlantPath===path&&livePlantUid===uid&&livePlantUnsubs.length===3)return;
+ stopLivePlantSync();livePlantPath=path;livePlantUid=uid;
+ ['lavorazioni','impianti','impiantiFisici'].forEach(collection=>{
+  const prefix=path+'/'+collection+'/';
+  const unsub=cloudStore.collection(path+'/'+collection).onSnapshot(snap=>{
+   if(livePlantPath!==path||livePlantUid!==uid||snap.metadata?.fromCache||snap.metadata?.hasPendingWrites)return;
+   const incoming=new Map();
+   snap.forEach(doc=>incoming.set(prefix+doc.id,{id:doc.id,sourcePath:prefix+doc.id,rootCollection:'commesse',data:doc.data(),vcArchived:false,deleted:false}));
+   const previous=(db.vcRecords||[]).filter(r=>String(r.sourcePath||'').startsWith(prefix));
+   const removed=new Set(previous.filter(r=>!incoming.has(r.sourcePath)).map(r=>r.sourcePath));
+   db.vcRecords=(db.vcRecords||[]).filter(r=>!String(r.sourcePath||'').startsWith(prefix)||incoming.has(r.sourcePath)).map(r=>{
+    const next=incoming.get(r.sourcePath);
+    if(!next)return r;
+    incoming.delete(r.sourcePath);
+    return next;
+   });
+   db.vcRecords.push(...incoming.values());
+   if(collection==='lavorazioni'){
+    db.consuntivi=(db.consuntivi||[]).filter(c=>{
+     const cp=String(c.sourceId||'');
+     if(!cp.startsWith(prefix))return true;
+     const source=db.vcRecords.find(r=>r.sourcePath===cp);
+     if(source&&String(source.data?.stato||'').trim().toLowerCase()==='fatto'){
+      c.vcArchived=false;c.vcDeletedAt='';
+      if(typeof syncAccountingRow==='function')syncAccountingRow({...source.data,vcSourceId:cp,sourcePath:cp});
+      return true;
+     }
+     if(c.status==='Contabilizzato'){c.vcArchived=true;c.vcDeletedAt=c.vcDeletedAt||new Date().toISOString();return true}
+     return false;
+    });
+    db.vcRecords.filter(r=>r.sourcePath.startsWith(prefix)&&String(r.data?.stato||'').trim().toLowerCase()==='fatto').forEach(r=>{
+     if(typeof syncAccountingRow==='function')syncAccountingRow({...r.data,vcSourceId:r.sourcePath,sourcePath:r.sourcePath});
+    });
+   }
+   if(collection==='impianti'){
+    db.vcImpianti=(db.vcImpianti||[]).filter(r=>!String(r.vcSourceId||'').startsWith(prefix)||!removed.has(r.vcSourceId));
+    snap.forEach(doc=>{
+     const sid=prefix+doc.id,data={...doc.data(),id:doc.id,vcSourceId:sid,vcRootCollection:'commesse',vcArchived:false};
+     const index=db.vcImpianti.findIndex(x=>x.vcSourceId===sid);
+     if(index>=0)db.vcImpianti[index]={...db.vcImpianti[index],...data};else db.vcImpianti.push(data);
+    });
+   }
+   // Do not write these read-only mirrors back into the Cantieri cloud.
+   save({skipCloud:true});
+   if(livePlantDebounce)clearTimeout(livePlantDebounce);
+   livePlantDebounce=setTimeout(()=>{
+    livePlantDebounce=null;
+    if(currentJob()?.vcSourceId===path){renderWorkspace();window.dispatchEvent(new Event('varga-cantieri-synced'))}
+   },100);
+  },error=>console.warn('Sincronizzazione in tempo reale '+collection+' non disponibile',error));
+  livePlantUnsubs.push(unsub);
+ });
+}
 let workspaceSyncRunning=false;
 let workspaceLastSync=0;
 const WORKSPACE_AUTO_SYNC_MS=5*60*1000;
@@ -149,13 +213,13 @@ function autoSyncVisibleWorkspace(){
  if(document.hidden||!workspaceVisible()||!currentJob()||workspaceSyncRunning)return;
  if(Date.now()-workspaceLastSync>=WORKSPACE_AUTO_SYNC_MS)void syncWorkspaceWithCantieri(false);
 }
-function openJob(id){if(!arr(db.jobs).some(j=>j.id===id))return;activeJobId=id;activeTab='overview';localStorage.setItem(ACTIVE_KEY,id);renderWorkspace();nav('jobWorkspace');window.scrollTo({top:0,behavior:'smooth'});void syncWorkspaceWithCantieri(false)}
+function openJob(id){if(!arr(db.jobs).some(j=>j.id===id))return;activeJobId=id;activeTab='overview';localStorage.setItem(ACTIVE_KEY,id);renderWorkspace();nav('jobWorkspace');startLivePlantSync();window.scrollTo({top:0,behavior:'smooth'});void syncWorkspaceWithCantieri(false)}
 // Automatically reconcile deleted plants and completed work while the app is open.
 // On reopening after an absence the authoritative snapshot is refreshed again.
 setInterval(autoSyncVisibleWorkspace,60*1000);
 document.addEventListener('visibilitychange',()=>{if(!document.hidden)autoSyncVisibleWorkspace()});
-window.addEventListener('focus',autoSyncVisibleWorkspace);
-setTimeout(autoSyncVisibleWorkspace,4000);
+window.addEventListener('focus',()=>{if(workspaceVisible())startLivePlantSync();autoSyncVisibleWorkspace()});
+setTimeout(()=>{if(workspaceVisible())startLivePlantSync();autoSyncVisibleWorkspace()},4000);
 function openModule(view,after){nav(view);setTimeout(()=>{try{after?.()}catch(_){}},50)}
 function jobAction(action){const j=currentJob();if(!j)return;
   if(action==='economics'){activeTab='economics';renderWorkspace();return;}
