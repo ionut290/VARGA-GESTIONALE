@@ -132,7 +132,7 @@ function stopLivePlantSync(){
 }
 function startLivePlantSync(){
  const job=currentJob(),path=String(job?.vcSourceId||''),uid=typeof cloudUser!=='undefined'&&cloudUser?.uid||'';
- if(!path||!/^commesse\\/[^/]+$/.test(path)||typeof cloudStore==='undefined'||!cloudStore||!uid){stopLivePlantSync();return}
+ if(!path||!/^commesse\/[^/]+$/.test(path)||typeof cloudStore==='undefined'||!cloudStore||!uid){stopLivePlantSync();return}
  if(livePlantPath===path&&livePlantUid===uid&&livePlantUnsubs.length===3)return;
  stopLivePlantSync();livePlantPath=path;livePlantUid=uid;
  ['lavorazioni','impianti','impiantiFisici'].forEach(collection=>{
