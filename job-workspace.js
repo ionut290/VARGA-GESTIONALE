@@ -123,6 +123,9 @@ function renderWorkspace(){
 }
 
 let workspaceSyncRunning=false;
+let workspaceLastSync=0;
+const WORKSPACE_AUTO_SYNC_MS=5*60*1000;
+function workspaceVisible(){const section=document.getElementById('jobWorkspace');return !!section&&(section.classList.contains('active')||section.classList.contains('active-view'))}
 async function syncWorkspaceWithCantieri(showErrors=false){
  if(workspaceSyncRunning||typeof syncVargaFromCloud!=='function'||typeof cloudUser==='undefined'||!cloudUser||typeof cloudFunctions==='undefined'||!cloudFunctions)return;
  workspaceSyncRunning=true;
@@ -131,6 +134,7 @@ async function syncWorkspaceWithCantieri(showErrors=false){
  if(button){button.disabled=true;button.textContent='ALLINEAMENTO...'}
  try{
   await syncVargaFromCloud({forceRebuild:true});
+  workspaceLastSync=Date.now();
   if(activeJobId===id)renderWorkspace();
  }catch(error){
   console.warn('Aggiornamento dati Varga Cantieri non riuscito',error);
@@ -141,7 +145,17 @@ async function syncWorkspaceWithCantieri(showErrors=false){
   if(current){current.disabled=false;current.textContent='↻ ALLINEA CANTIERI'}
  }
 }
+function autoSyncVisibleWorkspace(){
+ if(document.hidden||!workspaceVisible()||!currentJob()||workspaceSyncRunning)return;
+ if(Date.now()-workspaceLastSync>=WORKSPACE_AUTO_SYNC_MS)void syncWorkspaceWithCantieri(false);
+}
 function openJob(id){if(!arr(db.jobs).some(j=>j.id===id))return;activeJobId=id;activeTab='overview';localStorage.setItem(ACTIVE_KEY,id);renderWorkspace();nav('jobWorkspace');window.scrollTo({top:0,behavior:'smooth'});void syncWorkspaceWithCantieri(false)}
+// Automatically reconcile deleted plants and completed work while the app is open.
+// On reopening after an absence the authoritative snapshot is refreshed again.
+setInterval(autoSyncVisibleWorkspace,60*1000);
+document.addEventListener('visibilitychange',()=>{if(!document.hidden)autoSyncVisibleWorkspace()});
+window.addEventListener('focus',autoSyncVisibleWorkspace);
+setTimeout(autoSyncVisibleWorkspace,4000);
 function openModule(view,after){nav(view);setTimeout(()=>{try{after?.()}catch(_){}},50)}
 function jobAction(action){const j=currentJob();if(!j)return;
   if(action==='economics'){activeTab='economics';renderWorkspace();return;}
