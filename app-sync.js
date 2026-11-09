@@ -22,6 +22,20 @@ async function mapSnapshotRecords(records,manifest={}){
   const before=db.vcRecords.length;
   db.vcRecords=db.vcRecords.filter(r=>!operational.test(rawRecordKey(r))||snapshotPaths.has(rawRecordKey(r)));
   delta.reconciled=before-db.vcRecords.length;
+  // A full Cantieri snapshot is authoritative: old draft accounting entries
+  // must not remain active when their source row disappeared or is no longer FATTO.
+  const activeWork=new Map(db.vcRecords.filter(r=>operational.test(rawRecordKey(r))&&/\\/lavorazioni\\//.test(rawRecordKey(r))&&!r.vcArchived&&!r.deleted).map(r=>[rawRecordKey(r),r]));
+  let reconciledConsuntivi=0;
+  (db.consuntivi||[]).forEach(c=>{
+   const path=String(c.sourceId||'');
+   if(!/^commesse\\/[^/]+\\/lavorazioni\\/[^/]+$/.test(path))return;
+   const source=activeWork.get(path);
+   const valid=!!source&&norm(String(source.data?.stato||''))==='fatto';
+   if(valid){if(c.vcArchived){c.vcArchived=false;c.vcDeletedAt='';reconciledConsuntivi++}return}
+   if(c.status==='Contabilizzato')return; // preserve posted accounting history
+   if(!c.vcArchived){c.vcArchived=true;c.vcDeletedAt=new Date().toISOString();reconciledConsuntivi++}
+  });
+  delta.reconciledConsuntivi=reconciledConsuntivi;
  }
  const mappings=[['impianti','vcImpianti'],['personale','vcUtenti'],['oreReports','vcOre'],['oreApprovalRequests','vcOre'],['squadre','vcSquadre'],['squadreCommesse','vcSquadre'],['squadreStorico','vcSquadre']];mappings.forEach(([root,key])=>{if(groups[root])mapped+=upsertBySource(db[key],unpack(groups[root]))});
  ['documents','posDocuments'].forEach(root=>{if(groups[root])mapped+=upsertBySource(db.documents,unpack(groups[root]).map(d=>({id:d.id||uid(),name:d.name||d.fileName||d.title||'Documento Varga Cantieri',category:d.category||d.type||root,driveUrl:d.driveUrl||d.url||d.webViewLink||'',notes:d.notes||'',clientId:'',jobId:'',addedBy:d.addedBy||d.userName||'Varga Cantieri',vcSourceId:d.vcSourceId,vcRootCollection:root}))) });Object.entries(groups).filter(([root])=>/segnal/i.test(root)).forEach(([,rows])=>{mapped+=upsertBySource(db.vcSegnalazioni,unpack(rows))});
